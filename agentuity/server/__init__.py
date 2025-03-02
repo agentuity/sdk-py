@@ -164,7 +164,7 @@ def autostart():
                 runId = payload.get("runId", "unknown")
 
                 # Extract trace context from headers
-                from opentelemetry.propagate import extract
+                from opentelemetry.propagators import extract
 
                 context = extract(carrier=dict(self.headers))
 
