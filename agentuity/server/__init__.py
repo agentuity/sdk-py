@@ -31,6 +31,8 @@ def autostart():
     # Load agents from config file
     try:
         config_path = os.path.join(os.getcwd(), ".agentuity", "config.json")
+        config_data = {}
+        agents_by_id = {}
         if os.path.exists(config_path):
             with open(config_path, "r") as config_file:
                 config_data = json.load(config_file)
@@ -42,18 +44,39 @@ def autostart():
                     }
                     for agent in agents
                 }
-                print(f"Loaded {len(agents)} agents from {config_path}")
-                init(
-                    {
-                        "cliVersion": config_data["cli_version"],
-                        "environment": config_data["environment"],
-                        "app_name": config_data["app"]["name"],
-                        "app_version": config_data["app"]["version"],
-                    }
-                )
         else:
-            print(f"No agent configuration found at {config_path}")
-            sys.exit(1)
+            config_path = os.path.join(os.getcwd(), "agentuity.yaml")
+            print(f"Loading dev agent configuration from {config_path}")
+            if os.path.exists(config_path):
+                from yaml import safe_load
+
+                with open(config_path, "r") as f:
+                    agentconfig = safe_load(f)
+                    config_data["environment"] = "development"
+                    config_data["cli_version"] = "unknown"
+                    config_data["app"] = {"name": agentconfig["name"], "version": "dev"}
+                    for agent in agentconfig["agents"]:
+                        filename = os.path.join(
+                            os.getcwd(), "agents", agent["name"], "agent.py"
+                        )
+                        agents_by_id[agent["id"]] = {
+                            "id": agent["id"],
+                            "name": agent["name"],
+                            "filename": filename,
+                            "run": load_agent_module(agent["id"], filename),
+                        }
+            else:
+                print(f"No agent configuration found at {config_path}")
+                sys.exit(1)
+        print(f"Loaded {len(agents_by_id)} agents from {config_path}")
+        init(
+            {
+                "cliVersion": config_data["cli_version"],
+                "environment": config_data["environment"],
+                "app_name": config_data["app"]["name"],
+                "app_version": config_data["app"]["version"],
+            }
+        )
     except json.JSONDecodeError as e:
         print(f"Error parsing agent configuration: {e}")
         sys.exit(1)
@@ -180,7 +203,7 @@ def autostart():
     port = int(os.environ.get("PORT", 3500))
 
     logger.info(f"Python server started on port {port}")
-    server = HTTPServer(("0.0.0.0", port), WebRequestHandler)
+    server = HTTPServer(("127.0.0.1", port), WebRequestHandler)
 
     try:
         server.serve_forever()

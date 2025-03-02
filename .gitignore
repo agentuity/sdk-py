@@ -12,3 +12,4 @@ wheels/
 # agentuity testing
 /.agentuity/
 /agents/
+/agentuity.yaml

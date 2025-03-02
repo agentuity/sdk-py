@@ -8,6 +8,7 @@ license = { file = "LICENSE.md" }
 dependencies = [
     "opentelemetry-distro>=0.51b0",
     "opentelemetry-exporter-otlp-proto-http>=1.30.0",
+    "pyyaml>=6.0.2",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
