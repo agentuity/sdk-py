@@ -8,6 +8,25 @@ import logging
 from http.server import HTTPServer
 from http.server import BaseHTTPRequestHandler
 from agentuity.otel import init
+from opentelemetry import trace
+from opentelemetry.propagate import extract, inject
+
+logger = logging.getLogger(__name__)
+
+
+# Utility function to inject trace context into response headers
+def inject_trace_context(handler):
+    """Inject trace context into response headers using configured propagators."""
+    try:
+        response_headers = {}
+        inject(response_headers)
+
+        # Add headers from the propagator to the response
+        for header_name, header_value in response_headers.items():
+            handler.send_header(header_name, header_value)
+    except Exception as e:
+        # Log the error but don't fail the request
+        logger.error(f"Error injecting trace context: {e}")
 
 
 def autostart():
@@ -86,9 +105,6 @@ def autostart():
         print(f"Error loading agent configuration: {e}")
         sys.exit(1)
 
-    from opentelemetry import trace
-
-    logger = logging.getLogger("agentuity")
     logger.setLevel(logging.DEBUG)
     if loghandler:
         logger.addHandler(loghandler)
@@ -115,9 +131,8 @@ def autostart():
                 self.end_headers()
                 self.wfile.write("Not Found".encode("utf-8"))
 
-        def run_agent(self, tracer, runId, agentId, agent, payload):
+        def run_agent(self, tracer, agentId, agent, payload):
             with tracer.start_as_current_span("agent.run") as span:
-                span.set_attribute("@agentuity/runId", runId)
                 span.set_attribute("@agentuity/agentId", agentId)
                 span.set_attribute("@agentuity/agentName", agent["name"])
                 try:
@@ -161,11 +176,8 @@ def autostart():
             if agentId in agents_by_id:
                 agent = agents_by_id[agentId]
                 tracer = trace.get_tracer("http-server")
-                runId = payload.get("runId", "unknown")
 
                 # Extract trace context from headers
-                from opentelemetry.propagate import extract
-
                 context = extract(carrier=dict(self.headers))
 
                 with tracer.start_as_current_span(
@@ -178,18 +190,19 @@ def autostart():
                         "http.host": self.headers.get("Host", ""),
                         "http.user_agent": self.headers.get("user-agent"),
                         "http.path": self.path,
-                        "@agentuity/runId": runId,
                     },
                 ) as span:
                     try:
                         # Call the run function and get the response
-                        response = self.run_agent(
-                            tracer, runId, agentId, agent, payload
-                        )
+                        response = self.run_agent(tracer, agentId, agent, payload)
 
                         # Send successful response
                         self.send_response(200)
                         self.send_header("Content-Type", "application/json")
+
+                        # Use propagator to inject trace context into response headers
+                        inject_trace_context(self)
+
                         self.end_headers()
 
                         content_type = "text/plain"
@@ -212,8 +225,11 @@ def autostart():
                         print(f"Error loading or running agent: {e}")
                         span.record_exception(e)
                         span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+                        # Send error response
                         self.send_response(500)
                         self.send_header("Content-Type", "text/plain")
+                        # Use propagator to inject trace context into response headers
+                        inject_trace_context(self)
                         self.end_headers()
                         self.wfile.write(
                             str(f"Error loading or running agent: {str(e)}").encode(
@@ -225,6 +241,7 @@ def autostart():
                 self.send_response(404)
                 self.send_header("Content-Type", "text/plain")
                 self.end_headers()
+                self.wfile.write(f"Agent {agentId} not found".encode("utf-8"))
 
     def signal_handler(sig, frame):
         print("\nShutting down the server...")

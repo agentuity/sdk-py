@@ -64,6 +64,7 @@ class AgentuityPropagator(TextMapPropagator):
     ) -> None:
         """Inject trace context into the carrier."""
         if setter is None:
+            # Use dictionary's __setitem__ as a fallback
             setter = carrier.__setitem__
 
         span = get_current_span(context)
@@ -74,8 +75,23 @@ class AgentuityPropagator(TextMapPropagator):
         if span_context is None or not span_context.is_valid:
             return
 
-        setter(carrier, self.AGENTUITY_TRACE_ID, format(span_context.trace_id, "032x"))
-        setter(carrier, self.AGENTUITY_PARENT_ID, format(span_context.span_id, "016x"))
+        # Check if setter is a callable or an object with a set method
+        if hasattr(setter, "set"):
+            # It's a DefaultSetter or similar object with a set method
+            setter.set(
+                carrier, self.AGENTUITY_TRACE_ID, format(span_context.trace_id, "032x")
+            )
+            setter.set(
+                carrier, self.AGENTUITY_PARENT_ID, format(span_context.span_id, "016x")
+            )
+        else:
+            # It's a callable like dict.__setitem__
+            setter(
+                carrier, self.AGENTUITY_TRACE_ID, format(span_context.trace_id, "032x")
+            )
+            setter(
+                carrier, self.AGENTUITY_PARENT_ID, format(span_context.span_id, "016x")
+            )
 
     def fields(self) -> Sequence[str]:
         """Return the fields used by the propagator."""
