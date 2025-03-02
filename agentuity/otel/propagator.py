@@ -24,12 +24,16 @@ class AgentuityPropagator(TextMapPropagator):
         if context is None:
             context = Context()
 
-        if getter is None:
-            trace_id = carrier.get(self.AGENTUITY_TRACE_ID)
-            parent_id = carrier.get(self.AGENTUITY_PARENT_ID)
-        else:
-            trace_id = getter.get(carrier, self.AGENTUITY_TRACE_ID)
-            parent_id = getter.get(carrier, self.AGENTUITY_PARENT_ID)
+        trace_id = None
+        parent_id = None
+
+        # do a case insensitive search for the trace_id and parent_id
+        for key, value in carrier.items():
+            lkey = key.lower()
+            if lkey == self.AGENTUITY_TRACE_ID:
+                trace_id = value
+            elif lkey == self.AGENTUITY_PARENT_ID:
+                parent_id = value
 
         # Handle the case where trace_id or parent_id might be a list (common with HTTP headers)
         if isinstance(trace_id, list) and trace_id:
