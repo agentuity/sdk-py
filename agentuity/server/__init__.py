@@ -177,7 +177,9 @@ def autostart():
                 ) as span:
                     try:
                         # Call the run function and get the response
-                        response = self.run_agent(tracer, runId, agentId, agent)
+                        response = self.run_agent(
+                            tracer, runId, agentId, agent, payload
+                        )
 
                         # Send successful response
                         self.send_response(200)
