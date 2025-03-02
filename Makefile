@@ -1,4 +1,8 @@
-PHONY: build install release
+PHONY: build install release clean
+
+clean:
+	@rm -rf dist
+	@rm -rf agentuity.egg-info
 
 install:
 	@uv sync --all-extras --dev
@@ -6,5 +10,5 @@ install:
 build:
 	@uv build
 
-release:
+release: clean build
 	@uv publish
