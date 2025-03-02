@@ -11,6 +11,8 @@ from agentuity.otel import init
 
 
 def autostart():
+    loghandler = None
+
     def load_agent_module(agent_id, filename):
         agent_path = os.path.join(os.getcwd(), filename)
 
@@ -69,7 +71,7 @@ def autostart():
                 print(f"No agent configuration found at {config_path}")
                 sys.exit(1)
         print(f"Loaded {len(agents_by_id)} agents from {config_path}")
-        init(
+        loghandler = init(
             {
                 "cliVersion": config_data["cli_version"],
                 "environment": config_data["environment"],
@@ -88,6 +90,8 @@ def autostart():
 
     logger = logging.getLogger("agentuity")
     logger.setLevel(logging.DEBUG)
+    if loghandler:
+        logger.addHandler(loghandler)
 
     for agentId, agent in agents_by_id.items():
         logger.info(f"registered {agent['name']} at /{agentId}")

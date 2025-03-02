@@ -126,7 +126,7 @@ def init(config: Optional[Dict[str, str]] = {}):
     _logs.set_logger_provider(loggerProvider)
 
     handler = LoggingHandler(level=logging.NOTSET, logger_provider=loggerProvider)
-    logging.root.addHandler(handler)
+    logger.addHandler(handler)
 
     stopped = False
 
@@ -145,3 +145,5 @@ def init(config: Optional[Dict[str, str]] = {}):
     # Register signal handler for graceful shutdown
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
+
+    return handler
