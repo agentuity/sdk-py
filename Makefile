@@ -10,5 +10,5 @@ install:
 build:
 	@uv build
 
-release: build
+release: clean build
 	@uv publish

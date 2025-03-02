@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 def init(config: Optional[Dict[str, str]] = {}):
-    endpoint = config.get("endpoint", os.environ.get("AGENTUITY_OTLP_ENDPOINT"))
+    endpoint = config.get("endpoint", os.environ.get("AGENTUITY_OTLP_URL"))
     if endpoint is None:
         logger.warning("No endpoint found, skipping OTLP initialization")
         return None
