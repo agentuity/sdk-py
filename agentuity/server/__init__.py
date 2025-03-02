@@ -163,8 +163,14 @@ def autostart():
                 tracer = trace.get_tracer("http-server")
                 runId = payload.get("runId", "unknown")
 
+                # Extract trace context from headers
+                from opentelemetry.propagate import extract
+
+                context = extract(carrier=dict(self.headers))
+
                 with tracer.start_as_current_span(
                     "POST /" + agentId,
+                    context=context,
                     kind=trace.SpanKind.SERVER,
                     attributes={
                         "http.method": "POST",

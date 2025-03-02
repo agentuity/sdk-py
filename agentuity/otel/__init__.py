@@ -17,6 +17,8 @@ from opentelemetry import _logs
 from opentelemetry.sdk._logs import LoggingHandler, LoggerProvider
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+from opentelemetry.propagate import set_global_textmap
+from .propagator import AgentuityPropagator
 
 
 logger = logging.getLogger(__name__)
@@ -138,6 +140,8 @@ def init(config: Optional[Dict[str, str]] = {}):
     )
     root_logger = logging.getLogger()
     root_logger.addHandler(handler)
+
+    set_global_textmap(AgentuityPropagator())
 
     stopped = False
 
