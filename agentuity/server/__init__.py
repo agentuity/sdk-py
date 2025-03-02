@@ -207,7 +207,7 @@ def autostart():
     port = int(os.environ.get("PORT", 3500))
 
     logger.info(f"Python server started on port {port}")
-    server = HTTPServer(("127.0.0.1", port), WebRequestHandler)
+    server = HTTPServer(("0.0.0.0", port), WebRequestHandler)
 
     try:
         server.serve_forever()

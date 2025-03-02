@@ -126,7 +126,8 @@ def init(config: Optional[Dict[str, str]] = {}):
     _logs.set_logger_provider(loggerProvider)
 
     handler = LoggingHandler(level=logging.NOTSET, logger_provider=loggerProvider)
-    logger.addHandler(handler)
+    root_logger = logging.getLogger()
+    root_logger.addHandler(handler)
 
     stopped = False
 
