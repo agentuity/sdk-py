@@ -1,3 +1,4 @@
+import logging
 import signal
 import os
 from agentuity import __version__
@@ -17,7 +18,6 @@ from opentelemetry.sdk._logs import LoggingHandler, LoggerProvider
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,10 @@ def init(config: Optional[Dict[str, str]] = {}):
         "Authorization": "Bearer " + bearer_token,
     }
 
-    tracerProvider = TracerProvider(resource=resource)
+    tracerProvider = TracerProvider(
+        resource=resource,
+        shutdown_on_exit=False,
+    )
     processor = BatchSpanProcessor(
         OTLPSpanExporter(
             endpoint=endpoint + "/v1/traces",
@@ -107,7 +110,11 @@ def init(config: Optional[Dict[str, str]] = {}):
         ),
         export_interval_millis=export_internal_ms,
     )
-    meterProvider = MeterProvider(resource=resource, metric_readers=[reader])
+    meterProvider = MeterProvider(
+        resource=resource,
+        metric_readers=[reader],
+        shutdown_on_exit=False,
+    )
     metrics.set_meter_provider(meterProvider)
 
     # Set up logging
@@ -125,7 +132,11 @@ def init(config: Optional[Dict[str, str]] = {}):
     loggerProvider.add_log_record_processor(logProcessor)
     _logs.set_logger_provider(loggerProvider)
 
-    handler = LoggingHandler(level=logging.NOTSET, logger_provider=loggerProvider)
+    handler = LoggingHandler(
+        level=logging.NOTSET,
+        logger_provider=loggerProvider,
+        shutdown_on_exit=False,
+    )
     root_logger = logging.getLogger()
     root_logger.addHandler(handler)
 

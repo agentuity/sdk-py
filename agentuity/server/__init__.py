@@ -115,12 +115,13 @@ def autostart():
                 self.end_headers()
                 self.wfile.write("Not Found".encode("utf-8"))
 
-        def run_agent(self, tracer, agentId, agent):
-            # TODO: add the logic for running the agent here
+        def run_agent(self, tracer, runId, agentId, agent, payload):
             with tracer.start_as_current_span("agent.run") as span:
-                span.set_attribute("agentId", agentId)
-                span.set_attribute("agentName", agent["name"])
+                span.set_attribute("@agentuity/runId", runId)
+                span.set_attribute("@agentuity/agentId", agentId)
+                span.set_attribute("@agentuity/agentName", agent["name"])
                 try:
+                    # TODO: add the logic for running the agent here
                     response = agent["run"]()
                     span.set_status(trace.Status(trace.StatusCode.OK))
                     return response
@@ -136,10 +137,31 @@ def autostart():
 
             logger.debug(f"request: POST /{agentId}")
 
+            # Read and parse the request body as JSON
+            payload = None
+            content_length = int(self.headers.get("Content-Length", 0))
+            if content_length > 0:
+                body = self.rfile.read(content_length)
+                try:
+                    payload = json.loads(body.decode("utf-8"))
+                except json.JSONDecodeError:
+                    self.send_response(400)
+                    self.send_header("Content-Type", "text/plain")
+                    self.end_headers()
+                    self.wfile.write("Invalid JSON in request body".encode("utf-8"))
+                    return
+            else:
+                self.send_response(400)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write("No Content-Length header provided".encode("utf-8"))
+                return
+
             # Check if the agent exists in our map
             if agentId in agents_by_id:
                 agent = agents_by_id[agentId]
                 tracer = trace.get_tracer("http-server")
+                runId = payload.get("runId", "unknown")
 
                 with tracer.start_as_current_span(
                     "POST /" + agentId,
@@ -150,11 +172,12 @@ def autostart():
                         "http.host": self.headers.get("Host", ""),
                         "http.user_agent": self.headers.get("user-agent"),
                         "http.path": self.path,
+                        "@agentuity/runId": runId,
                     },
                 ) as span:
                     try:
                         # Call the run function and get the response
-                        response = self.run_agent(tracer, agentId, agent)
+                        response = self.run_agent(tracer, runId, agentId, agent)
 
                         # Send successful response
                         self.send_response(200)
