@@ -1,5 +1,6 @@
 import signal
 import os
+from agentuity import __version__
 from typing import Optional, Dict
 from opentelemetry import trace
 from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION, Resource
@@ -34,33 +35,27 @@ def init(config: Optional[Dict[str, str]] = {}):
         logger.warning("No bearer token found, skipping OTLP initialization")
         return None
 
-    runId = config.get("orgId", os.environ.get("AGENTUITY_CLOUD_RUN_ID")) or "unknown"
-    orgId = config.get("orgId", os.environ.get("AGENTUITY_CLOUD_ORG_ID")) or "unknown"
-    projectId = (
-        config.get("projectId", os.environ.get("AGENTUITY_CLOUD_PROJECT_ID"))
-        or "unknown"
+    runId = config.get("runId", os.environ.get("AGENTUITY_CLOUD_RUN_ID", "unknown"))
+    orgId = config.get("orgId", os.environ.get("AGENTUITY_CLOUD_ORG_ID", "unknown"))
+    projectId = config.get(
+        "projectId", os.environ.get("AGENTUITY_CLOUD_PROJECT_ID", "unknown")
     )
-    deploymentId = (
-        config.get("deploymentId", os.environ.get("AGENTUITY_CLOUD_DEPLOYMENT_ID"))
-        or "unknown"
+    deploymentId = config.get(
+        "deploymentId", os.environ.get("AGENTUITY_CLOUD_DEPLOYMENT_ID", "unknown")
     )
-    cliVersion = (
-        config.get("cliVersion", os.environ.get("AGENTUITY_CLI_VERSION")) or "unknown"
+    cliVersion = config.get(
+        "cliVersion", os.environ.get("AGENTUITY_CLI_VERSION", "unknown")
     )
-    sdkVersion = (
-        config.get("sdkVersion", os.environ.get("AGENTUITY_SDK_VERSION")) or "unknown"
+    sdkVersion = __version__
+    environment = config.get(
+        "environment", os.environ.get("AGENTUITY_ENVIRONMENT", "development")
     )
-    environment = (
-        config.get("environment", os.environ.get("AGENTUITY_ENVIRONMENT"))
-        or "development"
+    devmode = config.get("devmode", os.environ.get("AGENTUITY_SDK_DEV_MODE", "false"))
+    app_name = config.get(
+        "app_name", os.environ.get("AGENTUITY_SDK_APP_NAME", "unknown")
     )
-    devmode = config.get("devmode", os.environ.get("AGENTUITY_SDK_DEV_MODE")) or "false"
-    app_name = (
-        config.get("app_name", os.environ.get("AGENTUITY_SDK_APP_NAME")) or "unknown"
-    )
-    app_version = (
-        config.get("app_version", os.environ.get("AGENTUITY_SDK_APP_VERSION"))
-        or "unknown"
+    app_version = config.get(
+        "app_version", os.environ.get("AGENTUITY_SDK_APP_VERSION", "unknown")
     )
     export_internal_ms = 1000 if devmode else 60000
 
