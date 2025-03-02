@@ -5,7 +5,7 @@ from opentelemetry.trace.span import TraceFlags
 from opentelemetry.propagators.textmap import TextMapPropagator
 from opentelemetry.trace.span import NonRecordingSpan
 from opentelemetry.trace import SpanContext
-from opentelemetry import trace
+import random
 
 
 class AgentuityPropagator(TextMapPropagator):
@@ -25,19 +25,20 @@ class AgentuityPropagator(TextMapPropagator):
             context = Context()
 
         if getter is None:
-            getter = dict.get
+            trace_id = carrier.get(self.AGENTUITY_TRACE_ID)
+            parent_id = carrier.get(self.AGENTUITY_PARENT_ID)
+        else:
+            trace_id = getter.get(carrier, self.AGENTUITY_TRACE_ID)
+            parent_id = getter.get(carrier, self.AGENTUITY_PARENT_ID)
 
-        trace_id = getter(carrier, self.AGENTUITY_TRACE_ID)
-        parent_id = getter(carrier, self.AGENTUITY_PARENT_ID)
+        # Handle the case where trace_id or parent_id might be a list (common with HTTP headers)
+        if isinstance(trace_id, list) and trace_id:
+            trace_id = trace_id[0]
+        if isinstance(parent_id, list) and parent_id:
+            parent_id = parent_id[0]
 
         if not trace_id:
             return context
-
-        if trace_id.startswith("run_"):
-            trace_id = trace_id[4:]
-
-        if parent_id and parent_id.startswith("run_"):
-            parent_id = parent_id[4:]
 
         # Convert trace_id to hex format if it's not already
         if len(trace_id) < 32:
@@ -46,7 +47,7 @@ class AgentuityPropagator(TextMapPropagator):
         # Create a span context with the extracted trace information
         span_context = SpanContext(
             trace_id=int(trace_id, 16),
-            span_id=int(parent_id, 16) if parent_id else trace.generate_span_id(),
+            span_id=int(parent_id, 16) if parent_id else random.randint(0, 2**64 - 1),
             is_remote=True,
             trace_flags=TraceFlags(TraceFlags.SAMPLED),
         )

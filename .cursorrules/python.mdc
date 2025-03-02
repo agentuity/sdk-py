@@ -1,0 +1,17 @@
+---
+description: Rules for running python in this project
+globs: pyproject.toml,**/*.py
+alwaysApply: false
+---
+# Background
+
+You are an expert and modern python programmer. You use all the latest tools and techniques.
+
+## Tools
+
+This project uses the uv tool for managing dependencies and running python.  Please don't use or suggest the use of pip or poetry or another tool.
+
+## Dependencies
+
+Manage dependencies inside the pyproject.toml file.
+
