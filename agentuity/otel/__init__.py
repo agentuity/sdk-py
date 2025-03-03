@@ -40,7 +40,6 @@ def init(config: Optional[Dict[str, str]] = {}):
         logger.warning("No bearer token found, skipping OTLP initialization")
         return None
 
-    runId = config.get("runId", os.environ.get("AGENTUITY_CLOUD_RUN_ID", "unknown"))
     orgId = config.get("orgId", os.environ.get("AGENTUITY_CLOUD_ORG_ID", "unknown"))
     projectId = config.get(
         "projectId", os.environ.get("AGENTUITY_CLOUD_PROJECT_ID", "unknown")
@@ -77,7 +76,6 @@ def init(config: Optional[Dict[str, str]] = {}):
             "@agentuity/orgId": orgId,
             "@agentuity/projectId": projectId,
             "@agentuity/deploymentId": deploymentId,
-            "@agentuity/runId": runId,
             "@agentuity/env": environment,
             "@agentuity/devmode": devmode,
             "@agentuity/sdkVersion": sdkVersion,
