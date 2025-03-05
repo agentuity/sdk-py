@@ -13,3 +13,4 @@ wheels/
 /.agentuity/
 /agents/
 /agentuity.yaml
+.DS_Store

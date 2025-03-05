@@ -1,15 +1,19 @@
-import os
-import json
-import signal
-import sys
 import base64
 import importlib.util
+import json
 import logging
-from http.server import HTTPServer
-from http.server import BaseHTTPRequestHandler
-from agentuity.otel import init
+import os
+import signal
+import sys
+from datetime import datetime
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
 from opentelemetry import trace
 from opentelemetry.propagate import extract, inject
+
+from agentuity.otel import init
+
+from .types import AgentContext, AgentRequest, AgentResponse
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +94,10 @@ def autostart():
                 print(f"No agent configuration found at {config_path}")
                 sys.exit(1)
         print(f"Loaded {len(agents_by_id)} agents from {config_path}")
+
+        # if "services" not in config_data:
+        #     config_data["services"] = {"kv": KeyValueAPI(), "vector": VectorAPI()}
+
         loghandler = init(
             {
                 "cliVersion": config_data["cli_version"],
@@ -136,14 +144,45 @@ def autostart():
                 span.set_attribute("@agentuity/agentId", agentId)
                 span.set_attribute("@agentuity/agentName", agent["name"])
                 try:
-                    # TODO: add the logic for running the agent here
-                    response = agent["run"]()
+                    agent_request = AgentRequest(payload or {})
+                    agent_request.validate()
+
+                    agent_response = AgentResponse()
+                    agent_context = AgentContext(
+                        services={},  # need to sync on how best to get these in
+                        logger=logger,
+                        tracer=tracer,
+                        request=agent_request,
+                    )
+
+                    result = agent["run"](
+                        request=agent_request,
+                        response=agent_response,
+                        context=agent_context,
+                    )
+
+                    if not isinstance(result, AgentResponse):
+                        raise ValueError("Agent must return AgentResponse instance")
+
+                    result.metadata.update(
+                        {
+                            "executionTimeMs": int(
+                                (
+                                    datetime.now() - agent_context.start_time
+                                ).total_seconds()
+                                * 1000
+                            ),
+                        }
+                    )
+
                     span.set_status(trace.Status(trace.StatusCode.OK))
-                    return response
+                    return result
+
                 except Exception as e:
                     span.record_exception(e)
                     span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-                    raise e
+                    logger.error(f"Agent execution failed: {str(e)}")
+                    raise AgentResponse().error(str(e), 500)
 
         def do_POST(self):
             # Extract the agent ID from the path (remove leading slash)
@@ -205,18 +244,19 @@ def autostart():
 
                         self.end_headers()
 
-                        content_type = "text/plain"
-                        # Base64 encode the payload
                         encoded_payload = base64.b64encode(
-                            str(response).encode("utf-8")
+                            str(response.payload).encode("utf-8")
                         ).decode("utf-8")
+
+                        content_type = response.content_type
+                        metadata = response.metadata
 
                         self.wfile.write(
                             json.dumps(
                                 {
                                     "contentType": content_type,
                                     "payload": encoded_payload,
-                                    "metadata": {},
+                                    "metadata": metadata,
                                 }
                             ).encode("utf-8")
                         )
