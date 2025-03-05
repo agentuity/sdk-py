@@ -1,3 +1,4 @@
+import base64
 import importlib.util
 import json
 import logging
@@ -243,15 +244,18 @@ def autostart():
 
                         self.end_headers()
 
+                        encoded_payload = base64.b64encode(
+                            str(response.payload).encode("utf-8")
+                        ).decode("utf-8")
+
                         content_type = response.content_type
-                        payload = response.payload
                         metadata = response.metadata
 
                         self.wfile.write(
                             json.dumps(
                                 {
                                     "contentType": content_type,
-                                    "payload": payload,
+                                    "payload": encoded_payload,
                                     "metadata": metadata,
                                 }
                             ).encode("utf-8")
