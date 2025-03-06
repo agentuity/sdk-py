@@ -12,6 +12,7 @@ dependencies = [
     "opentelemetry-exporter-otlp>=1.21.0",
     "opentelemetry-exporter-otlp-proto-http>=1.21.0",
     "pyyaml>=6.0.2",
+    "wrapt>=1.17.2",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",

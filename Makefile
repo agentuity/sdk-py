@@ -1,4 +1,7 @@
-PHONY: build install release clean
+.PHONY: build install release clean
+
+build:
+	@uv build
 
 clean:
 	@rm -rf dist
@@ -6,9 +9,6 @@ clean:
 
 install:
 	@uv sync --all-extras --dev
-
-build:
-	@uv build
 
 release: clean build
 	@uv publish
