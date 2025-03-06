@@ -161,28 +161,19 @@ def autostart():
                         context=agent_context,
                     )
 
+                    ## TODO: in JS sdk you can just return a string, number, boolean, or object
+                    ## and it will be converted to the correct type
+
                     if not isinstance(result, AgentResponse):
                         raise ValueError("Agent must return AgentResponse instance")
 
-                    result.metadata.update(
-                        {
-                            "executionTimeMs": int(
-                                (
-                                    datetime.now() - agent_context.start_time
-                                ).total_seconds()
-                                * 1000
-                            ),
-                        }
-                    )
-
-                    span.set_status(trace.Status(trace.StatusCode.OK))
                     return result
 
                 except Exception as e:
                     span.record_exception(e)
                     span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                     logger.error(f"Agent execution failed: {str(e)}")
-                    raise AgentResponse().error(str(e), 500)
+                    raise e
 
         def do_POST(self):
             # Extract the agent ID from the path (remove leading slash)
@@ -219,6 +210,7 @@ def autostart():
                 # Extract trace context from headers
                 context = extract(carrier=dict(self.headers))
 
+                # TODO: review these to match JS
                 with tracer.start_as_current_span(
                     "POST /" + agentId,
                     context=context,
@@ -244,18 +236,15 @@ def autostart():
 
                         self.end_headers()
 
-                        encoded_payload = base64.b64encode(
-                            str(response.payload).encode("utf-8")
-                        ).decode("utf-8")
-
                         content_type = response.content_type
-                        metadata = response.metadata
+                        metadata = response.metadata or {}
+                        payload = response.payload
 
                         self.wfile.write(
                             json.dumps(
                                 {
                                     "contentType": content_type,
-                                    "payload": encoded_payload,
+                                    "payload": payload,
                                     "metadata": metadata,
                                 }
                             ).encode("utf-8")
