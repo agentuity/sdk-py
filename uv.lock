@@ -11,6 +11,8 @@ dependencies = [
     { name = "opentelemetry-instrumentation" },
     { name = "opentelemetry-sdk" },
     { name = "pyyaml" },
+    { name = "requests" },
+    { name = "wrapt" },
 ]
 
 [package.metadata]
@@ -21,6 +23,8 @@ requires-dist = [
     { name = "opentelemetry-instrumentation", specifier = ">=0.42b0" },
     { name = "opentelemetry-sdk", specifier = ">=1.21.0" },
     { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "requests", specifier = ">=2.32.3" },
+    { name = "wrapt", specifier = ">=1.17.2" },
 ]
 
 [[package]]

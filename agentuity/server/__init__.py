@@ -1,17 +1,16 @@
-import base64
 import importlib.util
 import json
 import logging
 import os
 import signal
 import sys
-from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from opentelemetry import trace
 from opentelemetry.propagate import extract, inject
 
 from agentuity.otel import init
+from agentuity.instrument import instrument
 
 from .types import AgentContext, AgentRequest, AgentResponse
 
@@ -35,6 +34,7 @@ def inject_trace_context(handler):
 
 def autostart():
     loghandler = None
+    instrument()
 
     def load_agent_module(agent_id, filename):
         agent_path = os.path.join(os.getcwd(), filename)
