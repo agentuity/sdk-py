@@ -37,7 +37,11 @@ def instrument():
         # doesn't matter the value but it must be set
         os.environ["OPENAI_API_KEY"] = "x"
         # point to the agentuity AI gateway as the base URL
-        os.environ["OPENAI_API_BASE"] = agentuity_url + "/sdk/gateway/openai"
+        url = agentuity_url + "/sdk/gateway/openai"
+        # this is used by the openai library
+        os.environ["OPENAI_BASE_URL"] = url
+        # this is used by the litellm library
+        os.environ["OPENAI_API_BASE"] = url
         logger.info("Instrumented OpenAI to use Agentuity AI Gateway")
         setupHook = True
 
