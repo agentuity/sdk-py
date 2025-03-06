@@ -79,6 +79,44 @@ cd sdk-py
 uv install
 ```
 
+### Local Development
+
+Create a minimal agentuity.yaml file in the root of the project:
+
+```yaml
+project_id: proj_mv0w67c4851eX0oTglYLzP3OgS2BjN54
+name: test
+agents:
+  - id: agent_HaDpiH67c4851eISzbAWfZqwLtnpguW6
+    name: myfirstagent
+```
+
+Create a test agent:
+
+```bash
+mkdir -p agents/myfirstagent
+touch agents/myfirstagent/agent.py
+```
+
+Create a test agent:
+
+```python
+def run(request, response, context):
+    return response.text("Hello, world")
+```
+
+Run the test server:
+
+```bash
+uv run test.py
+```
+
+Hit the test endpoint:
+
+```bash
+curl -v http://localhost:3500/agent_HaDpiH67c4851eISzbAWfZqwLtnpguW6 --json '{"trigger":"manual","contentType":"text/plain","payload":"aGkK"}'
+```
+
 ## License
 
 See the [LICENSE](LICENSE.md) file for details.
