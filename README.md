@@ -117,6 +117,12 @@ Hit the test endpoint:
 curl -v http://localhost:3500/agent_HaDpiH67c4851eISzbAWfZqwLtnpguW6 --json '{"trigger":"manual","contentType":"text/plain","payload":"aGkK"}'
 ```
 
+You can also use the run endpoint which emulates the production one:
+
+```bash
+curl -v http://localhost:3500/run/agent_HaDpiH67c4851eISzbAWfZqwLtnpguW6 --json '{"hello":"world"}'
+```
+
 ## License
 
 See the [LICENSE](LICENSE.md) file for details.
