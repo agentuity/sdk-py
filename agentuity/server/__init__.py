@@ -115,7 +115,7 @@ async def handle_sdk_request(request):
                 target_url,
                 json=payload,
                 headers={"Content-Type": "application/json"},
-                timeout=30,  # Add a timeout to prevent hanging
+                timeout=60,  # Add a timeout to prevent hanging
             ) as response:
                 # Read the entire response body
                 response_body = await response.read()
