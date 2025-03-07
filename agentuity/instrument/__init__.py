@@ -41,13 +41,13 @@ litellm_providers = [
 ]
 
 
-def configure_litellm_provider(agentuity_url: str) -> bool:
+def configure_litellm_provider(agentuity_url: str, agentuity_api_key: str) -> bool:
     ok = False
     for config in litellm_providers:
         name = config["name"].upper()
         envname = name + "_API_KEY"
         if os.getenv(envname, "") == "":
-            os.environ[envname] = "x"
+            os.environ[envname] = agentuity_api_key
             os.environ[name + "_API_BASE"] = (
                 agentuity_url + "/sdk/gateway/" + config["provider"]
             )
@@ -98,12 +98,12 @@ native_providers = [
 ## TODO: a lot of providers use OpenAI library with their own model and baseurl
 
 
-def configure_native_provider(agentuity_url: str) -> bool:
+def configure_native_provider(agentuity_url: str, agentuity_api_key: str) -> bool:
     ok = False
     for config in native_providers:
         if is_module_available(config["module"]):
             if os.getenv(config["env"], "") == "":
-                os.environ[config["env"]] = "x"
+                os.environ[config["env"]] = agentuity_api_key
                 os.environ[config["base"]] = (
                     agentuity_url + "/sdk/gateway/" + config["provider"]
                 )
@@ -125,11 +125,11 @@ def instrument():
         return
 
     if is_module_available("litellm"):
-        if configure_litellm_provider(agentuity_url):
+        if configure_litellm_provider(agentuity_url, agentuity_api_key):
             logger.info("Instrumented Litellm to use Agentuity AI Gateway")
             setupHook = True
 
-    if configure_native_provider(agentuity_url):
+    if configure_native_provider(agentuity_url, agentuity_api_key):
         setupHook = True
 
     if setupHook and is_module_available("httpx"):
