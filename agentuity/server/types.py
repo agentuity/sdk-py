@@ -48,8 +48,12 @@ class AgentRequest:
     def trigger(self) -> str:
         return self._data.get("trigger", "")
 
-    def metadata(self, key: str, default: Any = None) -> Any:
-        return self._data.get("metadata", {}).get(key, default)
+    @property
+    def metadata(self) -> dict:
+        return self._data.get("metadata", {})
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self.metadata.get(key, default)
 
     @property
     def text(self) -> str:
