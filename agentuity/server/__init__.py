@@ -222,7 +222,7 @@ async def handle_agent_request(request):
         context = extract(carrier=dict(request.headers))
 
         with tracer.start_as_current_span(
-            "POST /" + agentId,
+            "HTTP POST",
             context=context,
             kind=trace.SpanKind.SERVER,
             attributes={
@@ -231,6 +231,8 @@ async def handle_agent_request(request):
                 "http.host": request.host,
                 "http.user_agent": request.headers.get("user-agent"),
                 "http.path": request.path,
+                "@agentuity/agentId": agentId,
+                "@agentuity/agentName": agent["name"],
             },
         ) as span:
             try:
