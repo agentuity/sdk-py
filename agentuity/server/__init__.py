@@ -30,7 +30,7 @@ def inject_trace_context(headers):
         logger.error(f"Error injecting trace context: {e}")
 
 
-async def load_agent_module(agent_id, filename):
+async def load_agent_module(agent_id: str, name: str, filename: str):
     agent_path = os.path.join(os.getcwd(), filename)
 
     # Load the agent module dynamically
@@ -49,7 +49,7 @@ async def load_agent_module(agent_id, filename):
 
     return {
         "id": agent_id,
-        "name": getattr(agent_module, "name", agent_id),
+        "name": name,
         "run": agent_module.run,
     }
 
@@ -295,11 +295,12 @@ async def load_agents():
                 agents_by_id = {}
                 for agent in agents:
                     agent_module = await load_agent_module(
-                        agent["id"], agent["filename"]
+                        agent["id"], agent["name"], agent["filename"]
                     )
                     agents_by_id[agent["id"]] = {
                         "run": agent_module["run"],
                         "name": agent["name"],
+                        "id": agent["id"],
                     }
         else:
             config_path = os.path.join(os.getcwd(), "agentuity.yaml")
@@ -317,7 +318,9 @@ async def load_agents():
                         filename = os.path.join(
                             os.getcwd(), "agents", agent["name"], "agent.py"
                         )
-                        agent_module = await load_agent_module(agent["id"], filename)
+                        agent_module = await load_agent_module(
+                            agent["id"], agent["name"], filename
+                        )
                         agents_by_id[agent["id"]] = {
                             "id": agent["id"],
                             "name": agent["name"],
@@ -342,11 +345,11 @@ async def load_agents():
 
 
 def autostart():
+    instrument()
+
     # Create an event loop and run the async initialization
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-
-    instrument()
 
     logger.setLevel(logging.INFO)
 
