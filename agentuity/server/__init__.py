@@ -346,12 +346,13 @@ def autostart():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
+    instrument()
+
+    logger.setLevel(logging.INFO)
+
     # Run load_agents in the event loop
     loghandler, agents_by_id = loop.run_until_complete(load_agents())
 
-    instrument()
-
-    logger.setLevel(logging.DEBUG)
     if loghandler:
         logger.addHandler(loghandler)
 
