@@ -2,9 +2,11 @@ import importlib.util
 import json
 import logging
 import os
-import signal
 import sys
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import asyncio
+import aiohttp
+from aiohttp import web
+import base64
 
 from opentelemetry import trace
 from opentelemetry.propagate import extract, inject
@@ -15,44 +17,272 @@ from agentuity.instrument import instrument
 from .types import AgentContext, AgentRequest, AgentResponse
 
 logger = logging.getLogger(__name__)
+port = int(os.environ.get("PORT", 3500))
 
 
 # Utility function to inject trace context into response headers
-def inject_trace_context(handler):
+def inject_trace_context(headers):
     """Inject trace context into response headers using configured propagators."""
     try:
-        response_headers = {}
-        inject(response_headers)
-
-        # Add headers from the propagator to the response
-        for header_name, header_value in response_headers.items():
-            handler.send_header(header_name, header_value)
+        inject(headers)
     except Exception as e:
         # Log the error but don't fail the request
         logger.error(f"Error injecting trace context: {e}")
 
 
-def autostart():
-    loghandler = None
-    instrument()
+async def load_agent_module(agent_id, filename):
+    agent_path = os.path.join(os.getcwd(), filename)
 
-    def load_agent_module(agent_id, filename):
-        agent_path = os.path.join(os.getcwd(), filename)
+    # Load the agent module dynamically
+    spec = importlib.util.spec_from_file_location(agent_id, agent_path)
+    if spec is None:
+        raise ImportError(f"Could not load module for {filename}")
 
-        # Load the agent module dynamically
-        spec = importlib.util.spec_from_file_location(agent_id, agent_path)
-        if spec is None:
-            raise ImportError(f"Could not load module for {filename}")
+    agent_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(agent_module)
 
-        agent_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(agent_module)
+    # Check if the module has a run function
+    if not hasattr(agent_module, "run"):
+        raise AttributeError(f"Module {filename} does not have a run function")
 
-        # Check if the module has a run function
-        if hasattr(agent_module, "run") and callable(agent_module.run):
-            return agent_module.run
-        else:
-            raise ImportError(f"Module {filename} does not have a run function")
+    logger.debug(f"Loaded agent: {agent_id}")
 
+    return {
+        "id": agent_id,
+        "name": getattr(agent_module, "name", agent_id),
+        "run": agent_module.run,
+    }
+
+
+async def run_agent(tracer, agentId, agent, payload):
+    with tracer.start_as_current_span("agent.run") as span:
+        span.set_attribute("@agentuity/agentId", agentId)
+        span.set_attribute("@agentuity/agentName", agent["name"])
+        try:
+            agent_request = AgentRequest(payload or {})
+            agent_request.validate()
+
+            agent_response = AgentResponse()
+            agent_context = AgentContext(
+                services={},  # need to sync on how best to get these in
+                logger=logger,
+                tracer=tracer,
+                request=agent_request,
+            )
+
+            result = agent["run"](
+                request=agent_request,
+                response=agent_response,
+                context=agent_context,
+            )
+
+            ## TODO: in JS sdk you can just return a string, number, boolean, or object
+            ## and it will be converted to the correct type
+
+            if not isinstance(result, AgentResponse):
+                raise ValueError("Agent must return AgentResponse instance")
+
+            return result
+
+        except Exception as e:
+            span.record_exception(e)
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+            logger.error(f"Agent execution failed: {str(e)}")
+            raise e
+
+
+async def handle_sdk_request(request):
+    agentId = request.match_info["agent_id"]
+    logger.debug(f"request: POST /run/{agentId}")
+
+    body = await request.read()
+
+    payload = {
+        "trigger": "manual",
+        "contentType": request.headers.get("Content-Type", "application/json"),
+        "payload": base64.b64encode(body).decode("utf-8"),
+        "metadata": {
+            "headers": dict(request.headers),
+        },
+    }
+
+    async with aiohttp.ClientSession() as session:
+        target_url = f"http://127.0.0.1:{port}/{agentId}"
+
+        try:
+            # Make the request and get the response
+            async with session.post(
+                target_url,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=30,  # Add a timeout to prevent hanging
+            ) as response:
+                # Read the entire response body
+                response_body = await response.read()
+
+                # Try to parse as JSON
+                try:
+                    # Parse the response as JSON
+                    response_json = json.loads(response_body)
+
+                    if "payload" in response_json:
+                        response_json["payload"] = base64.b64decode(
+                            response_json["payload"]
+                        ).decode("utf-8")
+
+                    # Create a JSON response with the modified data
+                    resp = web.json_response(
+                        response_json,
+                        status=response.status,
+                    )
+
+                    # Copy relevant headers from the original response
+                    for header_name, header_value in response.headers.items():
+                        if header_name.lower() not in (
+                            "content-type",
+                            "content-length",
+                        ):
+                            resp.headers[header_name] = header_value
+
+                    # Add trace context to response headers
+                    inject_trace_context(resp.headers)
+
+                    return resp
+
+                except json.JSONDecodeError:
+                    # If not JSON, fall back to streaming the original response
+                    resp = web.StreamResponse(
+                        status=response.status,
+                        reason=response.reason,
+                        headers=response.headers,
+                    )
+
+                    # Add trace context to response headers
+                    inject_trace_context(resp.headers)
+
+                    # Start the response
+                    await resp.prepare(request)
+
+                    # Write the original body
+                    await resp.write(response_body)
+                    await resp.write_eof()
+
+                    return resp
+
+        except aiohttp.ClientError as e:
+            # Handle HTTP errors
+            logger.error(f"HTTP error occurred: {str(e)}")
+            resp = web.json_response(
+                {
+                    "error": "Bad Gateway",
+                    "message": f"Error forwarding request to {target_url}",
+                    "details": str(e),
+                },
+                status=502,
+            )
+            # Only add trace context, not Content-Type
+            inject_trace_context(resp.headers)
+            return resp
+
+        except Exception as e:
+            resp = web.json_response(
+                {
+                    "error": "Internal Server Error",
+                    "message": "An unexpected error occurred",
+                    "details": str(e),
+                },
+                status=500,
+            )
+            inject_trace_context(resp.headers)
+            logger.error(f"Error in handle_sdk_request: {str(e)}")
+            return resp
+
+
+async def handle_agent_request(request):
+    # Access the agents_by_id from the app state
+    agents_by_id = request.app["agents_by_id"]
+
+    agentId = request.match_info["agent_id"]
+    logger.debug(f"request: POST /{agentId}")
+
+    # Read and parse the request body as JSON
+    try:
+        payload = await request.json()
+    except json.JSONDecodeError:
+        return web.Response(
+            text="Invalid JSON in request body", status=400, content_type="text/plain"
+        )
+
+    # Check if the agent exists in our map
+    if agentId in agents_by_id:
+        agent = agents_by_id[agentId]
+        tracer = trace.get_tracer("http-server")
+
+        # Extract trace context from headers
+        context = extract(carrier=dict(request.headers))
+
+        with tracer.start_as_current_span(
+            "POST /" + agentId,
+            context=context,
+            kind=trace.SpanKind.SERVER,
+            attributes={
+                "http.method": "POST",
+                "http.url": str(request.url),
+                "http.host": request.host,
+                "http.user_agent": request.headers.get("user-agent"),
+                "http.path": request.path,
+            },
+        ) as span:
+            try:
+                # Call the run function and get the response
+                response = await run_agent(tracer, agentId, agent, payload)
+
+                # Prepare response headers
+                headers = {}  # Don't include Content-Type in headers
+                inject_trace_context(headers)
+
+                # Prepare response data
+                content_type = response.content_type
+                metadata = response.metadata or {}
+                payload = response.payload
+
+                response_data = {
+                    "contentType": content_type,
+                    "payload": payload,
+                    "metadata": metadata,
+                }
+
+                span.set_status(trace.Status(trace.StatusCode.OK))
+                # web.json_response automatically sets Content-Type to application/json
+                return web.json_response(response_data, headers=headers)
+
+            except Exception as e:
+                logger.error(f"Error loading or running agent: {e}")
+                span.record_exception(e)
+                span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+
+                # Prepare error response
+                headers = {}  # Don't include Content-Type in headers
+                inject_trace_context(headers)
+
+                return web.Response(
+                    text=f"Error loading or running agent: {str(e)}",
+                    status=500,
+                    headers=headers,
+                    content_type="text/plain",  # Set content_type separately
+                )
+    else:
+        # Agent not found
+        return web.Response(
+            text=f"Agent {agentId} not found", status=404, content_type="text/plain"
+        )
+
+
+async def handle_health_check(request):
+    return web.json_response({"status": "ok"})
+
+
+async def load_agents():
     # Load agents from config file
     try:
         config_path = os.path.join(os.getcwd(), ".agentuity", "config.json")
@@ -62,16 +292,18 @@ def autostart():
             with open(config_path, "r") as config_file:
                 config_data = json.load(config_file)
                 agents = config_data.get("agents", [])
-                agents_by_id = {
-                    agent["id"]: {
-                        "run": load_agent_module(agent["id"], agent["filename"]),
+                agents_by_id = {}
+                for agent in agents:
+                    agent_module = await load_agent_module(
+                        agent["id"], agent["filename"]
+                    )
+                    agents_by_id[agent["id"]] = {
+                        "run": agent_module["run"],
                         "name": agent["name"],
                     }
-                    for agent in agents
-                }
         else:
             config_path = os.path.join(os.getcwd(), "agentuity.yaml")
-            print(f"Loading dev agent configuration from {config_path}")
+            logger.info(f"Loading dev agent configuration from {config_path}")
             if os.path.exists(config_path):
                 from yaml import safe_load
 
@@ -80,217 +312,62 @@ def autostart():
                     config_data["environment"] = "development"
                     config_data["cli_version"] = "unknown"
                     config_data["app"] = {"name": agentconfig["name"], "version": "dev"}
+                    agents_by_id = {}
                     for agent in agentconfig["agents"]:
                         filename = os.path.join(
                             os.getcwd(), "agents", agent["name"], "agent.py"
                         )
+                        agent_module = await load_agent_module(agent["id"], filename)
                         agents_by_id[agent["id"]] = {
                             "id": agent["id"],
                             "name": agent["name"],
                             "filename": filename,
-                            "run": load_agent_module(agent["id"], filename),
+                            "run": agent_module["run"],
                         }
-            else:
-                print(f"No agent configuration found at {config_path}")
-                sys.exit(1)
-        print(f"Loaded {len(agents_by_id)} agents from {config_path}")
-
-        # if "services" not in config_data:
-        #     config_data["services"] = {"kv": KeyValueAPI(), "vector": VectorAPI()}
-
-        loghandler = init(
+        logger.info(f"Loaded {len(agents_by_id)} agents from {config_path}")
+        return init(
             {
                 "cliVersion": config_data["cli_version"],
                 "environment": config_data["environment"],
                 "app_name": config_data["app"]["name"],
                 "app_version": config_data["app"]["version"],
             }
-        )
+        ), agents_by_id
     except json.JSONDecodeError as e:
-        print(f"Error parsing agent configuration: {e}")
+        logger.error(f"Error parsing agent configuration: {e}")
         sys.exit(1)
     except Exception as e:
-        print(f"Error loading agent configuration: {e}")
+        logger.error(f"Error loading agent configuration: {e}")
         sys.exit(1)
+
+
+def autostart():
+    # Create an event loop and run the async initialization
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    # Run load_agents in the event loop
+    loghandler, agents_by_id = loop.run_until_complete(load_agents())
+
+    instrument()
 
     logger.setLevel(logging.DEBUG)
     if loghandler:
         logger.addHandler(loghandler)
 
-    for agentId, agent in agents_by_id.items():
-        logger.info(f"registered {agent['name']} at /{agentId}")
+    # Create the web application
+    app = web.Application()
 
-    class WebRequestHandler(BaseHTTPRequestHandler):
-        def log_message(self, format, *args):
-            # Override to suppress log messages
-            return
+    # Store agents_by_id in the app state
+    app["agents_by_id"] = agents_by_id
 
-        def do_GET(self):
-            # Check if the path is a health check
-            print(f"Processing GET request: {self.path}")
-            if self.path == "/_health":
-                self.send_response(200)
-                self.send_header("Content-Type", "text/plain")
-                self.end_headers()
-                self.wfile.write("OK".encode("utf-8"))
-            else:
-                self.send_response(404)
-                self.send_header("Content-Type", "text/plain")
-                self.end_headers()
-                self.wfile.write("Not Found".encode("utf-8"))
+    # Add routes
+    app.router.add_get("/_health", handle_health_check)
+    app.router.add_post("/run/{agent_id}", handle_sdk_request)
+    app.router.add_post("/{agent_id}", handle_agent_request)
 
-        def run_agent(self, tracer, agentId, agent, payload):
-            with tracer.start_as_current_span("agent.run") as span:
-                span.set_attribute("@agentuity/agentId", agentId)
-                span.set_attribute("@agentuity/agentName", agent["name"])
-                try:
-                    agent_request = AgentRequest(payload or {})
-                    agent_request.validate()
+    # Start the server
+    logger.info(f"Starting server on port {port}")
 
-                    agent_response = AgentResponse()
-                    agent_context = AgentContext(
-                        services={},  # need to sync on how best to get these in
-                        logger=logger,
-                        tracer=tracer,
-                        request=agent_request,
-                    )
-
-                    result = agent["run"](
-                        request=agent_request,
-                        response=agent_response,
-                        context=agent_context,
-                    )
-
-                    ## TODO: in JS sdk you can just return a string, number, boolean, or object
-                    ## and it will be converted to the correct type
-
-                    if not isinstance(result, AgentResponse):
-                        raise ValueError("Agent must return AgentResponse instance")
-
-                    return result
-
-                except Exception as e:
-                    span.record_exception(e)
-                    span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-                    logger.error(f"Agent execution failed: {str(e)}")
-                    raise e
-
-        def do_POST(self):
-            # Extract the agent ID from the path (remove leading slash)
-            agentId = self.path[1:]
-            print(f"Processing request for agent: {agentId}")
-
-            logger.debug(f"request: POST /{agentId}")
-
-            # Read and parse the request body as JSON
-            payload = None
-            content_length = int(self.headers.get("Content-Length", 0))
-            if content_length > 0:
-                body = self.rfile.read(content_length)
-                try:
-                    payload = json.loads(body.decode("utf-8"))
-                except json.JSONDecodeError:
-                    self.send_response(400)
-                    self.send_header("Content-Type", "text/plain")
-                    self.end_headers()
-                    self.wfile.write("Invalid JSON in request body".encode("utf-8"))
-                    return
-            else:
-                self.send_response(400)
-                self.send_header("Content-Type", "text/plain")
-                self.end_headers()
-                self.wfile.write("No Content-Length header provided".encode("utf-8"))
-                return
-
-            # Check if the agent exists in our map
-            if agentId in agents_by_id:
-                agent = agents_by_id[agentId]
-                tracer = trace.get_tracer("http-server")
-
-                # Extract trace context from headers
-                context = extract(carrier=dict(self.headers))
-
-                # TODO: review these to match JS
-                with tracer.start_as_current_span(
-                    "POST /" + agentId,
-                    context=context,
-                    kind=trace.SpanKind.SERVER,
-                    attributes={
-                        "http.method": "POST",
-                        "http.url": f"http://{self.headers.get('Host', '')}{self.path}",
-                        "http.host": self.headers.get("Host", ""),
-                        "http.user_agent": self.headers.get("user-agent"),
-                        "http.path": self.path,
-                    },
-                ) as span:
-                    try:
-                        # Call the run function and get the response
-                        response = self.run_agent(tracer, agentId, agent, payload)
-
-                        # Send successful response
-                        self.send_response(200)
-                        self.send_header("Content-Type", "application/json")
-
-                        # Use propagator to inject trace context into response headers
-                        inject_trace_context(self)
-
-                        self.end_headers()
-
-                        content_type = response.content_type
-                        metadata = response.metadata or {}
-                        payload = response.payload
-
-                        self.wfile.write(
-                            json.dumps(
-                                {
-                                    "contentType": content_type,
-                                    "payload": payload,
-                                    "metadata": metadata,
-                                }
-                            ).encode("utf-8")
-                        )
-                        span.set_status(trace.Status(trace.StatusCode.OK))
-                    except Exception as e:
-                        print(f"Error loading or running agent: {e}")
-                        span.record_exception(e)
-                        span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-                        # Send error response
-                        self.send_response(500)
-                        self.send_header("Content-Type", "text/plain")
-                        # Use propagator to inject trace context into response headers
-                        inject_trace_context(self)
-                        self.end_headers()
-                        self.wfile.write(
-                            str(f"Error loading or running agent: {str(e)}").encode(
-                                "utf-8"
-                            )
-                        )
-            else:
-                # Agent not found
-                self.send_response(404)
-                self.send_header("Content-Type", "text/plain")
-                self.end_headers()
-                self.wfile.write(f"Agent {agentId} not found".encode("utf-8"))
-
-    def signal_handler(sig, frame):
-        print("\nShutting down the server...")
-        sys.exit(0)
-
-    # Register signal handler for graceful shutdown
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-
-    # Get port from environment variable or use default
-    port = int(os.environ.get("PORT", 3500))
-
-    logger.info(f"Python server started on port {port}")
-    server = HTTPServer(("0.0.0.0", port), WebRequestHandler)
-
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\nShutting down the server...")
-    except Exception as e:
-        logger.error(f"Error: {e}")
-    finally:
-        server.server_close()
+    # Run the application
+    web.run_app(app, host="0.0.0.0", port=port, access_log=None)
