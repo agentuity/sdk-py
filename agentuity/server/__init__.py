@@ -70,7 +70,7 @@ async def run_agent(tracer, agentId, agent, payload):
                 request=agent_request,
             )
 
-            result = agent["run"](
+            result = await agent["run"](
                 request=agent_request,
                 response=agent_response,
                 context=agent_context,
@@ -328,6 +328,8 @@ async def load_agents():
                             "run": agent_module["run"],
                         }
         logger.info(f"Loaded {len(agents_by_id)} agents from {config_path}")
+        for agent in agents_by_id.values():
+            logger.info(f"Loaded agent: {agent['name']} [{agent['id']}]")
         return init(
             {
                 "cliVersion": config_data["cli_version"],
