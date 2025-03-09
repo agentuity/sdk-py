@@ -2,7 +2,7 @@ import httpx
 import base64
 import json
 from typing import Union, Optional
-from .data import DataResult, Data
+from .data import DataResult, Data, value_to_payload
 from agentuity import __version__
 from opentelemetry import trace
 
@@ -77,21 +77,13 @@ class KeyValueStore:
             content_type = params.get("contentType", None)
             payload = None
 
-            if isinstance(value, Data):
-                content_type = content_type or value.contentType
-                payload = base64.b64decode(value.base64)
-            elif isinstance(value, bytes):
-                content_type = content_type or "application/octet-stream"
-                payload = value
-            elif isinstance(value, (str, int, float, bool)):
-                content_type = content_type or "text/plain"
-                payload = str(value)
-            elif isinstance(value, (list, dict)):
-                content_type = content_type or "application/json"
-                payload = json.dumps(value)
-            else:
-                span.set_status(trace.StatusCode.ERROR, "Unsupported value type")
-                raise ValueError(f"Unsupported value type: {type(value)}")
+            try:
+                p = value_to_payload(content_type, value)
+                payload = p["payload"]
+                content_type = p["contentType"]
+            except Exception as e:
+                span.set_status(trace.StatusCode.ERROR, "Failed to encode value")
+                raise e
 
             ttlstr = ""
             if ttl is not None:

@@ -44,3 +44,6 @@ class AgentRequest:
         get a value from the metadata of the request
         """
         return self.metadata.get(key, default)
+
+    def __str__(self) -> str:
+        return f"AgentRequest(trigger={self.trigger}, contentType={self._data.contentType}, data={self._data.base64}, metadata={self.metadata})"

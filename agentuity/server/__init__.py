@@ -63,10 +63,12 @@ async def run_agent(tracer, agentId, agent, payload, agents_by_id):
         span.set_attribute("@agentuity/agentId", agentId)
         span.set_attribute("@agentuity/agentName", agent["name"])
         try:
-            agent_request = AgentRequest(payload or {})
+            agent_request = AgentRequest(payload)
             agent_request.validate()
 
-            agent_response = AgentResponse()
+            agent_response = AgentResponse(
+                payload=payload, tracer=tracer, agents_by_id=agents_by_id, port=port
+            )
             agent_context = AgentContext(
                 services={
                     "kv": KeyValueStore(

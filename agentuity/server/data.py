@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 import base64
 import json
 
@@ -83,3 +83,26 @@ def decode_payload_bytes(payload: str) -> bytes:
 
 def encode_payload(data: str) -> str:
     return base64.b64encode(data.encode("utf-8")).decode("utf-8")
+
+
+def value_to_payload(
+    content_type: str, value: Union[str, int, float, bool, list, dict, bytes, "Data"]
+) -> dict:
+    if isinstance(value, Data):
+        content_type = content_type or value.contentType
+        payload = base64.b64decode(value.base64)
+        return {"contentType": content_type, "payload": payload}
+    elif isinstance(value, bytes):
+        content_type = content_type or "application/octet-stream"
+        payload = value
+        return {"contentType": content_type, "payload": payload}
+    elif isinstance(value, (str, int, float, bool)):
+        content_type = content_type or "text/plain"
+        payload = str(value)
+        return {"contentType": content_type, "payload": payload}
+    elif isinstance(value, (list, dict)):
+        content_type = content_type or "application/json"
+        payload = json.dumps(value)
+        return {"contentType": content_type, "payload": payload}
+    else:
+        raise ValueError(f"Unsupported value type: {type(value)}")
