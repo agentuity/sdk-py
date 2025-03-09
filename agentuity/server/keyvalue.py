@@ -1,6 +1,5 @@
 import httpx
 import base64
-import json
 from typing import Union, Optional
 from .data import DataResult, Data, value_to_payload
 from agentuity import __version__
@@ -8,6 +7,10 @@ from opentelemetry import trace
 
 
 class KeyValueStore:
+    """
+    a key value store for storing and retrieving key value pairs
+    """
+
     def __init__(
         self,
         base_url: str,

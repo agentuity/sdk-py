@@ -5,6 +5,10 @@ from .config import AgentConfig
 
 
 class AgentContext:
+    """
+    the context of the agent invocation
+    """
+
     def __init__(
         self,
         services: dict,

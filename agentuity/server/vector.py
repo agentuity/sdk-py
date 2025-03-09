@@ -5,6 +5,15 @@ from opentelemetry import trace
 
 
 class VectorSearchResult:
+    """
+    a result from a vector search
+
+    @param id: the id of the vector
+    @param key: the key of the vector
+    @param distance: the distance of the vector from 0.0 to 1.0
+    @param metadata: the metadata of the vector or None if no metadata provided
+    """
+
     def __init__(
         self, id: str, key: str, distance: float, metadata: Optional[dict] = None
     ):
@@ -15,6 +24,10 @@ class VectorSearchResult:
 
 
 class VectorStore:
+    """
+    a vector store for storing and searching vectors
+    """
+
     def __init__(self, base_url: str, api_key: str, tracer: trace.Tracer):
         self.base_url = base_url
         self.api_key = api_key
