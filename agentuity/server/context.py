@@ -2,6 +2,7 @@ from typing import Any
 import os
 from opentelemetry import trace
 from .config import AgentConfig
+from .agent import RemoteAgent
 
 
 class AgentContext:
@@ -16,7 +17,10 @@ class AgentContext:
         tracer: trace.Tracer,
         agent: dict,
         agents_by_id: dict,
+        port: int,
     ):
+        self._port = port
+
         """
         the key value store
         """
@@ -71,3 +75,9 @@ class AgentContext:
         self.agents = []
         for agent in agents_by_id.values():
             self.agents.append(AgentConfig(agent))
+
+    def get_agent(self, agent_id_or_name: str) -> "RemoteAgent":
+        for agent in self.agents:
+            if agent.id == agent_id_or_name or agent.name == agent_id_or_name:
+                return RemoteAgent(agent, self._port)
+        raise ValueError(f"Agent {agent_id_or_name} not found")

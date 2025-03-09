@@ -2,7 +2,7 @@ from typing import Any
 from .data import Data
 
 
-class AgentRequest:
+class AgentRequest(dict):
     """
     The request that triggered the agent invocation
     """
@@ -10,6 +10,7 @@ class AgentRequest:
     def __init__(self, req: dict):
         self._req = req
         self._data = Data(req)
+        super().__init__(req)
 
     def validate(self) -> bool:
         if not self._req.get("contentType"):

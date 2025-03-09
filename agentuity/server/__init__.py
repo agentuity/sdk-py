@@ -20,6 +20,7 @@ from .request import AgentRequest
 from .response import AgentResponse
 from .keyvalue import KeyValueStore
 from .vector import VectorStore
+from .agent import RemoteAgentResponse
 
 logger = logging.getLogger(__name__)
 port = int(os.environ.get("PORT", 3500))
@@ -87,6 +88,7 @@ async def run_agent(tracer, agentId, agent, payload, agents_by_id):
                 tracer=tracer,
                 agent=agent,
                 agents_by_id=agents_by_id,
+                port=port,
             )
 
             result = await agent["run"](
@@ -256,6 +258,12 @@ async def handle_agent_request(request):
                     response = {
                         "contentType": response.content_type,
                         "payload": response.payload,
+                        "metadata": response.metadata,
+                    }
+                elif isinstance(response, RemoteAgentResponse):
+                    response = {
+                        "contentType": response.contentType,
+                        "payload": response.data.base64,
                         "metadata": response.metadata,
                     }
                 elif isinstance(response, Data):

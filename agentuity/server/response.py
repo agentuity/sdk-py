@@ -1,8 +1,9 @@
 from typing import Optional
-import httpx
 import json
 from opentelemetry import trace
-from .data import encode_payload, value_to_payload
+from .data import encode_payload
+from .agent import RemoteAgent
+from .config import AgentConfig
 
 
 class AgentResponse:
@@ -42,33 +43,22 @@ class AgentResponse:
         if found_agent is None:
             raise ValueError("agent not found by id or name")
 
-        invoke_payload = {
-            "trigger": "agent",
-            "payload": self._payload.get("payload", ""),
-            "metadata": self._payload.get("metadata", {}),
-            "contentType": self._payload.get("contentType", "text/plain"),
-        }
+        agent = RemoteAgent(AgentConfig(found_agent), self._port)
 
-        if args is not None:
-            p = value_to_payload(None, args)
-            invoke_payload["payload"] = encode_payload(p["payload"])
-            invoke_payload["contentType"] = p["contentType"]
+        if not args:
+            data = await agent.run(
+                base64=self._payload.get("payload", ""),
+                metadata=self._payload.get("metadata", {}),
+                content_type=self._payload.get("contentType", "text/plain"),
+            )
+        else:
+            data = await agent.run(data=args, metadata=metadata)
 
-        if metadata is not None:
-            invoke_payload["metadata"] = metadata
+        self.content_type = data.contentType
+        self.payload = data.data.base64
+        self.metadata = data.metadata
 
-        url = f"http://127.0.0.1:{self._port}/{found_agent['id']}"
-
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=invoke_payload)
-            if response.status_code != 200:
-                body = response.content.decode("utf-8")
-                raise Exception(body)
-            data = response.json()
-            self.content_type = data.get("contentType", "text/plain")
-            self.payload = data.get("payload", "")
-            self.metadata = data.get("metadata", {})
-            return self
+        return self
 
     def empty(self, metadata: Optional[dict] = None) -> "AgentResponse":
         self.metadata = metadata
