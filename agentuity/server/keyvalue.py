@@ -2,7 +2,7 @@ import httpx
 import base64
 import json
 from typing import Union, Optional
-from .types import DataResult, Data
+from .data import DataResult, Data
 from agentuity import __version__
 from opentelemetry import trace
 

@@ -14,7 +14,9 @@ from opentelemetry.propagate import extract, inject
 from agentuity.otel import init
 from agentuity.instrument import instrument
 
-from .types import AgentContext, AgentRequest, AgentResponse
+from .context import AgentContext
+from .request import AgentRequest
+from .response import AgentResponse
 from .keyvalue import KeyValueStore
 from .vector import VectorStore
 
