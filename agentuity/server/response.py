@@ -43,7 +43,7 @@ class AgentResponse:
         if found_agent is None:
             raise ValueError("agent not found by id or name")
 
-        agent = RemoteAgent(AgentConfig(found_agent), self._port)
+        agent = RemoteAgent(AgentConfig(found_agent), self._port, self._tracer)
 
         if not args:
             data = await agent.run(

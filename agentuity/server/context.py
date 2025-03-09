@@ -79,5 +79,5 @@ class AgentContext:
     def get_agent(self, agent_id_or_name: str) -> "RemoteAgent":
         for agent in self.agents:
             if agent.id == agent_id_or_name or agent.name == agent_id_or_name:
-                return RemoteAgent(agent, self._port)
+                return RemoteAgent(agent, self._port, self.tracer)
         raise ValueError(f"Agent {agent_id_or_name} not found")
