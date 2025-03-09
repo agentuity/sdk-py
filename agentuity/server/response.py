@@ -51,7 +51,7 @@ class AgentResponse:
 
         if args is not None:
             p = value_to_payload(None, args)
-            invoke_payload["payload"] = p["payload"]
+            invoke_payload["payload"] = encode_payload(p["payload"])
             invoke_payload["contentType"] = p["contentType"]
 
         if metadata is not None:
@@ -61,6 +61,9 @@ class AgentResponse:
 
         async with httpx.AsyncClient() as client:
             response = await client.post(url, json=invoke_payload)
+            if response.status_code != 200:
+                body = response.content.decode("utf-8")
+                raise Exception(body)
             data = response.json()
             self.content_type = data.get("contentType", "text/plain")
             self.payload = data.get("payload", "")

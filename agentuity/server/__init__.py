@@ -14,6 +14,7 @@ from opentelemetry.propagate import extract, inject
 from agentuity.otel import init
 from agentuity.instrument import instrument
 
+from .data import Data, encode_payload
 from .context import AgentContext
 from .request import AgentRequest
 from .response import AgentResponse
@@ -93,12 +94,6 @@ async def run_agent(tracer, agentId, agent, payload, agents_by_id):
                 response=agent_response,
                 context=agent_context,
             )
-
-            ## TODO: in JS sdk you can just return a string, number, boolean, or object
-            ## and it will be converted to the correct type
-
-            if not isinstance(result, AgentResponse):
-                raise ValueError("Agent must return AgentResponse instance")
 
             return result
 
@@ -257,24 +252,45 @@ async def handle_agent_request(request):
                     tracer, agentId, agent, payload, agents_by_id
                 )
 
+                if isinstance(response, AgentResponse):
+                    response = {
+                        "contentType": response.content_type,
+                        "payload": response.payload,
+                        "metadata": response.metadata,
+                    }
+                elif isinstance(response, Data):
+                    response = {
+                        "contentType": response.contentType,
+                        "payload": response.base64,
+                        "metadata": {},
+                    }
+                elif isinstance(response, dict) or isinstance(response, list):
+                    response = {
+                        "contentType": "application/json",
+                        "payload": encode_payload(json.dumps(response)),
+                        "metadata": {},
+                    }
+                elif isinstance(response, (str, int, float, bool)):
+                    response = {
+                        "contentType": "text/plain",
+                        "payload": encode_payload(str(response)),
+                        "metadata": {},
+                    }
+                elif isinstance(response, bytes):
+                    response = {
+                        "contentType": "application/octet-stream",
+                        "payload": base64.b64encode(response).decode("utf-8"),
+                        "metadata": {},
+                    }
+                else:
+                    raise ValueError("Unsupported response type")
+
                 # Prepare response headers
                 headers = {}  # Don't include Content-Type in headers
                 inject_trace_context(headers)
 
-                # Prepare response data
-                content_type = response.content_type
-                metadata = response.metadata or {}
-                payload = response.payload
-
-                response_data = {
-                    "contentType": content_type,
-                    "payload": payload,
-                    "metadata": metadata,
-                }
-
                 span.set_status(trace.Status(trace.StatusCode.OK))
-                # web.json_response automatically sets Content-Type to application/json
-                return web.json_response(response_data, headers=headers)
+                return web.json_response(response, headers=headers)
 
             except Exception as e:
                 logger.error(f"Error loading or running agent: {e}")
@@ -286,7 +302,7 @@ async def handle_agent_request(request):
                 inject_trace_context(headers)
 
                 return web.Response(
-                    text=f"Error loading or running agent: {str(e)}",
+                    text=str(e),
                     status=500,
                     headers=headers,
                     content_type="text/plain",  # Set content_type separately
