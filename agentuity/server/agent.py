@@ -29,6 +29,7 @@ class RemoteAgent:
         with self._tracer.start_as_current_span("remoteagent.run") as span:
             span.set_attribute("remote.agentId", self.agentconfig.id)
             span.set_attribute("remote.agentName", self.agentconfig.name)
+            span.set_attribute("scope", "local")
 
             p = None
             if data is not None:

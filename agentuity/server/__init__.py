@@ -5,6 +5,7 @@ import os
 import sys
 import asyncio
 import aiohttp
+import platform
 from aiohttp import web
 import base64
 
@@ -326,6 +327,21 @@ async def handle_health_check(request):
     return web.json_response({"status": "ok"})
 
 
+async def handle_index(request):
+    buf = "The following Agent routes are available:\n\n"
+    agents_by_id = request.app["agents_by_id"]
+    id = "agent_1234"
+    for agent in agents_by_id.values():
+        id = agent["id"]
+        buf += f"POST /run/{agent['id']} - [{agent['name']}]\n"
+    buf += "\n"
+    if platform.system() != "Windows":
+        buf += "Example usage:\n\n"
+        buf += f'curl http://localhost:{port}/run/{id} \\\n\t--json \'{{"message":"Hello, world!"}}\'\n'
+        buf += "\n"
+    return web.Response(text=buf, content_type="text/plain")
+
+
 async def load_agents():
     # Load agents from config file
     try:
@@ -412,6 +428,7 @@ def autostart():
     app["agents_by_id"] = agents_by_id
 
     # Add routes
+    app.router.add_get("/", handle_index)
     app.router.add_get("/_health", handle_health_check)
     app.router.add_post("/run/{agent_id}", handle_run_request)
     app.router.add_post("/{agent_id}", handle_agent_request)
