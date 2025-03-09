@@ -15,6 +15,8 @@ from agentuity.otel import init
 from agentuity.instrument import instrument
 
 from .types import AgentContext, AgentRequest, AgentResponse
+from .keyvalue import KeyValueStore
+from .vector import VectorStore
 
 logger = logging.getLogger(__name__)
 port = int(os.environ.get("PORT", 3500))
@@ -54,7 +56,7 @@ async def load_agent_module(agent_id: str, name: str, filename: str):
     }
 
 
-async def run_agent(tracer, agentId, agent, payload):
+async def run_agent(tracer, agentId, agent, payload, agents_by_id):
     with tracer.start_as_current_span("agent.run") as span:
         span.set_attribute("@agentuity/agentId", agentId)
         span.set_attribute("@agentuity/agentName", agent["name"])
@@ -64,10 +66,22 @@ async def run_agent(tracer, agentId, agent, payload):
 
             agent_response = AgentResponse()
             agent_context = AgentContext(
-                services={},  # need to sync on how best to get these in
+                services={
+                    "kv": KeyValueStore(
+                        base_url=os.environ.get("AGENTUITY_URL"),
+                        api_key=os.environ.get("AGENTUITY_API_KEY"),
+                        tracer=tracer,
+                    ),
+                    "vector": VectorStore(
+                        base_url=os.environ.get("AGENTUITY_URL"),
+                        api_key=os.environ.get("AGENTUITY_API_KEY"),
+                        tracer=tracer,
+                    ),
+                },
                 logger=logger,
                 tracer=tracer,
-                request=agent_request,
+                agent=agent,
+                agents_by_id=agents_by_id,
             )
 
             result = await agent["run"](
@@ -91,7 +105,7 @@ async def run_agent(tracer, agentId, agent, payload):
             raise e
 
 
-async def handle_sdk_request(request):
+async def handle_run_request(request):
     agentId = request.match_info["agent_id"]
     logger.debug(f"request: POST /run/{agentId}")
 
@@ -115,7 +129,7 @@ async def handle_sdk_request(request):
                 target_url,
                 json=payload,
                 headers={"Content-Type": "application/json"},
-                timeout=60,  # Add a timeout to prevent hanging
+                timeout=300,  # Add a timeout to prevent hanging
             ) as response:
                 # Read the entire response body
                 response_body = await response.read()
@@ -125,22 +139,20 @@ async def handle_sdk_request(request):
                     # Parse the response as JSON
                     response_json = json.loads(response_body)
 
-                    if "payload" in response_json:
-                        response_json["payload"] = base64.b64decode(
-                            response_json["payload"]
-                        ).decode("utf-8")
+                    content_type = response_json["contentType"]
+                    body = base64.b64decode(response_json["payload"])
 
-                    # Create a JSON response with the modified data
-                    resp = web.json_response(
-                        response_json,
+                    resp = web.Response(
                         status=response.status,
+                        body=body,
+                        content_type=content_type,
                     )
 
                     # Copy relevant headers from the original response
                     for header_name, header_value in response.headers.items():
                         if header_name.lower() not in (
-                            "content-type",
                             "content-length",
+                            "content-type",
                         ):
                             resp.headers[header_name] = header_value
 
@@ -237,7 +249,9 @@ async def handle_agent_request(request):
         ) as span:
             try:
                 # Call the run function and get the response
-                response = await run_agent(tracer, agentId, agent, payload)
+                response = await run_agent(
+                    tracer, agentId, agent, payload, agents_by_id
+                )
 
                 # Prepare response headers
                 headers = {}  # Don't include Content-Type in headers
@@ -371,7 +385,7 @@ def autostart():
 
     # Add routes
     app.router.add_get("/_health", handle_health_check)
-    app.router.add_post("/run/{agent_id}", handle_sdk_request)
+    app.router.add_post("/run/{agent_id}", handle_run_request)
     app.router.add_post("/{agent_id}", handle_agent_request)
 
     # Start the server

@@ -1,8 +1,8 @@
 from typing import Any, Optional
 import base64
 import json
-from opentelemetry import trace
 import os
+from opentelemetry import trace
 
 """
 Format of the incoming request is:
@@ -17,6 +17,116 @@ Format of the incoming request is:
 """
 
 
+class DataResult:
+    def __init__(self, data: Optional["Data"] = None):
+        self._data = data
+
+    @property
+    def data(self) -> "Data":
+        """
+        the data from the result of the operation
+        """
+        return self._data
+
+    @property
+    def exists(self) -> bool:
+        """
+        true if the data was found
+        """
+        return self._data is not None
+
+    def __str__(self) -> str:
+        return f"DataResult(contentType={self._data.contentType}, payload={self._data.base64})"
+
+
+class AgentConfig:
+    """
+    the config for the agent
+    """
+
+    def __init__(self, config: dict):
+        self._config = config
+
+    @property
+    def id(self) -> str:
+        """
+        the unique id of the agent
+        """
+        return self._config.get("id")
+
+    @property
+    def name(self) -> str:
+        """
+        the name of the agent
+        """
+        return self._config.get("name")
+
+    @property
+    def description(self) -> str:
+        """
+        the description of the agent
+        """
+        return self._config.get("description")
+
+    @property
+    def filename(self) -> str:
+        """
+        the file name to the agent relative to the dist directory
+        """
+        return self._config.get("filename")
+
+    def __str__(self) -> str:
+        return f"AgentConfig(id={self.id}, name={self.name}, description={self.description}, filename={self.filename})"
+
+
+class Data:
+    """
+    Data is a container class for working with the payload of an agent data
+    """
+
+    def __init__(self, data: dict):
+        self._data = data
+
+    @property
+    def contentType(self) -> str:
+        """
+        the content type of the data such as 'text/plain', 'application/json', 'image/png', etc. if no content type is provided, it will be inferred from the data.
+        if it cannot be inferred, it will be 'application/octet-stream'.
+        """
+        return self._data.get("contentType", "application/octet-stream")
+
+    @property
+    def base64(self) -> str:
+        """
+        base64 encoded string of the data
+        """
+        return self._data.get("payload", "")
+
+    @property
+    def text(self) -> bytes:
+        """
+        the data represented as a string
+        """
+        return decode_payload(self.base64)
+
+    @property
+    def json(self) -> dict:
+        """
+        the JSON data. If the data is not JSON, this will throw a ValueError.
+        """
+        try:
+            return json.loads(self.text)
+        except Exception as e:
+            raise ValueError("Data is not JSON") from e
+
+    @property
+    def binary(self) -> bytes:
+        """
+        the binary data represented as a bytes object
+        """
+        return decode_payload_bytes(self.base64)
+
+
 def decode_payload(payload: str) -> str:
     return base64.b64decode(payload).decode("utf-8")
 
@@ -25,119 +135,69 @@ def decode_payload_bytes(payload: str) -> bytes:
     return base64.b64decode(payload)
 
 
+def encode_payload(data: str) -> str:
+    return base64.b64encode(data.encode("utf-8")).decode("utf-8")
+
+
 class AgentRequest:
-    def __init__(self, data: dict):
-        self._data = data
+    """
+    The request that triggered the agent invocation
+    """
+
+    def __init__(self, req: dict):
+        self._req = req
+        self._data = Data(req)
 
     def validate(self) -> bool:
-        if not self.contentType:
+        if not self._req.get("contentType"):
             raise ValueError("Request must contain 'contentType' field")
-        if not self.trigger:
+        if not self._req.get("trigger"):
             raise ValueError("Request requires 'trigger' field")
         return True
 
     @property
-    def payload(self) -> str:
-        return decode_payload(self._data.get("payload", ""))
-
-    @property
-    def contentType(self) -> str:
-        return self._data.get("contentType", "application/octet-stream")
+    def data(self) -> "Data":
+        """
+        get the data of the request
+        """
+        return self._data
 
     @property
     def trigger(self) -> str:
-        return self._data.get("trigger", "")
+        """
+        get the trigger of the request
+        """
+        return self._req.get("trigger")
 
     @property
     def metadata(self) -> dict:
-        return self._data.get("metadata", {})
+        """
+        get the metadata of the request
+        """
+        return self._req.get("metadata", {})
 
     def get(self, key: str, default: Any = None) -> Any:
+        """
+        get a value from the metadata of the request
+        """
         return self.metadata.get(key, default)
-
-    @property
-    def text(self) -> str:
-        return self.payload if self.contentType == "text/plain" else ""
-
-    def json(self) -> dict:
-        if "json" in self.contentType:
-            return json.loads(self.payload)
-        return {}
-
-    def binary(self) -> bytes:
-        return decode_payload_bytes(self.payload)
-
-    def pdf(self) -> bytes:
-        return decode_payload_bytes(self.payload) if "pdf" in self.contentType else None
-
-    def png(self) -> bytes:
-        return (
-            decode_payload_bytes(self.payload)
-            if "image/png" in self.contentType
-            else None
-        )
-
-    def gif(self) -> bytes:
-        return (
-            decode_payload_bytes(self.payload)
-            if "image/gif" in self.contentType
-            else None
-        )
-
-    def jpeg(self) -> bytes:
-        return (
-            decode_payload_bytes(self.payload)
-            if "image/jpeg" == self.contentType or "image/jpg" == self.contentType
-            else None
-        )
-
-    def webp(self) -> bytes:
-        return (
-            decode_payload_bytes(self.payload)
-            if "image/webp" == self.contentType
-            else None
-        )
-
-    def webm(self) -> bytes:
-        return (
-            decode_payload_bytes(self.payload)
-            if "video/webm" == self.contentType
-            else None
-        )
-
-    def mp3(self) -> bytes:
-        return (
-            decode_payload_bytes(self.payload)
-            if "audio/mpeg" == self.contentType
-            else None
-        )
-
-    def mp4(self) -> bytes:
-        return decode_payload_bytes(self.payload) if "mp4" == self.contentType else None
-
-    def m4a(self) -> bytes:
-        return decode_payload_bytes(self.payload) if "m4a" == self.contentType else None
-
-    def wav(self) -> bytes:
-        return (
-            decode_payload_bytes(self.payload)
-            if "audio/wav" == self.contentType
-            else None
-        )
-
-    def ogg(self) -> bytes:
-        return (
-            decode_payload_bytes(self.payload)
-            if "audio/ogg" == self.contentType
-            else None
-        )
 
 
 class AgentResponse:
+    """
+    The response from an agent invocation. This is a convenience object that can be used to return a response from an agent.
+    """
+
     def __init__(self):
         self.content_type = "text/plain"
-        self.payload = None
+        self.payload = ""
         self.metadata = {}
+
+    def handoff(self, agent, args):
+        """
+        handoff the current request another agent within the same project
+        """
+        raise NotImplementedError("Handoff is not implemented")
 
     def empty(self, metadata: Optional[dict] = None) -> "AgentResponse":
         self.metadata = metadata
@@ -145,21 +205,19 @@ class AgentResponse:
 
     def text(self, data: str, metadata: Optional[dict] = None) -> "AgentResponse":
         self.content_type = "text/plain"
-        self.payload = base64.b64encode(data.encode("utf-8")).decode("utf-8")
+        self.payload = encode_payload(data)
         self.metadata = metadata
         return self
 
     def html(self, data: str, metadata: Optional[dict] = None) -> "AgentResponse":
         self.content_type = "text/html"
-        self.payload = base64.b64encode(data.encode("utf-8")).decode("utf-8")
+        self.payload = encode_payload(data)
         self.metadata = metadata
         return self
 
     def json(self, data: dict, metadata: Optional[dict] = None) -> "AgentResponse":
         self.content_type = "application/json"
-        self.payload = base64.b64encode(json.dumps(data).encode("utf-8")).decode(
-            "utf-8"
-        )
+        self.payload = encode_payload(json.dumps(data))
         self.metadata = metadata
         return self
 
@@ -170,7 +228,7 @@ class AgentResponse:
         metadata: Optional[dict] = None,
     ) -> "AgentResponse":
         self.content_type = content_type
-        self.payload = base64.b64encode(data).decode("utf-8")
+        self.payload = encode_payload(data)
         self.metadata = metadata
         return self
 
@@ -210,10 +268,21 @@ class AgentResponse:
 
 class AgentContext:
     def __init__(
-        self, services: dict, logger: Any, tracer: trace.Tracer, request: "AgentRequest"
+        self,
+        services: dict,
+        logger: Any,
+        tracer: trace.Tracer,
+        agent: dict,
+        agents_by_id: dict,
     ):
-        self.request = request
-        self.services = services
+        """
+        the key value store
+        """
+        self.kv = services.get("kv")
+        """
+        the vector store
+        """
+        self.vector = services.get("vector")
         """
         the version of the Agentuity SDK
         """
@@ -250,14 +319,13 @@ class AgentContext:
         the otel tracer
         """
         self.tracer = tracer
-
-        # TODO:
-
         """
         the agent configuration
         """
-        self.agent = {}
+        self.agent = AgentConfig(agent)
         """
         return a list of all the agents in the project
         """
         self.agents = []
+        for agent in agents_by_id.values():
+            self.agents.append(AgentConfig(agent))
