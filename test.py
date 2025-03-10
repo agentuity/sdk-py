@@ -1,8 +1,8 @@
 import logging
-from agentuity.server import autostart
+from agentuity import autostart
 
 if __name__ == "__main__":
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.INFO,
     )
     autostart()

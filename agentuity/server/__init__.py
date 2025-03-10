@@ -5,6 +5,7 @@ import os
 import sys
 import asyncio
 import aiohttp
+import platform
 from aiohttp import web
 import base64
 
@@ -14,7 +15,13 @@ from opentelemetry.propagate import extract, inject
 from agentuity.otel import init
 from agentuity.instrument import instrument
 
-from .types import AgentContext, AgentRequest, AgentResponse
+from .data import Data, encode_payload
+from .context import AgentContext
+from .request import AgentRequest
+from .response import AgentResponse
+from .keyvalue import KeyValueStore
+from .vector import VectorStore
+from .agent import RemoteAgentResponse
 
 logger = logging.getLogger(__name__)
 port = int(os.environ.get("PORT", 3500))
@@ -54,20 +61,35 @@ async def load_agent_module(agent_id: str, name: str, filename: str):
     }
 
 
-async def run_agent(tracer, agentId, agent, payload):
+async def run_agent(tracer, agentId, agent, payload, agents_by_id):
     with tracer.start_as_current_span("agent.run") as span:
         span.set_attribute("@agentuity/agentId", agentId)
         span.set_attribute("@agentuity/agentName", agent["name"])
         try:
-            agent_request = AgentRequest(payload or {})
+            agent_request = AgentRequest(payload)
             agent_request.validate()
 
-            agent_response = AgentResponse()
+            agent_response = AgentResponse(
+                payload=payload, tracer=tracer, agents_by_id=agents_by_id, port=port
+            )
             agent_context = AgentContext(
-                services={},  # need to sync on how best to get these in
+                services={
+                    "kv": KeyValueStore(
+                        base_url=os.environ.get("AGENTUITY_URL"),
+                        api_key=os.environ.get("AGENTUITY_API_KEY"),
+                        tracer=tracer,
+                    ),
+                    "vector": VectorStore(
+                        base_url=os.environ.get("AGENTUITY_URL"),
+                        api_key=os.environ.get("AGENTUITY_API_KEY"),
+                        tracer=tracer,
+                    ),
+                },
                 logger=logger,
                 tracer=tracer,
-                request=agent_request,
+                agent=agent,
+                agents_by_id=agents_by_id,
+                port=port,
             )
 
             result = await agent["run"](
@@ -75,12 +97,6 @@ async def run_agent(tracer, agentId, agent, payload):
                 response=agent_response,
                 context=agent_context,
             )
-
-            ## TODO: in JS sdk you can just return a string, number, boolean, or object
-            ## and it will be converted to the correct type
-
-            if not isinstance(result, AgentResponse):
-                raise ValueError("Agent must return AgentResponse instance")
 
             return result
 
@@ -91,7 +107,7 @@ async def run_agent(tracer, agentId, agent, payload):
             raise e
 
 
-async def handle_sdk_request(request):
+async def handle_run_request(request):
     agentId = request.match_info["agent_id"]
     logger.debug(f"request: POST /run/{agentId}")
 
@@ -115,7 +131,7 @@ async def handle_sdk_request(request):
                 target_url,
                 json=payload,
                 headers={"Content-Type": "application/json"},
-                timeout=60,  # Add a timeout to prevent hanging
+                timeout=300,  # Add a timeout to prevent hanging
             ) as response:
                 # Read the entire response body
                 response_body = await response.read()
@@ -125,22 +141,20 @@ async def handle_sdk_request(request):
                     # Parse the response as JSON
                     response_json = json.loads(response_body)
 
-                    if "payload" in response_json:
-                        response_json["payload"] = base64.b64decode(
-                            response_json["payload"]
-                        ).decode("utf-8")
+                    content_type = response_json["contentType"]
+                    body = base64.b64decode(response_json["payload"])
 
-                    # Create a JSON response with the modified data
-                    resp = web.json_response(
-                        response_json,
+                    resp = web.Response(
                         status=response.status,
+                        body=body,
+                        content_type=content_type,
                     )
 
                     # Copy relevant headers from the original response
                     for header_name, header_value in response.headers.items():
                         if header_name.lower() not in (
-                            "content-type",
                             "content-length",
+                            "content-type",
                         ):
                             resp.headers[header_name] = header_value
 
@@ -237,26 +251,55 @@ async def handle_agent_request(request):
         ) as span:
             try:
                 # Call the run function and get the response
-                response = await run_agent(tracer, agentId, agent, payload)
+                response = await run_agent(
+                    tracer, agentId, agent, payload, agents_by_id
+                )
+
+                if isinstance(response, AgentResponse):
+                    response = {
+                        "contentType": response.content_type,
+                        "payload": response.payload,
+                        "metadata": response.metadata,
+                    }
+                elif isinstance(response, RemoteAgentResponse):
+                    response = {
+                        "contentType": response.contentType,
+                        "payload": response.data.base64,
+                        "metadata": response.metadata,
+                    }
+                elif isinstance(response, Data):
+                    response = {
+                        "contentType": response.contentType,
+                        "payload": response.base64,
+                        "metadata": {},
+                    }
+                elif isinstance(response, dict) or isinstance(response, list):
+                    response = {
+                        "contentType": "application/json",
+                        "payload": encode_payload(json.dumps(response)),
+                        "metadata": {},
+                    }
+                elif isinstance(response, (str, int, float, bool)):
+                    response = {
+                        "contentType": "text/plain",
+                        "payload": encode_payload(str(response)),
+                        "metadata": {},
+                    }
+                elif isinstance(response, bytes):
+                    response = {
+                        "contentType": "application/octet-stream",
+                        "payload": base64.b64encode(response).decode("utf-8"),
+                        "metadata": {},
+                    }
+                else:
+                    raise ValueError("Unsupported response type")
 
                 # Prepare response headers
                 headers = {}  # Don't include Content-Type in headers
                 inject_trace_context(headers)
 
-                # Prepare response data
-                content_type = response.content_type
-                metadata = response.metadata or {}
-                payload = response.payload
-
-                response_data = {
-                    "contentType": content_type,
-                    "payload": payload,
-                    "metadata": metadata,
-                }
-
                 span.set_status(trace.Status(trace.StatusCode.OK))
-                # web.json_response automatically sets Content-Type to application/json
-                return web.json_response(response_data, headers=headers)
+                return web.json_response(response, headers=headers)
 
             except Exception as e:
                 logger.error(f"Error loading or running agent: {e}")
@@ -268,7 +311,7 @@ async def handle_agent_request(request):
                 inject_trace_context(headers)
 
                 return web.Response(
-                    text=f"Error loading or running agent: {str(e)}",
+                    text=str(e),
                     status=500,
                     headers=headers,
                     content_type="text/plain",  # Set content_type separately
@@ -282,6 +325,21 @@ async def handle_agent_request(request):
 
 async def handle_health_check(request):
     return web.json_response({"status": "ok"})
+
+
+async def handle_index(request):
+    buf = "The following Agent routes are available:\n\n"
+    agents_by_id = request.app["agents_by_id"]
+    id = "agent_1234"
+    for agent in agents_by_id.values():
+        id = agent["id"]
+        buf += f"POST /run/{agent['id']} - [{agent['name']}]\n"
+    buf += "\n"
+    if platform.system() != "Windows":
+        buf += "Example usage:\n\n"
+        buf += f'curl http://localhost:{port}/run/{id} \\\n\t--json \'{{"message":"Hello, world!"}}\'\n'
+        buf += "\n"
+    return web.Response(text=buf, content_type="text/plain")
 
 
 async def load_agents():
@@ -370,8 +428,9 @@ def autostart():
     app["agents_by_id"] = agents_by_id
 
     # Add routes
+    app.router.add_get("/", handle_index)
     app.router.add_get("/_health", handle_health_check)
-    app.router.add_post("/run/{agent_id}", handle_sdk_request)
+    app.router.add_post("/run/{agent_id}", handle_run_request)
     app.router.add_post("/{agent_id}", handle_agent_request)
 
     # Start the server

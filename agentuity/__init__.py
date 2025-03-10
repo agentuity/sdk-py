@@ -5,4 +5,20 @@ try:
 except importlib.metadata.PackageNotFoundError:
     __version__ = "0.0.0-dev"
 
-from agentuity.server import AgentRequest, AgentResponse, AgentContext
+from agentuity.server import (
+    AgentRequest,
+    AgentResponse,
+    AgentContext,
+    KeyValueStore,
+    VectorStore,
+    autostart,
+)
+
+__all__ = [
+    "AgentRequest",
+    "AgentResponse",
+    "AgentContext",
+    "KeyValueStore",
+    "VectorStore",
+    "autostart",
+]
