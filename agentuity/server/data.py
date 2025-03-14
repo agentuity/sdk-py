@@ -1,6 +1,9 @@
 from typing import Optional, Union
 import base64
 import json
+import io
+import os
+from typing import IO
 
 
 class DataResult:
@@ -32,6 +35,37 @@ class Data:
 
     def __init__(self, data: dict):
         self._data = data
+        self._is_stream = data.get("payload", "").startswith("blob:")
+        self._is_loaded = False
+
+    def _get_stream_filename(self) -> Union[str, None]:
+        if not self._is_stream:
+            return None
+        dir = os.environ.get("AGENTUITY_IO_INPUT_DIR", None)
+        if dir is None:
+            raise ValueError("AGENTUITY_IO_INPUT_DIR is not set")
+        id = self._data.get("payload", "")[5:]
+        fn = os.path.join(dir, id)
+        if not os.path.exists(fn):
+            raise ValueError(f"stream {id} does not exist in {dir}")
+        return fn
+
+    def _ensure_stream_loaded(self):
+        fn = self._get_stream_filename()
+        if fn is not None:
+            with open(fn, "r") as f:
+                self._data["payload"] = encode_payload(f.read())
+            self._is_loaded = False
+
+    @property
+    def stream(self) -> IO[bytes]:
+        """
+        an IO[bytes] object as a stream of the data
+        """
+        fn = self._get_stream_filename()
+        if fn is not None:
+            return open(fn, "rb")
+        return io.BytesIO(decode_payload_bytes(self.base64))
 
     @property
     def contentType(self) -> str:
@@ -46,6 +80,7 @@ class Data:
         """
         base64 encoded string of the data
         """
+        self._ensure_stream_loaded()
         return self._data.get("payload", "")
 
     @property
@@ -70,6 +105,7 @@ class Data:
         """
         the binary data represented as a bytes object
         """
+        self._ensure_stream_loaded()
         return decode_payload_bytes(self.base64)
 
 
