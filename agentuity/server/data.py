@@ -35,7 +35,7 @@ class Data:
 
     def __init__(self, data: dict):
         self._data = data
-        self._is_stream = data.get("payload", "").startswith("stream:")
+        self._is_stream = data.get("payload", "").startswith("blob:")
         self._is_loaded = False
 
     def _get_stream_filename(self) -> Union[str, None]:
@@ -44,7 +44,7 @@ class Data:
         dir = os.environ.get("AGENTUITY_IO_INPUT_DIR", None)
         if dir is None:
             raise ValueError("AGENTUITY_IO_INPUT_DIR is not set")
-        id = self._data.get("payload", "")[7:]
+        id = self._data.get("payload", "")[5:]
         fn = os.path.join(dir, id)
         if not os.path.exists(fn):
             raise ValueError(f"stream {id} does not exist in {dir}")
