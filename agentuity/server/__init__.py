@@ -289,9 +289,16 @@ async def handle_agent_request(request: web.Request):
                 response = await response
 
                 if isinstance(response, AgentResponse):
+                    payload = response.payload
+                    if response.is_stream:
+                        payload = ""
+                        for chunk in response:
+                            if chunk is not None:
+                                payload += chunk
+                        payload = encode_payload(payload)
                     response = {
                         "contentType": response.content_type,
-                        "payload": response.payload,
+                        "payload": payload,
                         "metadata": response.metadata,
                     }
                 elif isinstance(response, RemoteAgentResponse):
