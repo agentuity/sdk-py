@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Iterable, Callable, Any
 import json
 from opentelemetry import trace
 from .data import encode_payload
@@ -125,3 +125,27 @@ class AgentResponse:
 
     def ogg(self, data: bytes, metadata: Optional[dict] = None) -> "AgentResponse":
         return self.binary(data, "audio/ogg", metadata)
+
+    def stream(
+        self, data: Iterable[Any], transform: Callable[[Any], str]
+    ) -> "AgentResponse":
+        self.content_type = "text/plain"
+        self.payload = ""
+        self.metadata = None
+        self._stream = data
+        self._transform = transform
+        return self
+
+    @property
+    def is_stream(self) -> bool:
+        return self._stream is not None
+
+    def __iter__(self):
+        if not self.is_stream:
+            raise StopIteration
+        return self
+
+    def __next__(self):
+        if not self.is_stream:
+            raise StopIteration
+        return self._transform(next(self._stream))
