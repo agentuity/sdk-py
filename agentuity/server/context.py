@@ -7,7 +7,8 @@ from .agent import RemoteAgent
 
 class AgentContext:
     """
-    the context of the agent invocation
+    The context of the agent invocation. This class provides access to all the necessary
+    services, configuration, and environment information needed during agent execution.
     """
 
     def __init__(
@@ -19,6 +20,19 @@ class AgentContext:
         agents_by_id: dict,
         port: int,
     ):
+        """
+        Initialize the AgentContext with required services and configuration.
+
+        Args:
+            services: Dictionary containing service instances:
+                - kv: Key-value store service
+                - vector: Vector store service
+            logger: Logging instance for the agent
+            tracer: OpenTelemetry tracer for distributed tracing
+            agent: Dictionary containing the current agent's configuration
+            agents_by_id: Dictionary mapping agent IDs to their configurations
+            port: Port number for agent communication
+        """
         self._port = port
 
         """
@@ -77,6 +91,18 @@ class AgentContext:
             self.agents.append(AgentConfig(agent))
 
     def get_agent(self, agent_id_or_name: str) -> "RemoteAgent":
+        """
+        Retrieve a RemoteAgent instance by its ID or name.
+
+        Args:
+            agent_id_or_name: The unique identifier or display name of the agent
+
+        Returns:
+            RemoteAgent: The requested agent instance
+
+        Raises:
+            ValueError: If no agent is found with the given ID or name
+        """
         for agent in self.agents:
             if agent.id == agent_id_or_name or agent.name == agent_id_or_name:
                 return RemoteAgent(agent, self._port, self.tracer)

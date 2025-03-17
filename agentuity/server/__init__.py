@@ -7,6 +7,7 @@ import asyncio
 import aiohttp
 import platform
 from aiohttp import web
+from aiohttp_sse import sse_response
 import base64
 
 from opentelemetry import trace
@@ -212,7 +213,7 @@ async def handle_run_request(request):
             return resp
 
 
-async def handle_agent_request(request):
+async def handle_agent_request(request: web.Request):
     # Access the agents_by_id from the app state
     agents_by_id = request.app["agents_by_id"]
 
@@ -250,15 +251,54 @@ async def handle_agent_request(request):
             },
         ) as span:
             try:
+                is_sse = request.headers.get("accept") == "text/event-stream"
+
                 # Call the run function and get the response
-                response = await run_agent(
-                    tracer, agentId, agent, payload, agents_by_id
-                )
+                response = run_agent(tracer, agentId, agent, payload, agents_by_id)
+
+                # Prepare response headers
+                headers = {}  # Don't include Content-Type in headers
+                inject_trace_context(headers)
+
+                # handle server side events
+                if is_sse:
+                    async with sse_response(request, headers=headers) as resp:
+                        response = await response
+                        if not isinstance(response, AgentResponse):
+                            return web.Response(
+                                text="Expected a AgentResponse response when using SSE",
+                                status=500,
+                                headers=headers,
+                                content_type="text/plain",
+                            )
+                        if not response.is_stream:
+                            return web.Response(
+                                text="Expected a stream response when using SSE",
+                                status=500,
+                                headers=headers,
+                                content_type="text/plain",
+                            )
+                        for chunk in response:
+                            if chunk is None:
+                                resp.force_close()
+                                break
+                            await resp.send(chunk)
+                    return resp
+
+                # handle normal response
+                response = await response
 
                 if isinstance(response, AgentResponse):
+                    payload = response.payload
+                    if response.is_stream:
+                        payload = ""
+                        for chunk in response:
+                            if chunk is not None:
+                                payload += chunk
+                        payload = encode_payload(payload)
                     response = {
                         "contentType": response.content_type,
-                        "payload": response.payload,
+                        "payload": payload,
                         "metadata": response.metadata,
                     }
                 elif isinstance(response, RemoteAgentResponse):
@@ -293,10 +333,6 @@ async def handle_agent_request(request):
                     }
                 else:
                     raise ValueError("Unsupported response type")
-
-                # Prepare response headers
-                headers = {}  # Don't include Content-Type in headers
-                inject_trace_context(headers)
 
                 span.set_status(trace.Status(trace.StatusCode.OK))
                 return web.json_response(response, headers=headers)

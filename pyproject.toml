@@ -16,6 +16,7 @@ dependencies = [
     "aiohttp>=3.11.13",
     "asyncio>=3.4.3",
     "httpx>=0.28.1",
+    "aiohttp-sse>=2.2.0",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",

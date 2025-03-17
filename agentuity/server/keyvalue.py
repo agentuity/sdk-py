@@ -8,7 +8,9 @@ from opentelemetry import trace
 
 class KeyValueStore:
     """
-    a key value store for storing and retrieving key value pairs
+    A key-value store client for storing and retrieving key-value pairs. This class provides
+    methods to interact with a key-value storage service, supporting operations like getting,
+    setting, and deleting values with optional TTL (Time To Live) and content type specifications.
     """
 
     def __init__(
@@ -17,13 +19,31 @@ class KeyValueStore:
         api_key: str,
         tracer: trace.Tracer,
     ):
+        """
+        Initialize the KeyValueStore client.
+
+        Args:
+            base_url: The base URL of the key-value storage service
+            api_key: The API key for authentication
+            tracer: OpenTelemetry tracer for distributed tracing
+        """
         self.base_url = base_url
         self.api_key = api_key
         self.tracer = tracer
 
     async def get(self, name: str, key: str) -> DataResult:
         """
-        get a value from the key value storage
+        Retrieve a value from the key-value storage.
+
+        Args:
+            name: The name of the key-value collection
+            key: The key to retrieve
+
+        Returns:
+            DataResult: A container containing the retrieved data if found, or None if not found
+
+        Raises:
+            Exception: If the retrieval operation fails
         """
         with self.tracer.start_as_current_span("agentuity.keyvalue.get") as span:
             span.set_attribute("name", name)
@@ -66,7 +86,23 @@ class KeyValueStore:
         params: Optional[dict] = None,
     ):
         """
-        set a value in the key value storage
+        Store a value in the key-value storage.
+
+        Args:
+            name: The name of the key-value collection
+            key: The key to store the value under
+            value: The value to store. Can be:
+                - Data object
+                - bytes
+                - str, int, float, bool
+                - list or dict (will be converted to JSON)
+            params: Optional dictionary containing:
+                - ttl: Time to live in seconds (minimum 60 seconds)
+                - contentType: The MIME type of the value
+
+        Raises:
+            ValueError: If TTL is less than 60 seconds
+            Exception: If the storage operation fails or value encoding fails
         """
         with self.tracer.start_as_current_span("agentuity.keyvalue.set") as span:
             span.set_attribute("name", name)
@@ -113,7 +149,14 @@ class KeyValueStore:
 
     async def delete(self, name: str, key: str):
         """
-        delete a value in the key value storage
+        Delete a value from the key-value storage.
+
+        Args:
+            name: The name of the key-value collection
+            key: The key to delete
+
+        Raises:
+            Exception: If the deletion operation fails
         """
         with self.tracer.start_as_current_span("agentuity.keyvalue.delete") as span:
             span.set_attribute("name", name)
