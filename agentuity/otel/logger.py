@@ -1,5 +1,4 @@
 import logging
-from opentelemetry import trace
 
 
 def create_logger(

@@ -1,6 +1,6 @@
-.PHONY: build install release clean
+.PHONY: build install release clean lint format
 
-build:
+build: lint format
 	@uv build
 
 clean:
@@ -12,3 +12,9 @@ install:
 
 release: clean build
 	@uv publish
+
+lint:
+	@uvx ruff check
+
+format:
+	@uvx ruff format
