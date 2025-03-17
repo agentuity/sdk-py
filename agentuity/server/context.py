@@ -1,8 +1,9 @@
-from typing import Any
 import os
+from logging import Logger
 from opentelemetry import trace
 from .config import AgentConfig
 from .agent import RemoteAgent
+from agentuity.otel import create_logger
 
 
 class AgentContext:
@@ -14,7 +15,7 @@ class AgentContext:
     def __init__(
         self,
         services: dict,
-        logger: Any,
+        logger: Logger,
         tracer: trace.Tracer,
         agent: dict,
         agents_by_id: dict,
@@ -72,9 +73,13 @@ class AgentContext:
         """
         self.environment = os.getenv("AGENTUITY_ENVIRONMENT", "development")
         """
-        the logger
+        the logger for the agent
         """
-        self.logger = logger
+        self.logger = create_logger(
+            logger,
+            "agent",
+            {"@agentuity/agentId": agent["id"]},
+        )
         """
         the otel tracer
         """

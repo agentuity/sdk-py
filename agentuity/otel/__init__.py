@@ -18,11 +18,9 @@ from opentelemetry.sdk._logs import LoggingHandler, LoggerProvider
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.propagate import set_global_textmap
-from opentelemetry.propagators.composite import CompositePropagator
-from .propagator import AgentuityPropagator
 from .logfilter import ModuleFilter
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
-
+from .logger import create_logger
 
 logger = logging.getLogger(__name__)
 
@@ -145,12 +143,7 @@ def init(config: Optional[Dict[str, str]] = {}):
     root_logger = logging.getLogger()
     root_logger.addHandler(handler)
 
-    propagator = CompositePropagator(
-        [
-            AgentuityPropagator(),
-            TraceContextTextMapPropagator(),
-        ]
-    )
+    propagator = TraceContextTextMapPropagator()
     set_global_textmap(propagator)
 
     stopped = False
@@ -172,3 +165,6 @@ def init(config: Optional[Dict[str, str]] = {}):
     signal.signal(signal.SIGTERM, signal_handler)
 
     return handler
+
+
+__all__ = ["init", "create_logger"]
