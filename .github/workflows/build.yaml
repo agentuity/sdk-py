@@ -24,3 +24,4 @@ jobs:
           python-version-file: "pyproject.toml"
       - name: Install dependencies & tooling
         run: uv sync --all-extras --dev
+      - uses: astral-sh/ruff-action@v3
