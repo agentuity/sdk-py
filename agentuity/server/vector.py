@@ -25,17 +25,40 @@ class VectorSearchResult:
 
 class VectorStore:
     """
-    a vector store for storing and searching vectors
+    A vector store for storing and searching vectors. This class provides methods to interact
+    with a vector storage service, supporting operations like upserting, retrieving, searching,
+    and deleting vectors.
     """
 
     def __init__(self, base_url: str, api_key: str, tracer: trace.Tracer):
+        """
+        Initialize the VectorStore client.
+
+        Args:
+            base_url: The base URL of the vector storage service
+            api_key: The API key for authentication
+            tracer: OpenTelemetry tracer for distributed tracing
+        """
         self.base_url = base_url
         self.api_key = api_key
         self.tracer = tracer
 
     async def upsert(self, name: str, documents: list[dict]) -> list[str]:
         """
-        upsert a vector into the vector storage
+        Upsert vectors into the vector storage.
+
+        Args:
+            name: The name of the vector collection
+            documents: List of documents to upsert. Each document must contain:
+                - key: Required field identifying the document
+                - Either 'document' or 'embeddings' field
+
+        Returns:
+            list[str]: List of IDs of the upserted documents
+
+        Raises:
+            ValueError: If documents are missing required fields
+            Exception: If the upsert operation fails
         """
         with self.tracer.start_as_current_span("agentuity.vector.upsert") as span:
             span.set_attribute("name", name)
@@ -72,7 +95,18 @@ class VectorStore:
 
     async def get(self, name: str, key: str) -> list[VectorSearchResult]:
         """
-        get a vector from the vector storage by key
+        Retrieve vectors from the vector storage by key.
+
+        Args:
+            name: The name of the vector collection
+            key: The key to search for
+
+        Returns:
+            list[VectorSearchResult]: List of matching vector search results. Returns empty list
+                if no matches found.
+
+        Raises:
+            Exception: If the retrieval operation fails
         """
         with self.tracer.start_as_current_span("agentuity.vector.get") as span:
             span.set_attribute("name", name)
@@ -113,7 +147,21 @@ class VectorStore:
         metadata: Optional[dict] = {},
     ) -> list[VectorSearchResult]:
         """
-        search for vectors in the vector storage
+        Search for vectors in the vector storage using semantic similarity.
+
+        Args:
+            name: The name of the vector collection
+            query: The search query string
+            limit: Maximum number of results to return (default: 10)
+            similarity: Minimum similarity threshold between 0.0 and 1.0 (default: 0.5)
+            metadata: Optional metadata filters to apply to the search
+
+        Returns:
+            list[VectorSearchResult]: List of matching vector search results. Returns empty list
+                if no matches found.
+
+        Raises:
+            Exception: If the search operation fails
         """
         with self.tracer.start_as_current_span("agentuity.vector.search") as span:
             span.set_attribute("name", name)
@@ -168,7 +216,17 @@ class VectorStore:
 
     async def delete(self, name: str, key: str) -> int:
         """
-        delete a vector from the vector storage
+        Delete vectors from the vector storage by key.
+
+        Args:
+            name: The name of the vector collection
+            key: The key of the vectors to delete
+
+        Returns:
+            int: Number of vectors deleted
+
+        Raises:
+            Exception: If the deletion operation fails
         """
         with self.tracer.start_as_current_span("agentuity.vector.delete") as span:
             span.set_attribute("name", name)

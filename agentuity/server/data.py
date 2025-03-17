@@ -7,38 +7,81 @@ from typing import IO
 
 
 class DataResult:
+    """
+    A container class for the result of a data operation, providing access to the data
+    and information about whether the data exists.
+    """
+
     def __init__(self, data: Optional["Data"] = None):
+        """
+        Initialize a DataResult with optional data.
+
+        Args:
+            data: Optional Data object containing the result data
+        """
         self._data = data
 
     @property
     def data(self) -> "Data":
         """
-        the data from the result of the operation
+        Get the data from the result of the operation.
+
+        Returns:
+            Data: The data object containing the result content
         """
         return self._data
 
     @property
     def exists(self) -> bool:
         """
-        true if the data was found
+        Check if the data was found.
+
+        Returns:
+            bool: True if the data exists, False otherwise
         """
         return self._data is not None
 
     def __str__(self) -> str:
+        """
+        Get a string representation of the data result.
+
+        Returns:
+            str: A formatted string containing the content type and payload
+        """
         return f"DataResult(contentType={self._data.contentType}, payload={self._data.base64})"
 
 
 class Data:
     """
-    Data is a container class for working with the payload of an agent data
+    A container class for working with agent data payloads. This class provides methods
+    to handle different types of data (text, JSON, binary) and supports streaming
+    functionality for large payloads.
     """
 
     def __init__(self, data: dict):
+        """
+        Initialize a Data object with a dictionary containing payload information.
+
+        Args:
+            data: Dictionary containing:
+                - payload: The base64 encoded data or blob reference
+                - contentType: The MIME type of the data
+        """
         self._data = data
         self._is_stream = data.get("payload", "").startswith("blob:")
         self._is_loaded = False
 
     def _get_stream_filename(self) -> Union[str, None]:
+        """
+        Get the filename for a stream payload.
+
+        Returns:
+            Union[str, None]: The full path to the stream file if it's a blob,
+                            None otherwise
+
+        Raises:
+            ValueError: If AGENTUITY_IO_INPUT_DIR is not set or stream file doesn't exist
+        """
         if not self._is_stream:
             return None
         dir = os.environ.get("AGENTUITY_IO_INPUT_DIR", None)
@@ -51,6 +94,10 @@ class Data:
         return fn
 
     def _ensure_stream_loaded(self):
+        """
+        Ensure that stream data is loaded into memory if it's a blob.
+        Converts the stream file content to base64 encoded string.
+        """
         fn = self._get_stream_filename()
         if fn is not None:
             with open(fn, "r") as f:
@@ -60,7 +107,10 @@ class Data:
     @property
     def stream(self) -> IO[bytes]:
         """
-        an IO[bytes] object as a stream of the data
+        Get the data as a stream of bytes.
+
+        Returns:
+            IO[bytes]: A file-like object providing access to the data as bytes
         """
         fn = self._get_stream_filename()
         if fn is not None:
@@ -70,15 +120,21 @@ class Data:
     @property
     def contentType(self) -> str:
         """
-        the content type of the data such as 'text/plain', 'application/json', 'image/png', etc. if no content type is provided, it will be inferred from the data.
-        if it cannot be inferred, it will be 'application/octet-stream'.
+        Get the content type of the data.
+
+        Returns:
+            str: The MIME type of the data. If not provided, it will be inferred from
+                the data. If it cannot be inferred, returns 'application/octet-stream'
         """
         return self._data.get("contentType", "application/octet-stream")
 
     @property
     def base64(self) -> str:
         """
-        base64 encoded string of the data
+        Get the base64 encoded string of the data.
+
+        Returns:
+            str: The base64 encoded payload
         """
         self._ensure_stream_loaded()
         return self._data.get("payload", "")
@@ -86,14 +142,23 @@ class Data:
     @property
     def text(self) -> bytes:
         """
-        the data represented as a string
+        Get the data as a string.
+
+        Returns:
+            bytes: The decoded text content
         """
         return decode_payload(self.base64)
 
     @property
     def json(self) -> dict:
         """
-        the JSON data. If the data is not JSON, this will throw a ValueError.
+        Get the data as a JSON object.
+
+        Returns:
+            dict: The parsed JSON data
+
+        Raises:
+            ValueError: If the data is not valid JSON
         """
         try:
             return json.loads(self.text)
@@ -103,27 +168,76 @@ class Data:
     @property
     def binary(self) -> bytes:
         """
-        the binary data represented as a bytes object
+        Get the data as binary bytes.
+
+        Returns:
+            bytes: The raw binary data
         """
         self._ensure_stream_loaded()
         return decode_payload_bytes(self.base64)
 
 
 def decode_payload(payload: str) -> str:
+    """
+    Decode a base64 payload into a UTF-8 string.
+
+    Args:
+        payload: Base64 encoded string
+
+    Returns:
+        str: Decoded UTF-8 string
+    """
     return base64.b64decode(payload).decode("utf-8")
 
 
 def decode_payload_bytes(payload: str) -> bytes:
+    """
+    Decode a base64 payload into bytes.
+
+    Args:
+        payload: Base64 encoded string
+
+    Returns:
+        bytes: Decoded binary data
+    """
     return base64.b64decode(payload)
 
 
 def encode_payload(data: str) -> str:
+    """
+    Encode a string into base64.
+
+    Args:
+        data: UTF-8 string to encode
+
+    Returns:
+        str: Base64 encoded string
+    """
     return base64.b64encode(data.encode("utf-8")).decode("utf-8")
 
 
 def value_to_payload(
     content_type: str, value: Union[str, int, float, bool, list, dict, bytes, "Data"]
 ) -> dict:
+    """
+    Convert a value to a payload dictionary with appropriate content type.
+
+    Args:
+        content_type: The desired content type for the payload
+        value: The value to convert. Can be:
+            - Data object
+            - bytes
+            - str, int, float, bool
+            - list or dict (will be converted to JSON)
+
+    Returns:
+        dict: Dictionary containing:
+            - contentType: The content type of the payload
+            - payload: The encoded payload data
+
+    Raises:
+        ValueError: If the value type is not supported
+    """
     if isinstance(value, Data):
         content_type = content_type or value.contentType
         payload = base64.b64decode(value.base64)
