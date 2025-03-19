@@ -30,6 +30,8 @@ class AgentResponse:
         self._tracer = tracer
         self._agents_by_id = agents_by_id
         self._port = port
+        self._stream = None
+        self._transform = None
 
     async def handoff(
         self, params: dict, args: Optional[dict] = None, metadata: Optional[dict] = None
