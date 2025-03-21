@@ -4,8 +4,8 @@ import wrapt
 from agentuity import __version__
 
 gateway_urls = [
-    "https://api.agentuity.com/sdk/gateway",
-    "https://agentuity.ai/sdk/gateway",
+    "https://api.agentuity.com/sdk/gateway/",
+    "https://agentuity.ai/llm/",
 ]
 
 

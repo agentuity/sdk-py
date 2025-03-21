@@ -23,6 +23,7 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 from .logger import create_logger
 
 logger = logging.getLogger(__name__)
+trace_provider = None
 
 
 def init(config: Optional[Dict[str, str]] = {}):
@@ -164,7 +165,10 @@ def init(config: Optional[Dict[str, str]] = {}):
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
+    global trace_provider
+    trace_provider = tracerProvider
+
     return handler
 
 
-__all__ = ["init", "create_logger"]
+__all__ = ["init", "create_logger", "trace_provider"]
