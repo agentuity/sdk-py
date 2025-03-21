@@ -23,6 +23,7 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 from .logger import create_logger
 
 logger = logging.getLogger(__name__)
+trace_provider = None
 
 
 def init(config: Optional[Dict[str, str]] = {}):
@@ -52,14 +53,19 @@ def init(config: Optional[Dict[str, str]] = {}):
     environment = config.get(
         "environment", os.environ.get("AGENTUITY_ENVIRONMENT", "development")
     )
-    devmode = config.get("devmode", os.environ.get("AGENTUITY_SDK_DEV_MODE", "false"))
+    devmode = (
+        config.get("devmode", os.environ.get("AGENTUITY_SDK_DEV_MODE", "false"))
+        == "true"
+    )
     app_name = config.get(
         "app_name", os.environ.get("AGENTUITY_SDK_APP_NAME", "unknown")
     )
     app_version = config.get(
         "app_version", os.environ.get("AGENTUITY_SDK_APP_VERSION", "unknown")
     )
-    export_internal_ms = 1000 if devmode else 60000
+    export_internal_ms = 500 if devmode else 60000
+    max_export_batch_size = 1 if devmode else 512
+    schedule_delay_millis = 500 if devmode else 30000
 
     resource = Resource(
         attributes={
@@ -98,6 +104,8 @@ def init(config: Optional[Dict[str, str]] = {}):
             timeout=10,
         ),
         export_timeout_millis=export_internal_ms,
+        max_export_batch_size=max_export_batch_size,
+        schedule_delay_millis=schedule_delay_millis,
     )
     tracerProvider.add_span_processor(processor)
     trace.set_tracer_provider(tracerProvider)
@@ -127,8 +135,9 @@ def init(config: Optional[Dict[str, str]] = {}):
             compression=Compression.Gzip,
             timeout=10,
         ),
-        max_export_batch_size=512,
+        max_export_batch_size=max_export_batch_size,
         export_timeout_millis=export_internal_ms,
+        schedule_delay_millis=schedule_delay_millis,
     )
     loggerProvider.add_log_record_processor(logProcessor)
     _logs.set_logger_provider(loggerProvider)
@@ -164,7 +173,10 @@ def init(config: Optional[Dict[str, str]] = {}):
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
+    global trace_provider
+    trace_provider = tracerProvider
+
     return handler
 
 
-__all__ = ["init", "create_logger"]
+__all__ = ["init", "create_logger", "trace_provider"]
