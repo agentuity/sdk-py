@@ -99,6 +99,7 @@ async def run_agent(tracer, agentId, agent, payload, agents_by_id):
                 context=agent_context,
             )
 
+            span.set_status(trace.Status(trace.StatusCode.OK))
             return result
 
         except Exception as e:

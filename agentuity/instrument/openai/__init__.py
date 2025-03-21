@@ -37,7 +37,9 @@ def instrument():
         def on_trace_end(self, t: Trace) -> None:
             # End the current trace and clean up state
             if t.trace_id in self.state:
-                self.state[t.trace_id].end()
+                thespan = self.state[t.trace_id]
+                thespan.set_status(trace.StatusCode.OK)
+                thespan.end()
                 del self.state[t.trace_id]
 
         def on_span_start(self, span: Span[Any]) -> None:
@@ -71,6 +73,7 @@ def instrument():
         def on_span_end(self, span: Span[Any]) -> None:
             if span.span_id in self.state:
                 thespan = self.state[span.span_id]
+                thespan.set_status(trace.StatusCode.OK)
                 thespan.end()
                 del self.state[span.span_id]
 
