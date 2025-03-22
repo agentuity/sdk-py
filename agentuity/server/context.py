@@ -78,7 +78,7 @@ class AgentContext:
         self.logger = create_logger(
             logger,
             "agent",
-            {"@agentuity/agentId": agent["id"]},
+            {"@agentuity/agentId": agent["id"], "@agentuity/agentName": agent["name"]},
         )
         """
         the otel tracer
