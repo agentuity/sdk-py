@@ -9,6 +9,8 @@ import platform
 from aiohttp import web
 from aiohttp_sse import sse_response
 import base64
+from typing import Callable, Any
+import traceback
 
 from opentelemetry import trace
 from opentelemetry.propagate import extract, inject
@@ -38,18 +40,17 @@ def inject_trace_context(headers):
         logger.error(f"Error injecting trace context: {e}")
 
 
-async def load_agent_module(agent_id: str, name: str, filename: str):
-    agent_path = os.path.join(os.getcwd(), filename)
-
+def load_agent_module(agent_id: str, name: str, filename: str):
     # Load the agent module dynamically
-    spec = importlib.util.spec_from_file_location(agent_id, agent_path)
+    logger.debug(f"loading agent {agent_id} ({name}) from {filename}")
+    spec = importlib.util.spec_from_file_location(agent_id, filename)
     if spec is None:
         raise ImportError(f"Could not load module for {filename}")
 
     agent_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(agent_module)
 
-    # Check if the module has a run function
+    # # Check if the module has a run function
     if not hasattr(agent_module, "run"):
         raise AttributeError(f"Module {filename} does not have a run function")
 
@@ -379,81 +380,92 @@ async def handle_index(request):
     return web.Response(text=buf, content_type="text/plain")
 
 
-async def load_agents():
+def load_config() -> Any:
     # Load agents from config file
-    try:
-        config_path = os.path.join(os.getcwd(), ".agentuity", "config.json")
-        config_data = {}
-        agents_by_id = {}
+    config_path = os.path.join(os.getcwd(), ".agentuity", "config.json")
+    config_data = None
+    if os.path.exists(config_path):
+        with open(config_path, "r") as config_file:
+            config_data = json.load(config_file)
+            for agent in config_data["agents"]:
+                config_data["filename"] = os.path.join(
+                    os.getcwd(), "agents", agent["name"], "agent.py"
+                )
+    else:
+        config_path = os.path.join(os.getcwd(), "agentuity.yaml")
         if os.path.exists(config_path):
             with open(config_path, "r") as config_file:
-                config_data = json.load(config_file)
-                agents = config_data.get("agents", [])
-                agents_by_id = {}
-                for agent in agents:
-                    agent_module = await load_agent_module(
-                        agent["id"], agent["name"], agent["filename"]
-                    )
-                    agents_by_id[agent["id"]] = {
-                        "run": agent_module["run"],
-                        "name": agent["name"],
-                        "id": agent["id"],
-                    }
-        else:
-            config_path = os.path.join(os.getcwd(), "agentuity.yaml")
-            logger.info(f"Loading dev agent configuration from {config_path}")
-            if os.path.exists(config_path):
                 from yaml import safe_load
 
-                with open(config_path, "r") as f:
-                    agentconfig = safe_load(f)
-                    config_data["environment"] = "development"
-                    config_data["cli_version"] = "unknown"
-                    config_data["app"] = {"name": agentconfig["name"], "version": "dev"}
-                    agents_by_id = {}
-                    for agent in agentconfig["agents"]:
-                        filename = os.path.join(
-                            os.getcwd(), "agents", agent["name"], "agent.py"
-                        )
-                        agent_module = await load_agent_module(
-                            agent["id"], agent["name"], filename
-                        )
-                        agents_by_id[agent["id"]] = {
-                            "id": agent["id"],
-                            "name": agent["name"],
-                            "filename": filename,
-                            "run": agent_module["run"],
-                        }
-        logger.info(f"Loaded {len(agents_by_id)} agents from {config_path}")
+                agent_config = safe_load(config_file)
+                config_data = {}
+                config_data["environment"] = "development"
+                config_data["cli_version"] = "unknown"
+                config_data["app"] = {"name": agent_config["name"], "version": "dev"}
+                config_data["filename"] = os.path.join(
+                    os.getcwd(), "agents", agent_config["name"], "agent.py"
+                )
+    return config_data
+
+
+def load_agents(config_data):
+    try:
+        agents_by_id = {}
+        for agent in config_data["agents"]:
+            if not os.path.exists(agent["filename"]):
+                logger.error(f"Agent {agent['name']} not found at {agent['filename']}")
+                sys.exit(1)
+            logger.debug(f"Loading agent {agent['name']} from {agent['filename']}")
+            agent_module = load_agent_module(
+                agent_id=agent["id"],
+                name=agent["name"],
+                filename=agent["filename"],
+            )
+            agents_by_id[agent["id"]] = {
+                "id": agent["id"],
+                "name": agent["name"],
+                "filename": agent["filename"],
+                "run": agent_module["run"],
+            }
+        logger.info(f"Loaded {len(agents_by_id)} agents")
         for agent in agents_by_id.values():
             logger.info(f"Loaded agent: {agent['name']} [{agent['id']}]")
-        return init(
-            {
-                "cliVersion": config_data["cli_version"],
-                "environment": config_data["environment"],
-                "app_name": config_data["app"]["name"],
-                "app_version": config_data["app"]["version"],
-            }
-        ), agents_by_id
+        return agents_by_id
     except json.JSONDecodeError as e:
         logger.error(f"Error parsing agent configuration: {e}")
         sys.exit(1)
     except Exception as e:
+        traceback.print_exc()
         logger.error(f"Error loading agent configuration: {e}")
         sys.exit(1)
 
 
-def autostart():
-    instrument()
-
+def autostart(callback: Callable[[], None] = None):
     # Create an event loop and run the async initialization
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
     logger.setLevel(logging.INFO)
+    config_data = load_config()
 
-    # Run load_agents in the event loop
-    loghandler, agents_by_id = loop.run_until_complete(load_agents())
+    if config_data is None:
+        logger.error("No agentuityconfig file found")
+        sys.exit(1)
+
+    loghandler = init(
+        {
+            "cliVersion": config_data["cli_version"],
+            "environment": config_data["environment"],
+            "app_name": config_data["app"]["name"],
+            "app_version": config_data["app"]["version"],
+        },
+    )
+
+    instrument()
+
+    callback() if callback else None
+
+    agents_by_id = load_agents(config_data)
 
     if loghandler:
         logger.addHandler(loghandler)

@@ -1,13 +1,14 @@
 import logging
 import signal
 import os
+import openlit
 from agentuity import __version__
 from typing import Optional, Dict
 from opentelemetry import trace
 from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION, Resource
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry import metrics
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.sdk.metrics import MeterProvider
@@ -23,10 +24,13 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 from .logger import create_logger
 
 logger = logging.getLogger(__name__)
-trace_provider = None
 
 
 def init(config: Optional[Dict[str, str]] = {}):
+    if os.environ.get("AGENTUITY_OTLP_DISABLED", "false") == "true":
+        logger.warning("OTLP disabled, skipping initialization")
+        return None
+
     endpoint = config.get("endpoint", os.environ.get("AGENTUITY_OTLP_URL"))
     if endpoint is None:
         logger.warning("No endpoint found, skipping OTLP initialization")
@@ -96,17 +100,19 @@ def init(config: Optional[Dict[str, str]] = {}):
         resource=resource,
         shutdown_on_exit=False,
     )
+    exporter = OTLPSpanExporter(
+        endpoint=endpoint + "/v1/traces",
+        headers=headers,
+        compression=Compression.Gzip,
+        timeout=10,
+    )
     processor = BatchSpanProcessor(
-        OTLPSpanExporter(
-            endpoint=endpoint + "/v1/traces",
-            headers=headers,
-            compression=Compression.Gzip,
-            timeout=10,
-        ),
+        exporter,
         export_timeout_millis=export_internal_ms,
         max_export_batch_size=max_export_batch_size,
         schedule_delay_millis=schedule_delay_millis,
     )
+    tracerProvider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
     tracerProvider.add_span_processor(processor)
     trace.set_tracer_provider(tracerProvider)
 
@@ -173,10 +179,11 @@ def init(config: Optional[Dict[str, str]] = {}):
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    global trace_provider
-    trace_provider = tracerProvider
+    logger.debug("initializing openlit")
+    openlit.init(tracer=trace.get_tracer(__name__))
+    logger.debug("after initializing openlit")
 
     return handler
 
 
-__all__ = ["init", "create_logger", "trace_provider"]
+__all__ = ["init", "create_logger"]
