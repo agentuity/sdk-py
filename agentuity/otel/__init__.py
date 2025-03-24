@@ -22,8 +22,11 @@ from opentelemetry.propagate import set_global_textmap
 from .logfilter import ModuleFilter
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from .logger import create_logger
+from .span_patch import patch_span
 
 logger = logging.getLogger(__name__)
+
+patch_span()
 
 
 def init(config: Optional[Dict[str, str]] = {}):
@@ -112,7 +115,10 @@ def init(config: Optional[Dict[str, str]] = {}):
         max_export_batch_size=max_export_batch_size,
         schedule_delay_millis=schedule_delay_millis,
     )
-    tracerProvider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
+
+    if os.environ.get("AGENTUITY_OTLP_CONSOLE_EXPORTER", "false") == "true":
+        tracerProvider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
+
     tracerProvider.add_span_processor(processor)
     trace.set_tracer_provider(tracerProvider)
 
@@ -180,7 +186,9 @@ def init(config: Optional[Dict[str, str]] = {}):
     signal.signal(signal.SIGTERM, signal_handler)
 
     logger.debug("initializing openlit")
+    logging.getLogger("openlit").setLevel(logging.ERROR)
     openlit.init(tracer=trace.get_tracer(__name__))
+    logging.getLogger("openlit").setLevel(logging.WARNING)
     logger.debug("after initializing openlit")
 
     return handler

@@ -9,6 +9,7 @@ gateway_urls = [
     "https://api.agentuity.com/sdk/gateway/",
     "https://agentuity.ai/llm/",
     "https://api.agentuity.dev/",
+    "http://localhost:",
 ]
 
 
