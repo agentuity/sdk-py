@@ -6,17 +6,18 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE.md" }
 dependencies = [
-    "opentelemetry-api>=1.21.0",
-    "opentelemetry-sdk>=1.21.0",
-    "opentelemetry-instrumentation>=0.42b0",
-    "opentelemetry-exporter-otlp>=1.21.0",
-    "opentelemetry-exporter-otlp-proto-http>=1.21.0",
+    "opentelemetry-api>=1.31.1",
+    "opentelemetry-sdk>=1.31.1",
+    "opentelemetry-instrumentation>=0.48b0",
+    "opentelemetry-exporter-otlp>=1.31.1",
+    "opentelemetry-exporter-otlp-proto-http>=1.31.1",
     "pyyaml>=6.0.2",
     "wrapt>=1.17.2",
     "aiohttp>=3.11.13",
     "asyncio>=3.4.3",
     "httpx>=0.28.1",
     "aiohttp-sse>=2.2.0",
+    "openlit>=1.33.19",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",

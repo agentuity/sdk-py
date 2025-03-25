@@ -122,6 +122,7 @@ def instrument():
     setupHook = False
 
     if not agentuity_sdk:
+        logger.warning("Agentuity SDK not configured")
         return
 
     if is_module_available("litellm"):
@@ -135,4 +136,11 @@ def instrument():
     if setupHook and is_module_available("httpx"):
         from agentuity.instrument.httpx_wrap import instrument as instrument_httpx
 
+        logger.debug("instrumenting httpx")
         instrument_httpx()
+
+    if is_module_available("agents"):
+        from agentuity.instrument.openai import instrument as instrument_openai
+
+        logger.debug("instrumenting openai agents framework")
+        instrument_openai()

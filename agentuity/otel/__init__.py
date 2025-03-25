@@ -1,13 +1,14 @@
 import logging
 import signal
 import os
+import openlit
 from agentuity import __version__
 from typing import Optional, Dict
 from opentelemetry import trace
 from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION, Resource
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry import metrics
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.sdk.metrics import MeterProvider
@@ -21,11 +22,18 @@ from opentelemetry.propagate import set_global_textmap
 from .logfilter import ModuleFilter
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from .logger import create_logger
+from .span_patch import patch_span
 
 logger = logging.getLogger(__name__)
 
+patch_span()
+
 
 def init(config: Optional[Dict[str, str]] = {}):
+    if os.environ.get("AGENTUITY_OTLP_DISABLED", "false") == "true":
+        logger.warning("OTLP disabled, skipping initialization")
+        return None
+
     endpoint = config.get("endpoint", os.environ.get("AGENTUITY_OTLP_URL"))
     if endpoint is None:
         logger.warning("No endpoint found, skipping OTLP initialization")
@@ -52,14 +60,19 @@ def init(config: Optional[Dict[str, str]] = {}):
     environment = config.get(
         "environment", os.environ.get("AGENTUITY_ENVIRONMENT", "development")
     )
-    devmode = config.get("devmode", os.environ.get("AGENTUITY_SDK_DEV_MODE", "false"))
+    devmode = (
+        config.get("devmode", os.environ.get("AGENTUITY_SDK_DEV_MODE", "false"))
+        == "true"
+    )
     app_name = config.get(
         "app_name", os.environ.get("AGENTUITY_SDK_APP_NAME", "unknown")
     )
     app_version = config.get(
         "app_version", os.environ.get("AGENTUITY_SDK_APP_VERSION", "unknown")
     )
-    export_internal_ms = 1000 if devmode else 60000
+    export_internal_ms = 500 if devmode else 60000
+    max_export_batch_size = 1 if devmode else 512
+    schedule_delay_millis = 500 if devmode else 30000
 
     resource = Resource(
         attributes={
@@ -90,15 +103,22 @@ def init(config: Optional[Dict[str, str]] = {}):
         resource=resource,
         shutdown_on_exit=False,
     )
-    processor = BatchSpanProcessor(
-        OTLPSpanExporter(
-            endpoint=endpoint + "/v1/traces",
-            headers=headers,
-            compression=Compression.Gzip,
-            timeout=10,
-        ),
-        export_timeout_millis=export_internal_ms,
+    exporter = OTLPSpanExporter(
+        endpoint=endpoint + "/v1/traces",
+        headers=headers,
+        compression=Compression.Gzip,
+        timeout=10,
     )
+    processor = BatchSpanProcessor(
+        exporter,
+        export_timeout_millis=export_internal_ms,
+        max_export_batch_size=max_export_batch_size,
+        schedule_delay_millis=schedule_delay_millis,
+    )
+
+    if os.environ.get("AGENTUITY_OTLP_CONSOLE_EXPORTER", "false") == "true":
+        tracerProvider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
+
     tracerProvider.add_span_processor(processor)
     trace.set_tracer_provider(tracerProvider)
 
@@ -127,8 +147,9 @@ def init(config: Optional[Dict[str, str]] = {}):
             compression=Compression.Gzip,
             timeout=10,
         ),
-        max_export_batch_size=512,
+        max_export_batch_size=max_export_batch_size,
         export_timeout_millis=export_internal_ms,
+        schedule_delay_millis=schedule_delay_millis,
     )
     loggerProvider.add_log_record_processor(logProcessor)
     _logs.set_logger_provider(loggerProvider)
@@ -163,6 +184,12 @@ def init(config: Optional[Dict[str, str]] = {}):
     # Register signal handler for graceful shutdown
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
+
+    logger.debug("initializing openlit")
+    logging.getLogger("openlit").setLevel(logging.ERROR)
+    openlit.init(tracer=trace.get_tracer(__name__))
+    logging.getLogger("openlit").setLevel(logging.WARNING)
+    logger.debug("after initializing openlit")
 
     return handler
 
