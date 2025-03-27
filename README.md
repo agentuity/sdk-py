@@ -1,5 +1,5 @@
 <div align="center">
-    <img src=".github/Agentuity.png" alt="Agentuity" width="100"/> <br/>
+    <img src="https://raw.githubusercontent.com/agentuity/sdk-py/main/.github/Agentuity.png" alt="Agentuity" width="100"/> <br/>
     <strong>Build Agents, Not Infrastructure</strong> <br/>
 <br />
 <a href="https://pypi.org/project/agentuity/"><img alt="Python version" src="https://img.shields.io/pypi/v/agentuity"></a>
