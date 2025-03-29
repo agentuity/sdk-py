@@ -7,7 +7,7 @@ from agentuity import __version__
 
 gateway_urls = [
     "https://api.agentuity.com/sdk/gateway/",
-    "https://agentuity.ai/llm/",
+    "https://agentuity.ai/gateway/",
     "https://api.agentuity.dev/",
     "http://localhost:",
 ]
