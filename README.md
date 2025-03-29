@@ -13,9 +13,6 @@
 
 **Visit [https://agentuity.com](https://agentuity.com) to get started with Agentuity.**
 
-> [!WARNING]  
-> This is currently a work in progress and not ready to be opened to the public.
-
 
 
 The Agentuity Python SDK is a powerful toolkit for building, deploying, and managing AI agents in Python environments. This SDK provides developers with a comprehensive set of tools to create intelligent, event-driven agents that can process various types of content, communicate with each other, and integrate with external systems.
