@@ -77,12 +77,12 @@ async def run_agent(tracer, agentId, agent, payload, agents_by_id):
             agent_context = AgentContext(
                 services={
                     "kv": KeyValueStore(
-                        base_url=os.environ.get("AGENTUITY_TRANSPORT_URL") or os.environ.get("AGENTUITY_URL", "https://agentuity.ai"),
+                        base_url=os.environ.get("AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"),
                         api_key=os.environ.get("AGENTUITY_API_KEY"),
                         tracer=tracer,
                     ),
                     "vector": VectorStore(
-                        base_url=os.environ.get("AGENTUITY_TRANSPORT_URL") or os.environ.get("AGENTUITY_URL", "https://agentuity.ai"),
+                        base_url=os.environ.get("AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"),
                         api_key=os.environ.get("AGENTUITY_API_KEY"),
                         tracer=tracer,
                     ),

@@ -116,21 +116,24 @@ def configure_native_provider(agentuity_url: str, agentuity_api_key: str) -> boo
 
 
 def instrument():
-    agentuity_url = os.getenv("AGENTUITY_TRANSPORT_URL") or os.getenv("AGENTUITY_URL", "https://agentuity.ai")
-    agentuity_api_key = os.getenv("AGENTUITY_API_KEY", "")
-    agentuity_sdk = agentuity_url and agentuity_api_key
+    agentuity_url = os.getenv("AGENTUITY_TRANSPORT_URL", "https://agentuity.ai")
+    agentuity_api_key = os.getenv("AGENTUITY_API_KEY", None)
+    agentuity_sdk = agentuity_url is not None and agentuity_api_key is not None
     setupHook = False
 
     if not agentuity_sdk:
         logger.warning("Agentuity SDK not configured")
         return
 
+    url = str(agentuity_url) if agentuity_url else ""
+    api_key = str(agentuity_api_key) if agentuity_api_key else ""
+
     if is_module_available("litellm"):
-        if configure_litellm_provider(agentuity_url, agentuity_api_key):
+        if configure_litellm_provider(url, api_key):
             logger.info("Instrumented Litellm to use Agentuity AI Gateway")
             setupHook = True
 
-    if configure_native_provider(agentuity_url, agentuity_api_key):
+    if configure_native_provider(url, api_key):
         setupHook = True
 
     if setupHook and is_module_available("httpx"):
