@@ -116,9 +116,9 @@ def configure_native_provider(agentuity_url: str, agentuity_api_key: str) -> boo
 
 
 def instrument():
-    agentuity_url = os.getenv("AGENTUITY_TRANSPORT_URL", "https://agentuity.ai")
+    agentuity_url = os.getenv("AGENTUITY_TRANSPORT_URL") or os.getenv("AGENTUITY_URL", "https://agentuity.ai")
     agentuity_api_key = os.getenv("AGENTUITY_API_KEY", "")
-    agentuity_sdk = agentuity_url is not None and agentuity_api_key is not None
+    agentuity_sdk = agentuity_url and agentuity_api_key
     setupHook = False
 
     if not agentuity_sdk:
