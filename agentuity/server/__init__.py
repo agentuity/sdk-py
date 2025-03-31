@@ -27,7 +27,7 @@ from .vector import VectorStore
 from .agent import RemoteAgentResponse
 
 logger = logging.getLogger(__name__)
-port = int(os.environ.get("PORT", 3500))
+port = int(os.environ.get("AGENTUITY_CLOUD_PORT", os.environ.get("PORT", 3500)))
 
 
 # Utility function to inject trace context into response headers
