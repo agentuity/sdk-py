@@ -144,3 +144,9 @@ def instrument():
 
         logger.debug("instrumenting openai agents framework")
         instrument_openai()
+        
+    if is_module_available("langchain"):
+        from agentuity.instrument.langchain import instrument as instrument_langchain
+        
+        logger.debug("instrumenting langchain")
+        instrument_langchain()
