@@ -1,0 +1,44 @@
+name: PyPI Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'  # Only trigger on semantic version tags (e.g., v1.2.3)
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    name: Build and Release to PyPI
+    permissions:
+      id-token: write  # For PyPI publish verification
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for uv-dynamic-versioning to work properly with git tags
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: "pyproject.toml"
+
+      - name: Install dependencies & tooling
+        run: uv sync --all-extras --dev
+
+      - name: Lint
+        run: uvx ruff check
+
+      - name: Build package
+        run: uv build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # No need to specify token as this action uses OIDC
