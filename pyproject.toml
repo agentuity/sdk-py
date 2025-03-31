@@ -18,6 +18,7 @@ dependencies = [
     "httpx>=0.28.1",
     "aiohttp-sse>=2.2.0",
     "openlit>=1.33.19",
+    "openai-agents>=0.0.3",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
