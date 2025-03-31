@@ -49,7 +49,7 @@ class KeyValueStore:
             span.set_attribute("name", name)
             span.set_attribute("key", key)
             response = httpx.get(
-                f"{self.base_url}/sdk/kv/{name}/{key}",
+                f"{self.base_url}/kv/{name}/{key}",
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "User-Agent": f"Agentuity Python SDK/{__version__}",
@@ -132,7 +132,7 @@ class KeyValueStore:
             span.set_attribute("contentType", content_type)
 
             response = httpx.put(
-                f"{self.base_url}/sdk/kv/{name}/{key}{ttlstr}",
+                f"{self.base_url}/kv/{name}/{key}{ttlstr}",
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "User-Agent": f"Agentuity Python SDK/{__version__}",
@@ -162,7 +162,7 @@ class KeyValueStore:
             span.set_attribute("name", name)
             span.set_attribute("key", key)
             response = httpx.delete(
-                f"{self.base_url}/sdk/kv/{name}/{key}",
+                f"{self.base_url}/kv/{name}/{key}",
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "User-Agent": f"Agentuity Python SDK/{__version__}",

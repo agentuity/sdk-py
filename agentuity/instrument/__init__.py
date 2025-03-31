@@ -49,7 +49,7 @@ def configure_litellm_provider(agentuity_url: str, agentuity_api_key: str) -> bo
         if os.getenv(envname, "") == "":
             os.environ[envname] = agentuity_api_key
             os.environ[name + "_API_BASE"] = (
-                agentuity_url + "/sdk/gateway/" + config["provider"]
+                agentuity_url + "/gateway/" + config["provider"]
             )
             ok = True
     return ok
@@ -105,7 +105,7 @@ def configure_native_provider(agentuity_url: str, agentuity_api_key: str) -> boo
             if os.getenv(config["env"], "") == "":
                 os.environ[config["env"]] = agentuity_api_key
                 os.environ[config["base"]] = (
-                    agentuity_url + "/sdk/gateway/" + config["provider"]
+                    agentuity_url + "/gateway/" + config["provider"]
                 )
                 logger.info(
                     "Instrumented %s Provider to use Agentuity AI Gateway",
@@ -116,7 +116,7 @@ def configure_native_provider(agentuity_url: str, agentuity_api_key: str) -> boo
 
 
 def instrument():
-    agentuity_url = os.getenv("AGENTUITY_URL", None)
+    agentuity_url = os.getenv("AGENTUITY_TRANSPORT_URL", "https://agentuity.ai")
     agentuity_api_key = os.getenv("AGENTUITY_API_KEY", None)
     agentuity_sdk = agentuity_url is not None and agentuity_api_key is not None
     setupHook = False
@@ -125,12 +125,15 @@ def instrument():
         logger.warning("Agentuity SDK not configured")
         return
 
+    url = str(agentuity_url) if agentuity_url else ""
+    api_key = str(agentuity_api_key) if agentuity_api_key else ""
+
     if is_module_available("litellm"):
-        if configure_litellm_provider(agentuity_url, agentuity_api_key):
+        if configure_litellm_provider(url, api_key):
             logger.info("Instrumented Litellm to use Agentuity AI Gateway")
             setupHook = True
 
-    if configure_native_provider(agentuity_url, agentuity_api_key):
+    if configure_native_provider(url, api_key):
         setupHook = True
 
     if setupHook and is_module_available("httpx"):
