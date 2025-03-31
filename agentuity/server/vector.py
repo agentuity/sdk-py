@@ -68,7 +68,7 @@ class VectorStore:
             if "document" not in document and "embeddings" not in document:
                 raise ValueError("document must have either a document or embeddings")
             response = httpx.put(
-                f"{self.base_url}/sdk/vector/{name}",
+                f"{self.base_url}/vector/{name}",
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "User-Agent": f"Agentuity Python SDK/{__version__}",
@@ -112,7 +112,7 @@ class VectorStore:
             span.set_attribute("name", name)
             span.set_attribute("key", key)
             response = httpx.get(
-                f"{self.base_url}/sdk/vector/{name}/{key}",
+                f"{self.base_url}/vector/{name}/{key}",
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "User-Agent": f"Agentuity Python SDK/{__version__}",
@@ -169,7 +169,7 @@ class VectorStore:
             span.set_attribute("limit", limit)
             span.set_attribute("similarity", similarity)
             response = httpx.post(
-                f"{self.base_url}/sdk/vector/search/{name}",
+                f"{self.base_url}/vector/search/{name}",
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "User-Agent": f"Agentuity Python SDK/{__version__}",
@@ -232,7 +232,7 @@ class VectorStore:
             span.set_attribute("name", name)
             span.set_attribute("key", key)
             response = httpx.delete(
-                f"{self.base_url}/sdk/vector/{name}/{key}",
+                f"{self.base_url}/vector/{name}/{key}",
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "User-Agent": f"Agentuity Python SDK/{__version__}",

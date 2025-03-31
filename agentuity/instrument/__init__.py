@@ -49,7 +49,7 @@ def configure_litellm_provider(agentuity_url: str, agentuity_api_key: str) -> bo
         if os.getenv(envname, "") == "":
             os.environ[envname] = agentuity_api_key
             os.environ[name + "_API_BASE"] = (
-                agentuity_url + "/sdk/gateway/" + config["provider"]
+                agentuity_url + "/gateway/" + config["provider"]
             )
             ok = True
     return ok
@@ -105,7 +105,7 @@ def configure_native_provider(agentuity_url: str, agentuity_api_key: str) -> boo
             if os.getenv(config["env"], "") == "":
                 os.environ[config["env"]] = agentuity_api_key
                 os.environ[config["base"]] = (
-                    agentuity_url + "/sdk/gateway/" + config["provider"]
+                    agentuity_url + "/gateway/" + config["provider"]
                 )
                 logger.info(
                     "Instrumented %s Provider to use Agentuity AI Gateway",
@@ -116,8 +116,8 @@ def configure_native_provider(agentuity_url: str, agentuity_api_key: str) -> boo
 
 
 def instrument():
-    agentuity_url = os.getenv("AGENTUITY_URL", None)
-    agentuity_api_key = os.getenv("AGENTUITY_API_KEY", None)
+    agentuity_url = os.getenv("AGENTUITY_TRANSPORT_URL", "https://agentuity.ai")
+    agentuity_api_key = os.getenv("AGENTUITY_API_KEY", "")
     agentuity_sdk = agentuity_url is not None and agentuity_api_key is not None
     setupHook = False
 
