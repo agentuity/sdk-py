@@ -2,7 +2,6 @@ def instrument():
     """Instrument the Langchain library to work with Agentuity."""
     import importlib.util
     import logging
-    import os
     
     logger = logging.getLogger(__name__)
     
