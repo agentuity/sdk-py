@@ -307,6 +307,57 @@ class AgentResponse:
             AgentResponse: The response object with OGG content
         """
         return self.binary(data, "audio/ogg", metadata)
+        
+    def data(
+        self, 
+        data: Any, 
+        content_type: str, 
+        metadata: Optional[dict] = None
+    ) -> "AgentResponse":
+        """
+        Set a response with specific data and content type.
+
+        Args:
+            data: The data to send (can be any type)
+            content_type: The MIME type of the data
+            metadata: Optional metadata to include with the response
+
+        Returns:
+            AgentResponse: The response object with the specified content
+        """
+        if isinstance(data, bytes):
+            return self.binary(data, content_type, metadata)
+        elif isinstance(data, str):
+            self.content_type = content_type
+            self.payload = encode_payload(data)
+            self.metadata = metadata
+            return self
+        elif isinstance(data, dict):
+            self.content_type = content_type
+            self.payload = encode_payload(json.dumps(data))
+            self.metadata = metadata
+            return self
+        else:
+            self.content_type = content_type
+            self.payload = encode_payload(str(data))
+            self.metadata = metadata
+            return self
+            
+    def markdown(self, content: str, metadata: Optional[dict] = None) -> "AgentResponse":
+        """
+        Set a markdown response.
+
+        Args:
+            content: The markdown content to send
+            metadata: Optional metadata to include with the response
+
+        Returns:
+            AgentResponse: The response object with markdown content
+        """
+        self.content_type = "text/markdown"
+        self.payload = encode_payload(content)
+        self.metadata = metadata
+        return self
 
     def stream(
         self, data: Iterable[Any], transform: Optional[Callable[[Any], str]] = None
