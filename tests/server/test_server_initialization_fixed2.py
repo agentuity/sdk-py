@@ -4,8 +4,7 @@ import os
 import yaml
 import json
 import tempfile
-from unittest.mock import patch, MagicMock, AsyncMock, call
-import importlib.util
+from unittest.mock import patch, MagicMock, AsyncMock
 from aiohttp.web import Application
 
 sys.modules['openlit'] = MagicMock()
@@ -14,11 +13,7 @@ from agentuity.server import (  # noqa: E402
     load_agents,
     load_agent_module,
     autostart,
-    load_config,
-    handle_index,
-    handle_health_check,
-    handle_run_request,
-    handle_agent_request
+    load_config
 )
 
 
