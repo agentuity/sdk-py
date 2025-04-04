@@ -13,36 +13,39 @@ class TestOtelInit:
     
     def test_init_disabled(self):
         """Test init when OTLP is disabled."""
+        mock_logger = MagicMock()
         with patch.dict(os.environ, {"AGENTUITY_OTLP_DISABLED": "true"}), \
-             patch("agentuity.otel.logger.warning") as mock_warning:
+             patch("agentuity.otel.logger", mock_logger):
             result = init()
             assert result is None
-            mock_warning.assert_called_once_with("OTLP disabled, skipping initialization")
+            mock_logger.warning.assert_called_once_with("OTLP disabled, skipping initialization")
             
     def test_init_no_endpoint(self):
         """Test init when no endpoint is provided."""
+        mock_logger = MagicMock()
         with patch.dict(os.environ, {"AGENTUITY_OTLP_DISABLED": "false"}), \
-             patch("agentuity.otel.logger.warning") as mock_warning:
+             patch("agentuity.otel.logger", mock_logger):
             if "AGENTUITY_OTLP_URL" in os.environ:
                 del os.environ["AGENTUITY_OTLP_URL"]
                 
             result = init({})
             assert result is None
-            mock_warning.assert_called_once_with("No endpoint found, skipping OTLP initialization")
+            mock_logger.warning.assert_called_once_with("No endpoint found, skipping OTLP initialization")
             
     def test_init_no_bearer_token(self):
         """Test init when no bearer token is provided."""
+        mock_logger = MagicMock()
         with patch.dict(os.environ, {
                 "AGENTUITY_OTLP_DISABLED": "false",
                 "AGENTUITY_OTLP_URL": "https://test.com"
              }), \
-             patch("agentuity.otel.logger.warning") as mock_warning:
+             patch("agentuity.otel.logger", mock_logger):
             if "AGENTUITY_OTLP_BEARER_TOKEN" in os.environ:
                 del os.environ["AGENTUITY_OTLP_BEARER_TOKEN"]
                 
             result = init({})
             assert result is None
-            mock_warning.assert_called_once_with("No bearer token found, skipping OTLP initialization")
+            mock_logger.warning.assert_called_once_with("No bearer token found, skipping OTLP initialization")
             
     def test_init_with_config(self):
         """Test init with valid configuration."""
