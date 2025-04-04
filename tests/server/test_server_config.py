@@ -2,7 +2,6 @@ import pytest
 import sys
 import os
 import json
-import tempfile
 from unittest.mock import patch, MagicMock
 import yaml
 
