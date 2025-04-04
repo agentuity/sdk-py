@@ -1,7 +1,7 @@
 import pytest
 import logging
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 sys.modules['openlit'] = MagicMock()
 

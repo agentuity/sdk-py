@@ -9,7 +9,6 @@ sys.modules['openlit'] = MagicMock()
 
 from agentuity.server.response import AgentResponse  # noqa: E402
 from agentuity.server.agent import RemoteAgent  # noqa: E402
-from agentuity.server.config import AgentConfig  # noqa: E402
 
 
 class TestAgentResponseExtended:

@@ -1,5 +1,4 @@
 import pytest
-import os
 import sys
 from unittest.mock import MagicMock, patch
 from opentelemetry import trace

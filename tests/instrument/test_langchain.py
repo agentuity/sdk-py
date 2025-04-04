@@ -1,5 +1,3 @@
-import pytest
-import sys
 import logging
 import io
 from unittest.mock import MagicMock, patch
