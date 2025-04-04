@@ -1,11 +1,10 @@
-import pytest
 import os
 import sys
 from unittest.mock import patch, MagicMock
 
 sys.modules['openlit'] = MagicMock()
 
-from agentuity.instrument import (
+from agentuity.instrument import (  # noqa: E402
     is_module_available,
     check_provider,
     configure_litellm_provider,
