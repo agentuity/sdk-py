@@ -14,7 +14,7 @@ release: clean build
 	@uv publish
 
 lint:
-	@uvx ruff check
+	@ruff check
 
 format:
-	@uvx ruff format
+	@ruff format

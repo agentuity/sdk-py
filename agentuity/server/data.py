@@ -203,17 +203,20 @@ def decode_payload_bytes(payload: str) -> bytes:
     return base64.b64decode(payload)
 
 
-def encode_payload(data: str) -> str:
+def encode_payload(data: Union[str, bytes]) -> str:
     """
-    Encode a string into base64.
+    Encode a string or bytes into base64.
 
     Args:
-        data: UTF-8 string to encode
+        data: UTF-8 string or bytes to encode
 
     Returns:
         str: Base64 encoded string
     """
-    return base64.b64encode(data.encode("utf-8")).decode("utf-8")
+    if isinstance(data, bytes):
+        return base64.b64encode(data).decode("utf-8")
+    else:
+        return base64.b64encode(data.encode("utf-8")).decode("utf-8")
 
 
 def value_to_payload(
