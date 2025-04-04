@@ -1,7 +1,6 @@
 import pytest
 from unittest.mock import MagicMock, patch
 import json
-import base64
 from opentelemetry import trace
 from agentuity.server.response import AgentResponse
 from agentuity.server.data import encode_payload
@@ -99,7 +98,8 @@ class TestAgentResponse:
         assert agent_response._stream == data
         assert agent_response._transform is None
         
-        transform_fn = lambda x: f"transformed: {x}"
+        def transform_fn(x):
+            return f"transformed: {x}"
         result = agent_response.stream(data, transform_fn)
         assert agent_response._transform == transform_fn
         

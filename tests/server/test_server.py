@@ -1,10 +1,8 @@
 import pytest
 import os
-import json
 import tempfile
-from unittest.mock import patch, MagicMock
-import importlib.util
-from agentuity.server import load_agent_module, inject_trace_context, load_agents, autostart
+from unittest.mock import patch
+from agentuity.server import load_agent_module, inject_trace_context
 
 
 class TestServerFunctions:
