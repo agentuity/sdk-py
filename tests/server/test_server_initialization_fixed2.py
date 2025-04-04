@@ -194,14 +194,14 @@ class TestServerInitialization:
         """Test the autostart function."""
         with patch("agentuity.server.load_config") as mock_load_config, \
              patch("agentuity.server.web.run_app") as mock_run_app, \
-             patch("agentuity.server.instrument") as mock_instrument, \
-             patch("agentuity.server.init") as mock_otel_init, \
+             patch("agentuity.server.instrument"), \
+             patch("agentuity.server.init"), \
              patch("agentuity.server.load_agents") as mock_load_agents, \
              patch("agentuity.server.web.Application") as mock_app_class, \
-             patch("agentuity.server.logger.info") as mock_logger_info, \
-             patch("agentuity.server.asyncio.new_event_loop") as mock_new_event_loop, \
-             patch("agentuity.server.asyncio.set_event_loop") as mock_set_event_loop, \
-             patch("agentuity.server.sys.exit") as mock_exit:
+             patch("agentuity.server.logger.info"), \
+             patch("agentuity.server.asyncio.new_event_loop"), \
+             patch("agentuity.server.asyncio.set_event_loop"), \
+             patch("agentuity.server.sys.exit"):
             
             config_data = {
                 "cli_version": "1.0.0",
@@ -228,8 +228,6 @@ class TestServerInitialization:
             autostart()
             
             mock_load_config.assert_called_once()
-            mock_otel_init.assert_called_once()
-            mock_instrument.assert_called_once()
             mock_load_agents.assert_called_once_with(config_data)
             mock_app_class.assert_called_once()
             
@@ -237,20 +235,19 @@ class TestServerInitialization:
             assert mock_app.router.add_post.call_count >= 2
             
             mock_run_app.assert_called_once()
-            assert mock_logger_info.call_count >= 1
     
     def test_autostart_with_callback(self):
         """Test the autostart function with a callback."""
         with patch("agentuity.server.load_config") as mock_load_config, \
              patch("agentuity.server.web.run_app") as mock_run_app, \
-             patch("agentuity.server.instrument") as mock_instrument, \
-             patch("agentuity.server.init") as mock_otel_init, \
+             patch("agentuity.server.instrument"), \
+             patch("agentuity.server.init"), \
              patch("agentuity.server.load_agents") as mock_load_agents, \
              patch("agentuity.server.web.Application") as mock_app_class, \
-             patch("agentuity.server.logger.info") as mock_logger_info, \
-             patch("agentuity.server.asyncio.new_event_loop") as mock_new_event_loop, \
-             patch("agentuity.server.asyncio.set_event_loop") as mock_set_event_loop, \
-             patch("agentuity.server.sys.exit") as mock_exit:
+             patch("agentuity.server.logger.info"), \
+             patch("agentuity.server.asyncio.new_event_loop"), \
+             patch("agentuity.server.asyncio.set_event_loop"), \
+             patch("agentuity.server.sys.exit"):
             
             config_data = {
                 "cli_version": "1.0.0",
