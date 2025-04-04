@@ -2,7 +2,7 @@ import pytest
 import sys
 import json
 import base64
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import MagicMock, AsyncMock
 import httpx
 from opentelemetry import trace
 

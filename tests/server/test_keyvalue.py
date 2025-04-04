@@ -1,7 +1,7 @@
 import pytest
 import sys
 import json
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import MagicMock
 import httpx
 from opentelemetry import trace
 
@@ -148,7 +148,9 @@ class TestKeyValueStore:
     @pytest.mark.asyncio
     async def test_set_invalid_ttl(self, key_value_store, monkeypatch):
         """Test setting a value with invalid TTL."""
-        mock_put = MagicMock()
+        mock_response = MagicMock(spec=httpx.Response)
+        mock_response.status_code = 201
+        mock_put = MagicMock(return_value=mock_response)
         monkeypatch.setattr(httpx, "put", mock_put)
         
         with pytest.raises(ValueError, match="ttl must be at least 60 seconds"):
@@ -158,8 +160,9 @@ class TestKeyValueStore:
                 "Hello, world!",
                 {"ttl": 30}  # Less than minimum 60 seconds
             )
-        
+            
         mock_put.assert_not_called()
+        
     
     @pytest.mark.asyncio
     async def test_set_error(self, key_value_store, mock_tracer, monkeypatch):
