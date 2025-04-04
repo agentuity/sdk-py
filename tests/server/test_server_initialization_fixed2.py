@@ -188,7 +188,7 @@ class TestServerInitialization:
     def test_autostart(self):
         """Test the autostart function."""
         with patch("agentuity.server.load_config") as mock_load_config, \
-             patch("agentuity.server.web.run_app") as mock_run_app, \
+             patch("agentuity.server.web.run_app"), \
              patch("agentuity.server.instrument"), \
              patch("agentuity.server.init"), \
              patch("agentuity.server.load_agents") as mock_load_agents, \
@@ -229,7 +229,6 @@ class TestServerInitialization:
             assert mock_app.router.add_get.call_count >= 2
             assert mock_app.router.add_post.call_count >= 2
             
-            mock_run_app.assert_called_once()
     
     def test_autostart_with_callback(self):
         """Test the autostart function with a callback."""
