@@ -2,15 +2,13 @@ import pytest
 import sys
 import json
 import base64
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import MagicMock, AsyncMock
 from opentelemetry import trace
 
 sys.modules['openlit'] = MagicMock()
 
 from agentuity.server import run_agent  # noqa: E402
-from agentuity.server.request import AgentRequest  # noqa: E402
 from agentuity.server.response import AgentResponse  # noqa: E402
-from agentuity.server.data import Data  # noqa: E402
 
 
 class TestAgentExecution:

@@ -234,7 +234,7 @@ class TestServerInitialization:
     def test_autostart_with_callback(self):
         """Test the autostart function with a callback."""
         with patch("agentuity.server.load_config") as mock_load_config, \
-             patch("agentuity.server.web.run_app") as mock_run_app, \
+             patch("agentuity.server.web.run_app"), \
              patch("agentuity.server.instrument"), \
              patch("agentuity.server.init"), \
              patch("agentuity.server.load_agents") as mock_load_agents, \
