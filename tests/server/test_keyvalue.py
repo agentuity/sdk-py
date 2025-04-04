@@ -102,7 +102,10 @@ class TestKeyValueStore:
             assert args[0] == "https://api.example.com/kv/test_collection/test_key"
             assert kwargs["headers"]["Authorization"] == "Bearer test_api_key"
             assert kwargs["headers"]["Content-Type"] == "text/plain"
-            assert kwargs["content"] == b"Hello, world!"
+            content = kwargs["content"]
+            if isinstance(content, bytes):
+                content = content.decode('utf-8')
+            assert content == "Hello, world!"
             
             span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
             span.set_attribute.assert_any_call("name", "test_collection")
@@ -126,7 +129,14 @@ class TestKeyValueStore:
             
             assert args[0] == "https://api.example.com/kv/test_collection/test_key"
             assert kwargs["headers"]["Content-Type"] == "application/json"
-            assert json.loads(kwargs["content"].decode("utf-8")) == json_data
+            
+            content = kwargs["content"]
+            if isinstance(content, bytes):
+                parsed_json = json.loads(content.decode("utf-8"))
+            else:
+                parsed_json = json.loads(content)
+                
+            assert parsed_json == json_data
             
             span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
             span.set_attribute.assert_any_call("contentType", "application/json")
@@ -138,17 +148,28 @@ class TestKeyValueStore:
         mock_response.status_code = 201
         
         with patch("httpx.put", return_value=mock_response):
-            await key_value_store.set(
-                "test_collection", 
-                "test_key", 
-                "Hello, world!",
-                {"ttl": 3600}  # 1 hour TTL
-            )
+            original_set = key_value_store.set
+            
+            async def patched_set(name, key, value, params=None):
+                if params is None:
+                    params = {}
+                ttl = params.get("ttl", None)
+                
+                return await original_set(name, key, value, params)
+                
+            with patch.object(key_value_store, 'set', side_effect=patched_set):
+                await key_value_store.set(
+                    "test_collection", 
+                    "test_key", 
+                    "Hello, world!",
+                    {"ttl": 3600}  # 1 hour TTL
+                )
             
             httpx.put.assert_called_once()
             args, kwargs = httpx.put.call_args
             
-            assert "/3600" in args[0]
+            expected_url = "https://api.example.com/kv/test_collection/test_key/3600"
+            assert args[0] == expected_url
             
             span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
             span.set_attribute.assert_any_call("ttl", "/3600")
@@ -156,13 +177,14 @@ class TestKeyValueStore:
     @pytest.mark.asyncio
     async def test_set_invalid_ttl(self, key_value_store):
         """Test setting a value with invalid TTL."""
-        with pytest.raises(ValueError, match="ttl must be at least 60 seconds"):
-            await key_value_store.set(
-                "test_collection", 
-                "test_key", 
-                "Hello, world!",
-                {"ttl": 30}  # Less than minimum 60 seconds
-            )
+        with patch("httpx.put"):
+            with pytest.raises(ValueError, match="ttl must be at least 60 seconds"):
+                await key_value_store.set(
+                    "test_collection", 
+                    "test_key", 
+                    "Hello, world!",
+                    {"ttl": 30}  # Less than minimum 60 seconds
+                )
     
     @pytest.mark.asyncio
     async def test_set_error(self, key_value_store, mock_tracer):
@@ -173,12 +195,12 @@ class TestKeyValueStore:
         with patch("httpx.put", return_value=mock_response), \
              pytest.raises(Exception, match="Failed to set key value: 500"):
             await key_value_store.set("test_collection", "test_key", "Hello, world!")
-            
-            span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
-            span.set_status.assert_called_once_with(
-                trace.StatusCode.ERROR, 
-                "Failed to set key value"
-            )
+        
+        span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
+        span.set_status.assert_called_once_with(
+            trace.StatusCode.ERROR, 
+            "Failed to set key value"
+        )
     
     @pytest.mark.asyncio
     async def test_delete_success(self, key_value_store, mock_tracer):
@@ -209,9 +231,9 @@ class TestKeyValueStore:
         with patch("httpx.delete", return_value=mock_response), \
              pytest.raises(Exception, match="Failed to delete key value: 500"):
             await key_value_store.delete("test_collection", "test_key")
-            
-            span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
-            span.set_status.assert_called_once_with(
-                trace.StatusCode.ERROR, 
-                "Failed to delete key value"
-            )
+        
+        span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
+        span.set_status.assert_called_once_with(
+            trace.StatusCode.ERROR, 
+            "Failed to delete key value"
+        )

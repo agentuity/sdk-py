@@ -172,6 +172,8 @@ class TestRemoteAgent:
             assert isinstance(result, RemoteAgentResponse)
             assert result.contentType == "application/octet-stream"
             assert result.data.binary == b"Binary response"
+            
+            mock_client.post.assert_called_once()
     
     @pytest.mark.asyncio
     async def test_run_with_metadata(self, remote_agent, mock_tracer):
@@ -206,14 +208,17 @@ class TestRemoteAgent:
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 500
         mock_response.content = b"Internal server error"
+        mock_response.text = "Internal server error"
         
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
         
         with patch("httpx.AsyncClient", return_value=mock_client), \
-             pytest.raises(Exception, match="Internal server error"):
+             pytest.raises(Exception) as excinfo:
             await remote_agent.run("Hello, world!")
             
-            span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
-            span.record_exception.assert_called_once()
-            span.set_status.assert_called_once()
+        assert "Internal server error" in str(excinfo.value)
+        
+        span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
+        span.record_exception.assert_called_once()
+        span.set_status.assert_called_once()
