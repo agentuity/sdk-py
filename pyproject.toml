@@ -27,6 +27,8 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "pytest-mock>=3.11.1",
 ]
+
+[project.classifiers]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License",
