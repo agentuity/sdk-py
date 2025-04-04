@@ -82,7 +82,7 @@ class TestRemoteAgent:
         assert str(remote_agent) == f"RemoteAgent(agentconfig={agent_config})"
     
     @pytest.mark.asyncio
-    async def test_run_with_string_data(self, remote_agent, mock_tracer):
+    async def test_run_with_string_data(self, remote_agent, mock_tracer, monkeypatch):
         """Test running a remote agent with string data."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
@@ -94,34 +94,38 @@ class TestRemoteAgent:
         
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
         
-        with patch("httpx.AsyncClient", return_value=mock_client):
-            result = await remote_agent.run("Hello, world!")
-            
-            assert isinstance(result, RemoteAgentResponse)
-            assert result.contentType == "text/plain"
-            assert result.data.text == "Response from agent"
-            assert result.metadata == {"key": "value"}
-            
-            mock_client.post.assert_called_once()
-            args, kwargs = mock_client.post.call_args
-            
-            assert args[0] == "http://127.0.0.1:3000/test_agent"
-            assert kwargs["headers"] is not None
-            
-            payload = kwargs["json"]
-            assert payload["trigger"] == "agent"
-            assert payload["contentType"] == "text/plain"
-            assert "payload" in payload
-            
-            span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
-            span.set_attribute.assert_any_call("remote.agentId", "test_agent")
-            span.set_attribute.assert_any_call("remote.agentName", "Test Agent")
-            span.set_attribute.assert_any_call("scope", "local")
-            span.set_status.assert_called_once()
+        mock_async_client = MagicMock(return_value=mock_client)
+        monkeypatch.setattr(httpx, "AsyncClient", mock_async_client)
+        
+        result = await remote_agent.run("Hello, world!")
+        
+        assert isinstance(result, RemoteAgentResponse)
+        assert result.contentType == "text/plain"
+        assert result.data.text == "Response from agent"
+        assert result.metadata == {"key": "value"}
+        
+        mock_client.post.assert_called_once()
+        args, kwargs = mock_client.post.call_args
+        
+        assert args[0] == "http://127.0.0.1:3000/test_agent"
+        assert kwargs["headers"] is not None
+        
+        payload = kwargs["json"]
+        assert payload["trigger"] == "agent"
+        assert payload["contentType"] == "text/plain"
+        assert "payload" in payload
+        
+        span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
+        span.set_attribute.assert_any_call("remote.agentId", "test_agent")
+        span.set_attribute.assert_any_call("remote.agentName", "Test Agent")
+        span.set_attribute.assert_any_call("scope", "local")
+        span.set_status.assert_called_once()
     
     @pytest.mark.asyncio
-    async def test_run_with_json_data(self, remote_agent, mock_tracer):
+    async def test_run_with_json_data(self, remote_agent, mock_tracer, monkeypatch):
         """Test running a remote agent with JSON data."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
@@ -133,23 +137,26 @@ class TestRemoteAgent:
         
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        
+        mock_async_client = MagicMock(return_value=mock_client)
+        monkeypatch.setattr(httpx, "AsyncClient", mock_async_client)
         
         json_data = {"message": "Hello, world!"}
+        result = await remote_agent.run(json_data, content_type="application/json")
         
-        with patch("httpx.AsyncClient", return_value=mock_client):
-            result = await remote_agent.run(json_data, content_type="application/json")
-            
-            assert isinstance(result, RemoteAgentResponse)
-            assert result.contentType == "application/json"
-            assert result.data.json == {"result": "success"}
-            
-            mock_client.post.assert_called_once()
-            args, kwargs = mock_client.post.call_args
-            
-            assert kwargs["json"]["contentType"] == "application/json"
+        assert isinstance(result, RemoteAgentResponse)
+        assert result.contentType == "application/json"
+        assert result.data.json == {"result": "success"}
+        
+        mock_client.post.assert_called_once()
+        args, kwargs = mock_client.post.call_args
+        
+        assert kwargs["json"]["contentType"] == "application/json"
     
     @pytest.mark.asyncio
-    async def test_run_with_binary_data(self, remote_agent, mock_tracer):
+    async def test_run_with_binary_data(self, remote_agent, mock_tracer, monkeypatch):
         """Test running a remote agent with binary data."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
@@ -160,23 +167,26 @@ class TestRemoteAgent:
         
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        
+        mock_async_client = MagicMock(return_value=mock_client)
+        monkeypatch.setattr(httpx, "AsyncClient", mock_async_client)
         
         binary_data = b"Binary data"
+        result = await remote_agent.run(
+            binary_data, 
+            content_type="application/octet-stream"
+        )
         
-        with patch("httpx.AsyncClient", return_value=mock_client):
-            result = await remote_agent.run(
-                binary_data, 
-                content_type="application/octet-stream"
-            )
-            
-            assert isinstance(result, RemoteAgentResponse)
-            assert result.contentType == "application/octet-stream"
-            assert result.data.binary == b"Binary response"
-            
-            mock_client.post.assert_called_once()
+        assert isinstance(result, RemoteAgentResponse)
+        assert result.contentType == "application/octet-stream"
+        assert result.data.binary == b"Binary response"
+        
+        mock_client.post.assert_called_once()
     
     @pytest.mark.asyncio
-    async def test_run_with_metadata(self, remote_agent, mock_tracer):
+    async def test_run_with_metadata(self, remote_agent, mock_tracer, monkeypatch):
         """Test running a remote agent with metadata."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
@@ -188,22 +198,25 @@ class TestRemoteAgent:
         
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        
+        mock_async_client = MagicMock(return_value=mock_client)
+        monkeypatch.setattr(httpx, "AsyncClient", mock_async_client)
         
         metadata = {"request_key": "request_value"}
+        result = await remote_agent.run("Hello", metadata=metadata)
         
-        with patch("httpx.AsyncClient", return_value=mock_client):
-            result = await remote_agent.run("Hello", metadata=metadata)
-            
-            assert isinstance(result, RemoteAgentResponse)
-            assert result.metadata == {"response_key": "response_value"}
-            
-            mock_client.post.assert_called_once()
-            args, kwargs = mock_client.post.call_args
-            
-            assert kwargs["json"]["metadata"] == metadata
+        assert isinstance(result, RemoteAgentResponse)
+        assert result.metadata == {"response_key": "response_value"}
+        
+        mock_client.post.assert_called_once()
+        args, kwargs = mock_client.post.call_args
+        
+        assert kwargs["json"]["metadata"] == metadata
     
     @pytest.mark.asyncio
-    async def test_run_error(self, remote_agent, mock_tracer):
+    async def test_run_error(self, remote_agent, mock_tracer, monkeypatch):
         """Test error handling during remote agent execution."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 500
@@ -212,9 +225,13 @@ class TestRemoteAgent:
         
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
         
-        with patch("httpx.AsyncClient", return_value=mock_client), \
-             pytest.raises(Exception) as excinfo:
+        mock_async_client = MagicMock(return_value=mock_client)
+        monkeypatch.setattr(httpx, "AsyncClient", mock_async_client)
+        
+        with pytest.raises(Exception) as excinfo:
             await remote_agent.run("Hello, world!")
             
         assert "Internal server error" in str(excinfo.value)
