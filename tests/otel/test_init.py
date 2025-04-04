@@ -1,6 +1,4 @@
-import pytest
 import os
-import logging
 import sys
 from unittest.mock import patch, MagicMock
 from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION

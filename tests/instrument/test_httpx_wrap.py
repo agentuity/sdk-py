@@ -1,6 +1,4 @@
-import pytest
 import os
-import httpx
 from unittest.mock import patch, MagicMock
 import sys
 from agentuity import __version__
