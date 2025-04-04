@@ -1,5 +1,10 @@
 import pytest
 import logging
+import sys
+from unittest.mock import MagicMock
+
+sys.modules['openlit'] = MagicMock()
+
 from agentuity.otel.logfilter import ModuleFilter, exclude_signatures
 
 

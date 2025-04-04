@@ -1,10 +1,14 @@
 import pytest
 import os
 import logging
+import sys
 from unittest.mock import patch, MagicMock
-from agentuity.otel import init
 from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import Compression
+
+sys.modules['openlit'] = MagicMock()
+
+from agentuity.otel import init
 
 
 class TestOtelInit:
