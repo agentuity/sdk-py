@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 
 sys.modules['openlit'] = MagicMock()
 
-from agentuity.server.request import AgentRequest
-from agentuity.server.data import Data
+from agentuity.server.request import AgentRequest  # noqa: E402
+from agentuity.server.data import Data  # noqa: E402
 
 
 class TestAgentRequest:

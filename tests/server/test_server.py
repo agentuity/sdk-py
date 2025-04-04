@@ -6,7 +6,7 @@ from unittest.mock import patch, MagicMock
 
 sys.modules['openlit'] = MagicMock()
 
-from agentuity.server import load_agent_module, inject_trace_context
+from agentuity.server import load_agent_module, inject_trace_context  # noqa: E402
 
 
 class TestServerFunctions:

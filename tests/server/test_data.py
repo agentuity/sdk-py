@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 sys.modules['openlit'] = MagicMock()
 
-from agentuity.server.data import Data, DataResult, encode_payload, decode_payload, decode_payload_bytes
+from agentuity.server.data import Data, DataResult, encode_payload, decode_payload, decode_payload_bytes  # noqa: E402
 
 
 class TestData:

@@ -7,8 +7,7 @@ from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import Compression
 
 sys.modules['openlit'] = MagicMock()
-
-from agentuity.otel import init
+from agentuity.otel import init  # noqa: E402
 
 
 class TestOtelInit:
@@ -70,11 +69,11 @@ class TestOtelInit:
              patch("agentuity.otel._logs.set_logger_provider") as mock_set_logger, \
              patch("agentuity.otel.LoggingHandler") as mock_logging_handler, \
              patch("agentuity.otel.ModuleFilter") as mock_module_filter, \
-             patch("agentuity.otel.TraceContextTextMapPropagator") as mock_propagator, \
+             patch("agentuity.otel.TraceContextTextMapPropagator"), \
              patch("agentuity.otel.set_global_textmap") as mock_set_textmap, \
              patch("agentuity.otel.signal.signal") as mock_signal, \
              patch("agentuity.otel.openlit.init") as mock_openlit_init, \
-             patch("agentuity.otel.logger") as mock_logger, \
+             patch("agentuity.otel.logger"), \
              patch("agentuity.otel.logging.getLogger") as mock_get_logger:
             
             mock_root_logger = MagicMock()
