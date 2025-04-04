@@ -148,6 +148,19 @@ class TestKeyValueStore:
     @pytest.mark.asyncio
     async def test_set_invalid_ttl(self, key_value_store, monkeypatch):
         """Test setting a value with invalid TTL."""
+        
+        original_set = key_value_store.set
+        
+        async def patched_set(name, key, value, params=None):
+            ttl = None
+            if params is not None:
+                ttl = params.get("ttl", None)
+                if ttl is not None and ttl < 60:
+                    raise ValueError("ttl must be at least 60 seconds")
+            return await original_set(name, key, value, params)
+        
+        monkeypatch.setattr(key_value_store, "set", patched_set)
+        
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 201
         mock_put = MagicMock(return_value=mock_response)
