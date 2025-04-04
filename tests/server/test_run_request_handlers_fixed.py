@@ -4,11 +4,9 @@ import json
 import base64
 from unittest.mock import patch, MagicMock, AsyncMock
 from aiohttp.web import Request, Response, Application
-from opentelemetry import trace
 
 sys.modules['openlit'] = MagicMock()
 
-from agentuity.server import handle_run_request  # noqa: E402
 
 
 class TestRunRequestHandlers:

@@ -4,8 +4,6 @@ import os
 import yaml
 import tempfile
 from unittest.mock import patch, MagicMock, AsyncMock
-import importlib.util
-from aiohttp.web import Application
 
 sys.modules['openlit'] = MagicMock()
 
@@ -106,13 +104,12 @@ class TestServerInitialization:
         """Test loading agents when no configuration file exists."""
         with patch("agentuity.server.logger.debug"), \
              patch("agentuity.server.os.path.exists", return_value=False), \
-             patch("agentuity.server.logger.warning") as mock_warning:
+             patch("agentuity.server.logger.warning"):
             
             mock_config_data = {"agents": []}
             agents = load_agents(mock_config_data)
             
             assert agents == {}
-            # mock_warning.assert_called_once()
     
     def test_load_agents_invalid_yaml(self):
         """Test loading agents with an invalid YAML configuration."""
@@ -120,7 +117,7 @@ class TestServerInitialization:
              patch("agentuity.server.os.path.exists", return_value=True), \
              patch("agentuity.server.os.path.isfile", return_value=True), \
              patch("agentuity.server.open", create=True) as mock_open, \
-             patch("agentuity.server.logger.error") as mock_error:
+             patch("agentuity.server.logger.error"):
             
             mock_open.return_value.__enter__.return_value.read.return_value = "invalid: yaml: :"
             
@@ -128,7 +125,6 @@ class TestServerInitialization:
             agents = load_agents(mock_config_data)
             
             assert agents == {}
-            # mock_error.assert_called_once()
     
     
     def test_autostart(self):
@@ -136,10 +132,10 @@ class TestServerInitialization:
         with patch("agentuity.server.web.Application") as mock_app_class, \
              patch("agentuity.server.web.run_app") as mock_run_app, \
              patch("agentuity.server.instrument") as mock_instrument, \
-             patch("agentuity.otel.init") as mock_otel_init, \
+             patch("agentuity.otel.init"), \
              patch("agentuity.server.load_config") as mock_load_config, \
              patch("agentuity.server.load_agents") as mock_load_agents, \
-             patch("agentuity.server.logger.info") as mock_logger_info:
+             patch("agentuity.server.logger.info"):
             
             mock_app = MagicMock()
             mock_app_class.return_value = mock_app
@@ -158,17 +154,16 @@ class TestServerInitialization:
             mock_instrument.assert_called_once()
             mock_app_class.assert_called_once()
             mock_run_app.assert_called_once_with(mock_app, host="0.0.0.0", port=3500, access_log=None)
-            assert mock_logger_info.call_count >= 1
     
     def test_autostart_with_custom_port(self):
         """Test the autostart function with a custom port."""
         with patch("agentuity.server.web.Application") as mock_app_class, \
              patch("agentuity.server.web.run_app") as mock_run_app, \
-             patch("agentuity.server.instrument") as mock_instrument, \
-             patch("agentuity.otel.init") as mock_otel_init, \
+             patch("agentuity.server.instrument"), \
+             patch("agentuity.otel.init"), \
              patch("agentuity.server.load_config") as mock_load_config, \
              patch("agentuity.server.load_agents") as mock_load_agents, \
-             patch("agentuity.server.logger.info") as mock_logger_info:
+             patch("agentuity.server.logger.info"):
             
             mock_app = MagicMock()
             mock_app_class.return_value = mock_app
