@@ -56,11 +56,11 @@ class TestRemoteAgent:
     @pytest.fixture
     def agent_config(self):
         """Create an AgentConfig for testing."""
-        return AgentConfig(
-            id="test_agent",
-            name="Test Agent",
-            filename="/path/to/agent.py"
-        )
+        return AgentConfig({
+            "id": "test_agent",
+            "name": "Test Agent",
+            "filename": "/path/to/agent.py"
+        })
     
     @pytest.fixture
     def remote_agent(self, agent_config, mock_tracer):
