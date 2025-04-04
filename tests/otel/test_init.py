@@ -57,18 +57,18 @@ class TestOtelInit:
         
         with patch("agentuity.otel.TracerProvider") as mock_tracer_provider, \
              patch("agentuity.otel.OTLPSpanExporter") as mock_span_exporter, \
-             patch("agentuity.otel.BatchSpanProcessor") as mock_batch_processor, \
+             patch("agentuity.otel.BatchSpanProcessor"), \
              patch("agentuity.otel.trace.set_tracer_provider") as mock_set_tracer, \
-             patch("agentuity.otel.PeriodicExportingMetricReader") as mock_metric_reader, \
-             patch("agentuity.otel.OTLPMetricExporter") as mock_metric_exporter, \
+             patch("agentuity.otel.PeriodicExportingMetricReader"), \
+             patch("agentuity.otel.OTLPMetricExporter"), \
              patch("agentuity.otel.MeterProvider") as mock_meter_provider, \
              patch("agentuity.otel.metrics.set_meter_provider") as mock_set_meter, \
              patch("agentuity.otel.LoggerProvider") as mock_logger_provider, \
-             patch("agentuity.otel.BatchLogRecordProcessor") as mock_log_processor, \
-             patch("agentuity.otel.OTLPLogExporter") as mock_log_exporter, \
+             patch("agentuity.otel.BatchLogRecordProcessor"), \
+             patch("agentuity.otel.OTLPLogExporter"), \
              patch("agentuity.otel._logs.set_logger_provider") as mock_set_logger, \
              patch("agentuity.otel.LoggingHandler") as mock_logging_handler, \
-             patch("agentuity.otel.ModuleFilter") as mock_module_filter, \
+             patch("agentuity.otel.ModuleFilter"), \
              patch("agentuity.otel.TraceContextTextMapPropagator"), \
              patch("agentuity.otel.set_global_textmap") as mock_set_textmap, \
              patch("agentuity.otel.signal.signal") as mock_signal, \
