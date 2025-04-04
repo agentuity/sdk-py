@@ -1,6 +1,11 @@
 import pytest
 import base64
 import json
+import sys
+from unittest.mock import MagicMock
+
+sys.modules['openlit'] = MagicMock()
+
 from agentuity.server.data import Data, DataResult, encode_payload, decode_payload, decode_payload_bytes
 
 

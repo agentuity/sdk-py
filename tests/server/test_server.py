@@ -1,7 +1,11 @@
 import pytest
 import os
 import tempfile
-from unittest.mock import patch
+import sys
+from unittest.mock import patch, MagicMock
+
+sys.modules['openlit'] = MagicMock()
+
 from agentuity.server import load_agent_module, inject_trace_context
 
 

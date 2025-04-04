@@ -1,7 +1,11 @@
 import pytest
 from unittest.mock import MagicMock, patch
 import json
+import sys
 from opentelemetry import trace
+
+sys.modules['openlit'] = MagicMock()
+
 from agentuity.server.response import AgentResponse
 from agentuity.server.data import encode_payload
 

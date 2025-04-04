@@ -1,4 +1,9 @@
 import pytest
+import sys
+from unittest.mock import MagicMock
+
+sys.modules['openlit'] = MagicMock()
+
 from agentuity.server.request import AgentRequest
 from agentuity.server.data import Data
 
