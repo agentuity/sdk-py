@@ -479,7 +479,11 @@ def load_agents(config_data):
                 "name": agent["name"],
                 "filename": agent["filename"],
                 "run": agent_module["run"],
-                "inspect": agent_module["inspect"],
+                "inspect": (
+                    agent_module["inspect"]
+                    if "inspect" in agent_module and agent_module["inspect"] is not None
+                    else None
+                ),
             }
         logger.info(f"Loaded {len(agents_by_id)} agents")
         for agent in agents_by_id.values():
