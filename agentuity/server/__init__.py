@@ -50,9 +50,14 @@ def load_agent_module(agent_id: str, name: str, filename: str):
     agent_module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(agent_module)
 
-    # # Check if the module has a run function
+    # Check if the module has a run function
     if not hasattr(agent_module, "run"):
         raise AttributeError(f"Module {filename} does not have a run function")
+
+    # Check if the module has an inspect function - which is optional
+    inspect = None
+    if hasattr(agent_module, "inspect"):
+        inspect = agent_module.inspect
 
     logger.debug(f"Loaded agent: {agent_id}")
 
@@ -60,6 +65,7 @@ def load_agent_module(agent_id: str, name: str, filename: str):
         "id": agent_id,
         "name": name,
         "run": agent_module.run,
+        "inspect": inspect,
     }
 
 
@@ -77,12 +83,16 @@ async def run_agent(tracer, agentId, agent, payload, agents_by_id):
             agent_context = AgentContext(
                 services={
                     "kv": KeyValueStore(
-                        base_url=os.environ.get("AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"),
+                        base_url=os.environ.get(
+                            "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
+                        ),
                         api_key=os.environ.get("AGENTUITY_API_KEY"),
                         tracer=tracer,
                     ),
                     "vector": VectorStore(
-                        base_url=os.environ.get("AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"),
+                        base_url=os.environ.get(
+                            "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
+                        ),
                         api_key=os.environ.get("AGENTUITY_API_KEY"),
                         tracer=tracer,
                     ),
@@ -213,6 +223,44 @@ async def handle_run_request(request):
             inject_trace_context(resp.headers)
             logger.error(f"Error in handle_sdk_request: {str(e)}")
             return resp
+
+
+async def handle_inspect_request(request: web.Request):
+    res = {}
+    for agent in request.app["agents_by_id"].values():
+        if "inspect" in agent and agent["inspect"] is not None:
+            fn = agent["inspect"]()
+            if isinstance(fn, str):
+                res[agent["id"]] = fn
+            else:
+                res[agent["id"]] = await fn
+    return web.json_response(res)
+
+
+async def handle_agent_inspect_request(request: web.Request):
+    agents_by_id = request.app["agents_by_id"]
+    if request.match_info["agent_id"] in agents_by_id:
+        agent = agents_by_id[request.match_info["agent_id"]]
+        if "inspect" in agent and agent["inspect"] is not None:
+            fn = agent["inspect"]()
+            if not isinstance(fn, str):
+                fn = await fn
+            return web.Response(
+                status=200,
+                content_type="text/plain",
+                body=fn,
+            )
+        else:
+            return web.Response(
+                status=404,
+                content_type="text/plain",
+            )
+    else:
+        return web.Response(
+            text=f"Agent {request.match_info['agent_id']} not found",
+            status=404,
+            content_type="text/plain",
+        )
 
 
 async def handle_agent_request(request: web.Request):
@@ -398,13 +446,18 @@ def load_config() -> Any:
                 from yaml import safe_load
 
                 agent_config = safe_load(config_file)
-                config_data = {}
+                config_data = {"agents": []}
                 config_data["environment"] = "development"
                 config_data["cli_version"] = "unknown"
                 config_data["app"] = {"name": agent_config["name"], "version": "dev"}
-                config_data["filename"] = os.path.join(
-                    os.getcwd(), "agents", agent_config["name"], "agent.py"
-                )
+                for agent in agent_config["agents"]:
+                    config = {}
+                    config["id"] = agent["id"]
+                    config["name"] = agent["name"]
+                    config["filename"] = os.path.join(
+                        os.getcwd(), "agents", agent["name"], "agent.py"
+                    )
+                    config_data["agents"].append(config)
     return config_data
 
 
@@ -426,6 +479,7 @@ def load_agents(config_data):
                 "name": agent["name"],
                 "filename": agent["filename"],
                 "run": agent_module["run"],
+                "inspect": agent_module["inspect"],
             }
         logger.info(f"Loaded {len(agents_by_id)} agents")
         for agent in agents_by_id.values():
@@ -481,6 +535,8 @@ def autostart(callback: Callable[[], None] = None):
     app.router.add_get("/_health", handle_health_check)
     app.router.add_post("/run/{agent_id}", handle_run_request)
     app.router.add_post("/{agent_id}", handle_agent_request)
+    app.router.add_get("/inspect", handle_inspect_request)
+    app.router.add_get("/inspect/{agent_id}", handle_agent_inspect_request)
 
     # Start the server
     logger.info(f"Starting server on port {port}")
