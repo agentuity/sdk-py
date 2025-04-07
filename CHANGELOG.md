@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.77] - 2025-04-07
+
+### Added
+- Add comprehensive test suite with pytest ([#27](https://github.com/agentuity/sdk-py/pull/27))
+- Expand test coverage for logger, context, and langchain instrumentation ([#28](https://github.com/agentuity/sdk-py/pull/28))
+- Add agent inspect endpoint support ([#29](https://github.com/agentuity/sdk-py/pull/29))
+
 ## [0.0.74] - 2025-03-25
 
 ### Added
