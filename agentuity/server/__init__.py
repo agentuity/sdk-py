@@ -54,10 +54,10 @@ def load_agent_module(agent_id: str, name: str, filename: str):
     if not hasattr(agent_module, "run"):
         raise AttributeError(f"Module {filename} does not have a run function")
 
-    # Check if the module has an inspect function - which is optional
-    inspect = None
-    if hasattr(agent_module, "inspect"):
-        inspect = agent_module.inspect
+    # Check if the module has an welcome function - which is optional
+    welcome = None
+    if hasattr(agent_module, "welcome"):
+        welcome = agent_module.welcome
 
     logger.debug(f"Loaded agent: {agent_id}")
 
@@ -65,7 +65,7 @@ def load_agent_module(agent_id: str, name: str, filename: str):
         "id": agent_id,
         "name": name,
         "run": agent_module.run,
-        "inspect": inspect,
+        "welcome": welcome,
     }
 
 
@@ -225,31 +225,27 @@ async def handle_run_request(request):
             return resp
 
 
-async def handle_inspect_request(request: web.Request):
+async def handle_welcome_request(request: web.Request):
     res = {}
     for agent in request.app["agents_by_id"].values():
-        if "inspect" in agent and agent["inspect"] is not None:
-            fn = agent["inspect"]()
-            if isinstance(fn, str):
+        if "welcome" in agent and agent["welcome"] is not None:
+            fn = agent["welcome"]()
+            if isinstance(fn, dict):
                 res[agent["id"]] = fn
             else:
                 res[agent["id"]] = await fn
     return web.json_response(res)
 
 
-async def handle_agent_inspect_request(request: web.Request):
+async def handle_agent_welcome_request(request: web.Request):
     agents_by_id = request.app["agents_by_id"]
     if request.match_info["agent_id"] in agents_by_id:
         agent = agents_by_id[request.match_info["agent_id"]]
-        if "inspect" in agent and agent["inspect"] is not None:
-            fn = agent["inspect"]()
-            if not isinstance(fn, str):
+        if "welcome" in agent and agent["welcome"] is not None:
+            fn = agent["welcome"]()
+            if not isinstance(fn, dict):
                 fn = await fn
-            return web.Response(
-                status=200,
-                content_type="text/plain",
-                body=fn,
-            )
+            return web.json_response(fn)
         else:
             return web.Response(
                 status=404,
@@ -479,9 +475,9 @@ def load_agents(config_data):
                 "name": agent["name"],
                 "filename": agent["filename"],
                 "run": agent_module["run"],
-                "inspect": (
-                    agent_module["inspect"]
-                    if "inspect" in agent_module and agent_module["inspect"] is not None
+                "welcome": (
+                    agent_module["welcome"]
+                    if "welcome" in agent_module and agent_module["welcome"] is not None
                     else None
                 ),
             }
@@ -539,8 +535,8 @@ def autostart(callback: Callable[[], None] = None):
     app.router.add_get("/_health", handle_health_check)
     app.router.add_post("/run/{agent_id}", handle_run_request)
     app.router.add_post("/{agent_id}", handle_agent_request)
-    app.router.add_get("/inspect", handle_inspect_request)
-    app.router.add_get("/inspect/{agent_id}", handle_agent_inspect_request)
+    app.router.add_get("/welcome", handle_welcome_request)
+    app.router.add_get("/welcome/{agent_id}", handle_agent_welcome_request)
 
     # Start the server
     logger.info(f"Starting server on port {port}")
