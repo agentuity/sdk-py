@@ -12,6 +12,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Expand test coverage for logger, context, and langchain instrumentation ([#28](https://github.com/agentuity/sdk-py/pull/28))
 - Add agent inspect endpoint support ([#29](https://github.com/agentuity/sdk-py/pull/29))
 
+## [0.0.76] - 2025-04-03
+
+### Fixed
+- Fix Langchain instrumentation and add openai-agents dependency ([#24](https://github.com/agentuity/sdk-py/pull/24))
+
+## [0.0.75] - 2025-04-01
+
+### Added
+- Add data and markdown methods to AgentResponse class ([#26](https://github.com/agentuity/sdk-py/pull/26))
+- Add PyPI release workflow ([#22](https://github.com/agentuity/sdk-py/pull/22))
+
+### Changed
+- Update logo URL from relative to absolute path ([#19](https://github.com/agentuity/sdk-py/pull/19))
+- Remove 'work in progress' warning from README ([#20](https://github.com/agentuity/sdk-py/pull/20))
+- Update Agentuity gateway URL from /llm/ to /gateway/ ([#21](https://github.com/agentuity/sdk-py/pull/21))
+- Update to use AGENTUITY_CLOUD_PORT with fallback to PORT ([#23](https://github.com/agentuity/sdk-py/pull/23))
+- Use transport instead of API for hosted SDK api ([#25](https://github.com/agentuity/sdk-py/pull/25))
+- Update CHANGELOG.md for v0.0.74 ([#18](https://github.com/agentuity/sdk-py/pull/18))
+
 ## [0.0.74] - 2025-03-25
 
 ### Added
