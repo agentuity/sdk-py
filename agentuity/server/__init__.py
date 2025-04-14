@@ -6,6 +6,7 @@ import sys
 import asyncio
 import aiohttp
 import platform
+import re
 from aiohttp import web
 from aiohttp_sse import sse_response
 import base64
@@ -25,6 +26,7 @@ from .response import AgentResponse
 from .keyvalue import KeyValueStore
 from .vector import VectorStore
 from .agent import RemoteAgentResponse
+from .data import value_to_payload
 
 logger = logging.getLogger(__name__)
 port = int(os.environ.get("AGENTUITY_CLOUD_PORT", os.environ.get("PORT", 3500)))
@@ -225,15 +227,53 @@ async def handle_run_request(request):
             return resp
 
 
+def isBase64Content(val: Any) -> bool:
+    if isinstance(val, str):
+        return (
+            re.match(
+                r"^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$", val
+            )
+            is not None
+        )
+    return False
+
+
+def encode_welcome(val):
+    if isinstance(val, dict):
+        if "prompts" in val:
+            for prompt in val["prompts"]:
+                if "data" in prompt:
+                    if not isBase64Content(prompt["data"]):
+                        payload = value_to_payload(
+                            prompt.get("contentType", "text/plain"), prompt["data"]
+                        )
+                        ct = payload["contentType"]
+                        if (
+                            "text/" in ct
+                            or "json" in ct
+                            or "image" in ct
+                            or "audio" in ct
+                            or "video" in ct
+                        ):
+                            prompt["data"] = encode_payload(payload["payload"])
+                        else:
+                            prompt["data"] = payload["payload"]
+                        prompt["contentType"] = ct
+        else:
+            for key, value in val.items():
+                val[key] = encode_welcome(value)
+    return val
+
+
 async def handle_welcome_request(request: web.Request):
     res = {}
     for agent in request.app["agents_by_id"].values():
         if "welcome" in agent and agent["welcome"] is not None:
             fn = agent["welcome"]()
             if isinstance(fn, dict):
-                res[agent["id"]] = fn
+                res[agent["id"]] = encode_welcome(fn)
             else:
-                res[agent["id"]] = await fn
+                res[agent["id"]] = encode_welcome(await fn)
     return web.json_response(res)
 
 
@@ -244,7 +284,7 @@ async def handle_agent_welcome_request(request: web.Request):
         if "welcome" in agent and agent["welcome"] is not None:
             fn = agent["welcome"]()
             if not isinstance(fn, dict):
-                fn = await fn
+                fn = encode_welcome(await fn)
             return web.json_response(fn)
         else:
             return web.Response(
