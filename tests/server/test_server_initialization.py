@@ -174,10 +174,16 @@ class TestServerInitialization:
 
             autostart()
 
+            host = (
+                "127.0.0.1"
+                if os.environ.get("AGENTUITY_ENV") == "development"
+                else "0.0.0.0"
+            )
+
             mock_instrument.assert_called_once()
             mock_app_class.assert_called_once()
             mock_run_app.assert_called_once_with(
-                mock_app, host="127.0.0.1", port=3500, access_log=None
+                mock_app, host=host, port=3500, access_log=None
             )
 
     def test_autostart_with_custom_port(self):
@@ -206,6 +212,12 @@ class TestServerInitialization:
             with patch("agentuity.server.port", 5000):
                 autostart()
 
+            host = (
+                "127.0.0.1"
+                if os.environ.get("AGENTUITY_ENV") == "development"
+                else "0.0.0.0"
+            )
+
             mock_run_app.assert_called_once_with(
-                mock_app, host="127.0.0.1", port=5000, access_log=None
+                mock_app, host=host, port=5000, access_log=None
             )
