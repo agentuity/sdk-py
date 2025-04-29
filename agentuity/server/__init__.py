@@ -581,5 +581,9 @@ def autostart(callback: Callable[[], None] = None):
     # Start the server
     logger.info(f"Starting server on port {port}")
 
+    host = (
+        "127.0.0.1" if os.environ.get("AGENTUITY_ENV") == "development" else "0.0.0.0"
+    )
+
     # Run the application
-    web.run_app(app, host="127.0.0.1", port=port, access_log=None)
+    web.run_app(app, host=host, port=port, access_log=None)
