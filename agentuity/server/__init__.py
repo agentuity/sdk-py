@@ -582,4 +582,4 @@ def autostart(callback: Callable[[], None] = None):
     logger.info(f"Starting server on port {port}")
 
     # Run the application
-    web.run_app(app, host="0.0.0.0", port=port, access_log=None)
+    web.run_app(app, host="127.0.0.1", port=port, access_log=None)
