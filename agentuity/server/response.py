@@ -307,12 +307,9 @@ class AgentResponse:
             AgentResponse: The response object with OGG content
         """
         return self.binary(data, "audio/ogg", metadata)
-        
+
     def data(
-        self, 
-        data: Any, 
-        content_type: str, 
-        metadata: Optional[dict] = None
+        self, data: Any, content_type: str, metadata: Optional[dict] = None
     ) -> "AgentResponse":
         """
         Set a response with specific data and content type.
@@ -342,8 +339,10 @@ class AgentResponse:
             self.payload = encode_payload(str(data))
             self.metadata = metadata
             return self
-            
-    def markdown(self, content: str, metadata: Optional[dict] = None) -> "AgentResponse":
+
+    def markdown(
+        self, content: str, metadata: Optional[dict] = None
+    ) -> "AgentResponse":
         """
         Set a markdown response.
 
