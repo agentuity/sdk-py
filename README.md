@@ -38,15 +38,10 @@ The Agentuity Python SDK is a powerful toolkit for building, deploying, and mana
 
 To use this SDK in a real project, you should install the Agentuity CLI.
 
-### Mac OS
-
 ```bash
-brew tap agentuity/tap && brew install agentuity
+curl -sSL https://agentuity.sh/install.sh | bash
 ```
 
-### Linux or Windows
-
-See the [Agentuity CLI](https://github.com/agenuity/cli) repository for installation instructions and releases.
 
 Once installed, you can create a new project with the following command:
 
@@ -59,7 +54,7 @@ agentuity new
 
 ### Prerequisites
 
-- [Python](https://www.python.org/) (3.11 or higher)
+- [Python](https://www.python.org/) (3.10 or 3.11)
 - [uv](https://docs.astral.sh/uv/) (latest version recommended)
 
 
@@ -111,13 +106,7 @@ uv run test.py
 Hit the test endpoint:
 
 ```bash
-curl -v http://localhost:3500/agent_HaDpiH67c4851eISzbAWfZqwLtnpguW6 --json '{"trigger":"manual","contentType":"text/plain","payload":"aGkK"}'
-```
-
-You can also use the run endpoint which emulates the production one:
-
-```bash
-curl -v http://localhost:3500/run/agent_HaDpiH67c4851eISzbAWfZqwLtnpguW6 --json '{"hello":"world"}'
+curl -v http://localhost:3500/agent_HaDpiH67c4851eISzbAWfZqwLtnpguW6 --json '{"hello":"world"}'
 ```
 
 ## License
