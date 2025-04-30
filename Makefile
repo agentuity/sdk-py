@@ -18,3 +18,6 @@ lint:
 
 format:
 	@ruff format
+
+dev:
+	@uv run --env-file .env ./test.py

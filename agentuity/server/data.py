@@ -5,6 +5,52 @@ from typing import IO
 from aiohttp import StreamReader
 
 
+class EmptyDataReader(StreamReader):
+    def __init__(self, protocol=None, limit=1):
+        super().__init__(protocol, limit)
+
+    async def read(self) -> bytes:
+        return b""
+
+    async def readany(self) -> bytes:
+        return b""
+
+    async def readexactly(self, n: int) -> bytes:
+        if n > 0:
+            raise ValueError("Empty stream cannot provide requested bytes")
+        return b""
+
+    async def readline(self) -> bytes:
+        return b""
+
+    async def readchunk(self) -> tuple[bytes, bool]:
+        return b"", True
+
+    def at_eof(self) -> bool:
+        return True
+
+    def exception(self) -> Optional[Exception]:
+        return None
+
+    def set_exception(self, exc: Exception) -> None:
+        pass
+
+    def unread_data(self, data: bytes) -> None:
+        pass
+
+    def feed_eof(self) -> None:
+        pass
+
+    def feed_data(self, data: bytes) -> None:
+        pass
+
+    def begin_http_chunk_receiving(self) -> None:
+        pass
+
+    def end_http_chunk_receiving(self) -> None:
+        pass
+
+
 class DataResult:
     """
     A container class for the result of a data operation, providing access to the data
@@ -18,7 +64,12 @@ class DataResult:
         Args:
             data: Optional Data object containing the result data
         """
-        self._data = data
+        if data is None:
+            self._exists = False
+            self._data = Data("application/octet-stream", EmptyDataReader())
+        else:
+            self._exists = True
+            self._data = data
 
     @property
     def data(self) -> "Data":
@@ -38,7 +89,7 @@ class DataResult:
         Returns:
             bool: True if the data exists, False otherwise
         """
-        return self._data is not None
+        return self._exists
 
     def __str__(self) -> str:
         """
@@ -47,7 +98,7 @@ class DataResult:
         Returns:
             str: A formatted string containing the content type and payload
         """
-        return f"DataResult(contentType={self._data.contentType}, payload={self._data.base64})"
+        return f"DataResult(data={self._data})"
 
 
 class Data:

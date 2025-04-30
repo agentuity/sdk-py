@@ -1,9 +1,7 @@
 from typing import Optional, Iterable, Callable, Any, Union, AsyncIterator
 import json
-from opentelemetry import trace
-from .agent import RemoteAgent
+from .agent import resolve_agent
 from asyncio import StreamReader
-from .config import AgentConfig
 from .data import Data
 import asyncio
 
@@ -13,27 +11,25 @@ class AgentResponse:
     The response from an agent invocation. This is a convenience object that can be used to return a response from an agent.
     """
 
+    from .context import AgentContext
+
     def __init__(
         self,
-        tracer: trace.Tracer,
-        agents_by_id: dict,
-        port: int,
+        context: AgentContext,
         data: "Data",
     ):
         """
         Initialize an AgentResponse object.
 
         Args:
-            payload: The initial payload data
-            tracer: OpenTelemetry tracer for distributed tracing
-            agents_by_id: Dictionary mapping agent IDs to their configurations
-            port: Port number for agent communication
+            context: The context of the agent
+            data: The data to send to the agent
         """
         self._contentType = "application/octet-stream"
         self._metadata = {}
-        self._tracer = tracer
-        self._agents_by_id = agents_by_id
-        self._port = port
+        self._tracer = context.tracer
+        self._context = context
+        self._port = context.port
         self._payload = None
         self._stream = None
         self._transform = None
@@ -79,23 +75,12 @@ class AgentResponse:
         if "id" not in params and "name" not in params:
             raise ValueError("params must have an id or name")
 
-        found_agent = None
-        # FIXME check this logic against js sdk
-        for id, agent in self._agents_by_id.items():
-            if ("id" in params and id == params["id"]) or (
-                "name" in agent and agent["name"] == params["name"]
-            ):
-                found_agent = agent
-                break
-
-        # FIXME: this only works if the agent is local, need to handle remote agents
+        found_agent = resolve_agent(self._context, params)
         if found_agent is None:
             raise ValueError("agent not found by id or name")
 
-        agent = RemoteAgent(AgentConfig(found_agent), self._port, self._tracer)
-
         if not args:
-            agent_response = await agent.run(self._data, metadata)
+            agent_response = await found_agent.run(self._data, metadata)
         else:
             # Create a StreamReader from the args data
             reader = asyncio.StreamReader()
@@ -103,7 +88,7 @@ class AgentResponse:
             reader.feed_eof()
             # FIXME: need to be any serializable type
             data = Data("application/json", reader)
-            agent_response = await agent.run(data, metadata)
+            agent_response = await found_agent.run(data, metadata)
 
         self._metadata = agent_response.metadata
         self._contentType = agent_response.data.contentType

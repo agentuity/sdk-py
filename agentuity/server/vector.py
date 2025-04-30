@@ -10,16 +10,16 @@ class VectorSearchResult:
 
     @param id: the id of the vector
     @param key: the key of the vector
-    @param distance: the distance of the vector from 0.0 to 1.0
+    @param similarity: the distance of the vector from 0.0 to 1.0
     @param metadata: the metadata of the vector or None if no metadata provided
     """
 
     def __init__(
-        self, id: str, key: str, distance: float, metadata: Optional[dict] = None
+        self, id: str, key: str, similarity: float, metadata: Optional[dict] = None
     ):
         self.id = id
         self.key = key
-        self.distance = distance
+        self.similarity = similarity
         self.metadata = metadata
 
 
@@ -68,7 +68,7 @@ class VectorStore:
             if "document" not in document and "embeddings" not in document:
                 raise ValueError("document must have either a document or embeddings")
             response = httpx.put(
-                f"{self.base_url}/vector/{name}",
+                f"{self.base_url}/vector/2025-03-17/{name}",
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "User-Agent": f"Agentuity Python SDK/{__version__}",
@@ -91,6 +91,7 @@ class VectorStore:
                     raise Exception(f"Failed to upsert documents: {result['message']}")
             else:
                 span.set_status(trace.StatusCode.ERROR, "Failed to upsert documents")
+                span.record_exception(Exception(response.content.decode("utf-8")))
                 raise Exception(f"Failed to upsert documents: {response.status_code}")
 
     async def get(self, name: str, key: str) -> list[VectorSearchResult]:
@@ -112,7 +113,7 @@ class VectorStore:
             span.set_attribute("name", name)
             span.set_attribute("key", key)
             response = httpx.get(
-                f"{self.base_url}/vector/{name}/{key}",
+                f"{self.base_url}/vector/2025-03-17/{name}/{key}",
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "User-Agent": f"Agentuity Python SDK/{__version__}",
@@ -136,6 +137,7 @@ class VectorStore:
                     return []
                 case _:
                     span.set_status(trace.StatusCode.ERROR, "Failed to get documents")
+                    span.record_exception(Exception(response.content.decode("utf-8")))
                     raise Exception(f"Failed to get documents: {response.status_code}")
 
     async def search(
@@ -169,7 +171,7 @@ class VectorStore:
             span.set_attribute("limit", limit)
             span.set_attribute("similarity", similarity)
             response = httpx.post(
-                f"{self.base_url}/vector/search/{name}",
+                f"{self.base_url}/vector/2025-03-17/search/{name}",
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "User-Agent": f"Agentuity Python SDK/{__version__}",
@@ -187,6 +189,7 @@ class VectorStore:
                     if "success" in result and result["success"]:
                         span.add_event("hit")
                         span.set_status(trace.StatusCode.OK)
+                        print(f"result: {result}")
                         return [VectorSearchResult(**doc) for doc in result["data"]]
                     elif "message" in result:
                         span.set_status(
@@ -210,6 +213,7 @@ class VectorStore:
                     span.set_status(
                         trace.StatusCode.ERROR, "Failed to search documents"
                     )
+                    span.record_exception(Exception(response.content.decode("utf-8")))
                     raise Exception(
                         f"Failed to search documents: {response.status_code}"
                     )
@@ -232,7 +236,7 @@ class VectorStore:
             span.set_attribute("name", name)
             span.set_attribute("key", key)
             response = httpx.delete(
-                f"{self.base_url}/vector/{name}/{key}",
+                f"{self.base_url}/vector/2025-03-17/{name}/{key}",
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "User-Agent": f"Agentuity Python SDK/{__version__}",
@@ -252,4 +256,5 @@ class VectorStore:
                     raise Exception(f"Failed to delete documents: {result['message']}")
             else:
                 span.set_status(trace.StatusCode.ERROR, "Failed to delete documents")
+                span.record_exception(Exception(response.content.decode("utf-8")))
                 raise Exception(f"Failed to delete documents: {response.status_code}")

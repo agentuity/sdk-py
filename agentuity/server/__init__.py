@@ -268,13 +268,11 @@ async def handle_agent_request(request: web.Request):
                 agent_request = AgentRequest(
                     trigger, metadata, contentType, request.content
                 )
-                agent_response = AgentResponse(
-                    tracer=tracer,
-                    agents_by_id=agents_by_id,
-                    port=port,
-                    data=agent_request.data,
-                )
                 agent_context = AgentContext(
+                    base_url=os.environ.get(
+                        "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
+                    ),
+                    api_key=os.environ.get("AGENTUITY_API_KEY"),
                     services={
                         "kv": KeyValueStore(
                             base_url=os.environ.get(
@@ -298,6 +296,10 @@ async def handle_agent_request(request: web.Request):
                     port=port,
                     run_id=run_id,
                     scope=scope,
+                )
+                agent_response = AgentResponse(
+                    context=agent_context,
+                    data=agent_request.data,
                 )
 
                 # Call the run function and get the response
