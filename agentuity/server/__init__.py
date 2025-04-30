@@ -236,17 +236,34 @@ async def handle_agent_request(request: web.Request):
                     "content-type", "application/octet-stream"
                 )
                 metadata = {}
+                scope = "local"
+                if span.is_recording():
+                    run_id = span.get_span_context().trace_id
+                else:
+                    run_id = None
                 for key, value in request.headers.items():
                     if key.startswith("x-agentuity-") and key != "x-agentuity-trigger":
-                        if key == "x-agentuity-metadata":
+                        if key == "x-agentuity-run-id":
+                            run_id = value
+                        elif key == "x-agentuity-scope":
+                            scope = value
+                        elif key == "x-agentuity-metadata":
                             try:
                                 metadata = json.loads(value)
+                                if "runid" in metadata:
+                                    run_id = metadata["runid"]
+                                    del metadata["runid"]
+                                if "scope" in metadata:
+                                    scope = metadata["scope"]
+                                    del metadata["scope"]
                             except json.JSONDecodeError:
                                 logger.error(
                                     f"Error parsing x-agentuity-metadata: {value}"
                                 )
                         else:
                             metadata[key[12:]] = value
+
+                span.set_attribute("@agentuity/scope", scope)
 
                 agent_request = AgentRequest(
                     trigger, metadata, contentType, request.content
@@ -279,6 +296,8 @@ async def handle_agent_request(request: web.Request):
                     agent=agent,
                     agents_by_id=agents_by_id,
                     port=port,
+                    run_id=run_id,
+                    scope=scope,
                 )
 
                 # Call the run function and get the response

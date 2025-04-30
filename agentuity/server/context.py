@@ -20,6 +20,8 @@ class AgentContext:
         agent: dict,
         agents_by_id: dict,
         port: int,
+        run_id: str,
+        scope: str,
     ):
         """
         Initialize the AgentContext with required services and configuration.
@@ -33,6 +35,8 @@ class AgentContext:
             agent: Dictionary containing the current agent's configuration
             agents_by_id: Dictionary mapping agent IDs to their configurations
             port: Port number for agent communication
+            run_id: The run id for the executing session
+            scope: The scope of the agent invocation
         """
         self._port = port
 
@@ -48,6 +52,14 @@ class AgentContext:
         the version of the Agentuity SDK
         """
         self.sdkVersion = os.getenv("AGENTUITY_SDK_VERSION", "unknown")
+        """
+        the run id for the executing session
+        """
+        self.runId = run_id
+        """
+        the scope of the agent invocation either local or remote
+        """
+        self.scope = scope
         """
         returns true if the agent is running in devmode
         """
