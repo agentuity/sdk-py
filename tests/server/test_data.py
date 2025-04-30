@@ -7,11 +7,35 @@ from agentuity.server.data import (
     Data,
     DataResult,
     encode_payload,
-    decode_payload,
-    decode_payload_bytes,
 )
 
 sys.modules["openlit"] = MagicMock()
+
+
+def decode_payload(payload: str) -> str:
+    """
+    Decode a base64 payload into a UTF-8 string.
+
+    Args:
+        payload: Base64 encoded string
+
+    Returns:
+        str: Decoded UTF-8 string
+    """
+    return base64.b64decode(payload).decode("utf-8")
+
+
+def decode_payload_bytes(payload: str) -> bytes:
+    """
+    Decode a base64 payload into bytes.
+
+    Args:
+        payload: Base64 encoded string
+
+    Returns:
+        bytes: Decoded binary data
+    """
+    return base64.b64decode(payload)
 
 
 class TestData:

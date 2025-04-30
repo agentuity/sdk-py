@@ -1,44 +1,29 @@
 from typing import Any
+from aiohttp import StreamReader
+
 from .data import Data
 
 
-class AgentRequest(dict):
+class AgentRequest:
     """
-    The request that triggered the agent invocation. This class extends dict to provide
-    additional functionality for handling agent requests while maintaining dictionary-like
-    behavior.
+    The request that triggered the agent invocation.
     """
 
-    def __init__(self, req: dict):
+    def __init__(
+        self, trigger: str, metadata: dict, contentType: str, stream: StreamReader
+    ):
         """
         Initialize an AgentRequest object.
 
         Args:
-            req: Dictionary containing the request data with required fields:
-                - contentType: The MIME type of the request data
-                - trigger: The event that triggered this request
-                - data: The actual request data
-                - metadata: Optional metadata associated with the request
+            trigger: The event that triggered this request
+            metadata: Optional metadata associated with the request
+            contentType: The MIME type of the request data
+            stream: The stream of request data
         """
-        self._req = req
-        self._data = Data(req)
-        super().__init__(req)
-
-    def validate(self) -> bool:
-        """
-        Validate that the request contains all required fields.
-
-        Returns:
-            bool: True if validation passes
-
-        Raises:
-            ValueError: If required fields 'contentType' or 'trigger' are missing
-        """
-        if not self._req.get("contentType"):
-            raise ValueError("Request must contain 'contentType' field")
-        if not self._req.get("trigger"):
-            raise ValueError("Request requires 'trigger' field")
-        return True
+        self._trigger = trigger
+        self._metadata = metadata
+        self._data = Data(contentType, stream)
 
     @property
     def data(self) -> "Data":
@@ -58,7 +43,7 @@ class AgentRequest(dict):
         Returns:
             str: The trigger identifier that caused this request to be processed
         """
-        return self._req.get("trigger")
+        return self._trigger
 
     @property
     def metadata(self) -> dict:
@@ -69,7 +54,7 @@ class AgentRequest(dict):
             dict: Dictionary containing any additional metadata associated with the request.
                 Returns an empty dictionary if no metadata is present.
         """
-        return self._req.get("metadata", {})
+        return self._metadata
 
     def get(self, key: str, default: Any = None) -> Any:
         """
@@ -83,7 +68,7 @@ class AgentRequest(dict):
             Any: The value associated with the key in metadata, or the default value
                 if the key is not found
         """
-        return self.metadata.get(key, default)
+        return self._metadata.get(key, default)
 
     def __str__(self) -> str:
         """
@@ -91,6 +76,6 @@ class AgentRequest(dict):
 
         Returns:
             str: A formatted string containing the request's trigger, content type,
-                data, and metadata
+                and metadata
         """
-        return f"AgentRequest(trigger={self.trigger}, contentType={self._data.contentType}, data={self._data.base64}, metadata={self.metadata})"
+        return f"AgentRequest(trigger={self.trigger},contentType={self.contentType},metadata={self.metadata})"

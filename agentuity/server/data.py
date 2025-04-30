@@ -1,9 +1,8 @@
 from typing import Optional, Union
 import base64
 import json
-import io
-import os
 from typing import IO
+from aiohttp import StreamReader
 
 
 class DataResult:
@@ -58,64 +57,34 @@ class Data:
     functionality for large payloads.
     """
 
-    def __init__(self, data: dict):
+    def __init__(self, contentType: str, stream: StreamReader):
         """
         Initialize a Data object with a dictionary containing payload information.
 
         Args:
             data: Dictionary containing:
-                - payload: The base64 encoded data or blob reference
-                - contentType: The MIME type of the data
         """
-        self._data = data
-        self._is_stream = data.get("payload", "").startswith("blob:")
-        self._is_loaded = False
+        self._contentType = contentType
+        self._stream = stream
+        self._loaded = False
+        self._data = None
 
-    def _get_stream_filename(self) -> Union[str, None]:
-        """
-        Get the filename for a stream payload.
+    async def _ensure_stream_loaded(self):
+        if not self._loaded:
+            self._loaded = True
+            self._data = await self._stream.read()
+        return self._data
 
-        Returns:
-            Union[str, None]: The full path to the stream file if it's a blob,
-                            None otherwise
-
-        Raises:
-            ValueError: If AGENTUITY_IO_INPUT_DIR is not set or stream file doesn't exist
-        """
-        if not self._is_stream:
-            return None
-        dir = os.environ.get("AGENTUITY_IO_INPUT_DIR", None)
-        if dir is None:
-            raise ValueError("AGENTUITY_IO_INPUT_DIR is not set")
-        id = self._data.get("payload", "")[5:]
-        fn = os.path.join(dir, id)
-        if not os.path.exists(fn):
-            raise ValueError(f"stream {id} does not exist in {dir}")
-        return fn
-
-    def _ensure_stream_loaded(self):
-        """
-        Ensure that stream data is loaded into memory if it's a blob.
-        Converts the stream file content to base64 encoded string.
-        """
-        fn = self._get_stream_filename()
-        if fn is not None:
-            with open(fn, "r") as f:
-                self._data["payload"] = encode_payload(f.read())
-            self._is_loaded = False
-
-    @property
-    def stream(self) -> IO[bytes]:
+    async def stream(self) -> IO[bytes]:
         """
         Get the data as a stream of bytes.
 
         Returns:
             IO[bytes]: A file-like object providing access to the data as bytes
         """
-        fn = self._get_stream_filename()
-        if fn is not None:
-            return open(fn, "rb")
-        return io.BytesIO(decode_payload_bytes(self.base64))
+        if self._loaded:
+            raise ValueError("Stream already loaded")
+        return self._stream
 
     @property
     def contentType(self) -> str:
@@ -126,31 +95,29 @@ class Data:
             str: The MIME type of the data. If not provided, it will be inferred from
                 the data. If it cannot be inferred, returns 'application/octet-stream'
         """
-        return self._data.get("contentType", "application/octet-stream")
+        return self._contentType
 
-    @property
-    def base64(self) -> str:
+    async def base64(self) -> str:
         """
         Get the base64 encoded string of the data.
 
         Returns:
             str: The base64 encoded payload
         """
-        self._ensure_stream_loaded()
-        return self._data.get("payload", "")
+        data = await self._ensure_stream_loaded()
+        return encode_payload(data)
 
-    @property
-    def text(self) -> bytes:
+    async def text(self) -> bytes:
         """
         Get the data as a string.
 
         Returns:
             bytes: The decoded text content
         """
-        return decode_payload(self.base64)
+        data = await self._ensure_stream_loaded()
+        return data.decode("utf-8")
 
-    @property
-    def json(self) -> dict:
+    async def json(self) -> dict:
         """
         Get the data as a JSON object.
 
@@ -161,46 +128,19 @@ class Data:
             ValueError: If the data is not valid JSON
         """
         try:
-            return json.loads(self.text)
+            return json.loads(await self.text())
         except Exception as e:
-            raise ValueError("Data is not JSON") from e
+            raise ValueError(f"Data is not JSON: {e}") from e
 
-    @property
-    def binary(self) -> bytes:
+    async def binary(self) -> bytes:
         """
         Get the data as binary bytes.
 
         Returns:
             bytes: The raw binary data
         """
-        self._ensure_stream_loaded()
-        return decode_payload_bytes(self.base64)
-
-
-def decode_payload(payload: str) -> str:
-    """
-    Decode a base64 payload into a UTF-8 string.
-
-    Args:
-        payload: Base64 encoded string
-
-    Returns:
-        str: Decoded UTF-8 string
-    """
-    return base64.b64decode(payload).decode("utf-8")
-
-
-def decode_payload_bytes(payload: str) -> bytes:
-    """
-    Decode a base64 payload into bytes.
-
-    Args:
-        payload: Base64 encoded string
-
-    Returns:
-        bytes: Decoded binary data
-    """
-    return base64.b64decode(payload)
+        data = await self._ensure_stream_loaded()
+        return data
 
 
 def encode_payload(data: Union[str, bytes]) -> str:

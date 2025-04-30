@@ -116,6 +116,7 @@ class KeyValueStore:
             content_type = params.get("contentType", None)
             payload = None
 
+            # FIXME
             try:
                 p = value_to_payload(content_type, value)
                 payload = p["payload"]

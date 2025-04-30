@@ -1,9 +1,12 @@
-from .config import AgentConfig
 import httpx
-from .data import encode_payload, value_to_payload, Data
-from typing import Optional, Union
+import json
+from typing import Optional
 from opentelemetry import trace
 from opentelemetry.propagate import inject
+import asyncio
+
+from .config import AgentConfig
+from .data import Data
 
 
 class RemoteAgentResponse:
@@ -12,19 +15,25 @@ class RemoteAgentResponse:
     structured access to the response data, content type, and metadata.
     """
 
-    def __init__(self, data: dict):
+    def __init__(self, data: Data, headers: dict = None):
         """
         Initialize a RemoteAgentResponse with response data.
 
         Args:
-            data: Dictionary containing:
-                - payload: The response data
-                - contentType: The MIME type of the response
-                - metadata: Optional metadata associated with the response
+            data: Data object
         """
-        self.data = Data(data)
-        self.contentType = data.get("contentType", "text/plain")
-        self.metadata = data.get("metadata", {})
+        self.data = data
+        self.metadata = {}
+        if headers is not None:
+            for key, value in headers.items():
+                if key.startswith("x-agentuity-"):
+                    if key == "x-agentuity-metadata":
+                        try:
+                            self.metadata = json.loads(value)
+                        except json.JSONDecodeError:
+                            self.metadata = value
+                    else:
+                        self.metadata[key[12:]] = value
 
 
 class RemoteAgent:
@@ -49,9 +58,7 @@ class RemoteAgent:
 
     async def run(
         self,
-        data: Union[str, int, float, bool, list, dict, bytes, "Data"],
-        base64: bytes = None,
-        content_type: str = "text/plain",
+        data: "Data",
         metadata: Optional[dict] = None,
     ) -> RemoteAgentResponse:
         """
@@ -78,31 +85,34 @@ class RemoteAgent:
             span.set_attribute("remote.agentName", self.agentconfig.name)
             span.set_attribute("scope", "local")
 
-            p = None
-            if data is not None:
-                p = value_to_payload(content_type, data)
-
-            invoke_payload = {
-                "trigger": "agent",
-                "payload": base64 or encode_payload(p["payload"]),
-                "metadata": metadata,
-                "contentType": p is not None and p["contentType"] or content_type,
-            }
-
             url = f"http://127.0.0.1:{self._port}/{self.agentconfig.id}"
             headers = {}
             inject(headers)
+            headers["Content-Type"] = data.contentType
+            if metadata is not None:
+                for key, value in metadata.items():
+                    headers[f"x-agentuity-{key}"] = str(value)
+
+            async def data_generator():
+                async for chunk in await data.stream():
+                    yield chunk
 
             async with httpx.AsyncClient() as client:
-                response = await client.post(url, json=invoke_payload, headers=headers)
+                response = await client.post(
+                    url, content=data_generator(), headers=headers
+                )
                 if response.status_code != 200:
                     body = response.content.decode("utf-8")
                     span.record_exception(Exception(body))
                     span.set_status(trace.Status(trace.StatusCode.ERROR, body))
                     raise Exception(body)
-                data = response.json()
+
+                stream = await create_stream_reader(response)
+                contentType = response.headers.get(
+                    "content-type", "application/octet-stream"
+                )
                 span.set_status(trace.Status(trace.StatusCode.OK))
-                return RemoteAgentResponse(data)
+                return RemoteAgentResponse(Data(contentType, stream), response.headers)
 
     def __str__(self) -> str:
         """
@@ -112,3 +122,19 @@ class RemoteAgent:
             str: A formatted string containing the agent configuration
         """
         return f"RemoteAgent(agentconfig={self.agentconfig})"
+
+
+async def create_stream_reader(response):
+    reader = asyncio.StreamReader()
+
+    async def feed_reader():
+        try:
+            async for chunk in response.aiter_bytes():
+                reader.feed_data(chunk)
+        finally:
+            reader.feed_eof()
+
+    # Start feeding the reader in the background
+    asyncio.create_task(feed_reader())
+
+    return reader

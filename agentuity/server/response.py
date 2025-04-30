@@ -1,9 +1,11 @@
-from typing import Optional, Iterable, Callable, Any
+from typing import Optional, Iterable, Callable, Any, Union, AsyncIterator
 import json
 from opentelemetry import trace
-from .data import encode_payload
 from .agent import RemoteAgent
+from asyncio import StreamReader
 from .config import AgentConfig
+from .data import Data
+import asyncio
 
 
 class AgentResponse:
@@ -12,7 +14,11 @@ class AgentResponse:
     """
 
     def __init__(
-        self, payload: dict, tracer: trace.Tracer, agents_by_id: dict, port: int
+        self,
+        tracer: trace.Tracer,
+        agents_by_id: dict,
+        port: int,
+        data: "Data",
     ):
         """
         Initialize an AgentResponse object.
@@ -23,15 +29,35 @@ class AgentResponse:
             agents_by_id: Dictionary mapping agent IDs to their configurations
             port: Port number for agent communication
         """
-        self.content_type = "text/plain"
-        self.payload = ""
-        self.metadata = {}
-        self._payload = payload
+        self._contentType = "application/octet-stream"
+        self._metadata = {}
         self._tracer = tracer
         self._agents_by_id = agents_by_id
         self._port = port
+        self._payload = None
         self._stream = None
         self._transform = None
+        self._buffer_read = False
+        self._data = data
+        self._is_async = False
+
+    @property
+    def contentType(self) -> str:
+        """
+        Get the content type of the data.
+
+        Returns:
+            str: The MIME type of the data. If not provided, it will be inferred from
+                the data. If it cannot be inferred, returns 'application/octet-stream'
+        """
+        return self._contentType
+
+    @property
+    def metadata(self) -> dict:
+        """
+        Get the metadata of the data.
+        """
+        return self._metadata if self._metadata else {}
 
     async def handoff(
         self, params: dict, args: Optional[dict] = None, metadata: Optional[dict] = None
@@ -54,6 +80,7 @@ class AgentResponse:
             raise ValueError("params must have an id or name")
 
         found_agent = None
+        # FIXME check this logic against js sdk
         for id, agent in self._agents_by_id.items():
             if ("id" in params and id == params["id"]) or (
                 "name" in agent and agent["name"] == params["name"]
@@ -68,17 +95,19 @@ class AgentResponse:
         agent = RemoteAgent(AgentConfig(found_agent), self._port, self._tracer)
 
         if not args:
-            data = await agent.run(
-                base64=self._payload.get("payload", ""),
-                metadata=self._payload.get("metadata", {}),
-                content_type=self._payload.get("contentType", "text/plain"),
-            )
+            agent_response = await agent.run(self._data, metadata)
         else:
-            data = await agent.run(data=args, metadata=metadata)
+            # Create a StreamReader from the args data
+            reader = asyncio.StreamReader()
+            reader.feed_data(json.dumps(args).encode("utf-8"))
+            reader.feed_eof()
+            # FIXME: need to be any serializable type
+            data = Data("application/json", reader)
+            agent_response = await agent.run(data, metadata)
 
-        self.content_type = data.contentType
-        self.payload = data.data.base64
-        self.metadata = data.metadata
+        self._metadata = agent_response.metadata
+        self._contentType = agent_response.data.contentType
+        self._stream = await agent_response.data.stream()
 
         return self
 
@@ -92,7 +121,7 @@ class AgentResponse:
         Returns:
             AgentResponse: The response object with empty payload
         """
-        self.metadata = metadata
+        self._metadata = metadata
         return self
 
     def text(self, data: str, metadata: Optional[dict] = None) -> "AgentResponse":
@@ -106,9 +135,9 @@ class AgentResponse:
         Returns:
             AgentResponse: The response object with text content
         """
-        self.content_type = "text/plain"
-        self.payload = encode_payload(data)
-        self.metadata = metadata
+        self._contentType = "text/plain"
+        self._payload = data
+        self._metadata = metadata
         return self
 
     def html(self, data: str, metadata: Optional[dict] = None) -> "AgentResponse":
@@ -122,9 +151,9 @@ class AgentResponse:
         Returns:
             AgentResponse: The response object with HTML content
         """
-        self.content_type = "text/html"
-        self.payload = encode_payload(data)
-        self.metadata = metadata
+        self._contentType = "text/html"
+        self._payload = data
+        self._metadata = metadata
         return self
 
     def json(self, data: dict, metadata: Optional[dict] = None) -> "AgentResponse":
@@ -138,9 +167,9 @@ class AgentResponse:
         Returns:
             AgentResponse: The response object with JSON content
         """
-        self.content_type = "application/json"
-        self.payload = encode_payload(json.dumps(data))
-        self.metadata = metadata
+        self._contentType = "application/json"
+        self._payload = json.dumps(data)
+        self._metadata = metadata
         return self
 
     def binary(
@@ -160,9 +189,9 @@ class AgentResponse:
         Returns:
             AgentResponse: The response object with binary content
         """
-        self.content_type = content_type
-        self.payload = encode_payload(data)
-        self.metadata = metadata
+        self._contentType = content_type
+        self._payload = data
+        self._metadata = metadata
         return self
 
     def pdf(self, data: bytes, metadata: Optional[dict] = None) -> "AgentResponse":
@@ -325,19 +354,19 @@ class AgentResponse:
         if isinstance(data, bytes):
             return self.binary(data, content_type, metadata)
         elif isinstance(data, str):
-            self.content_type = content_type
-            self.payload = encode_payload(data)
-            self.metadata = metadata
+            self._contentType = content_type
+            self._payload = data
+            self._metadata = metadata
             return self
         elif isinstance(data, dict):
-            self.content_type = content_type
-            self.payload = encode_payload(json.dumps(data))
-            self.metadata = metadata
+            self._contentType = content_type
+            self._payload = json.dumps(data)
+            self._metadata = metadata
             return self
         else:
-            self.content_type = content_type
-            self.payload = encode_payload(str(data))
-            self.metadata = metadata
+            self._contentType = content_type
+            self._payload = str(data)
+            self._metadata = metadata
             return self
 
     def markdown(
@@ -353,37 +382,44 @@ class AgentResponse:
         Returns:
             AgentResponse: The response object with markdown content
         """
-        self.content_type = "text/markdown"
-        self.payload = encode_payload(content)
-        self.metadata = metadata
+        self._contentType = "text/markdown"
+        self._payload = content
+        self._metadata = metadata
         return self
 
     def stream(
-        self, data: Iterable[Any], transform: Optional[Callable[[Any], str]] = None
+        self,
+        data: Union[Iterable[Any], AsyncIterator[Any], "AgentResponse"],
+        transform: Optional[Callable[[Any], str]] = None,
+        contentType: str = "application/octet-stream",
     ) -> "AgentResponse":
         """
         Sets up streaming response from an iterable data source.
 
         Args:
-            data: An iterable containing the data to stream. Can be any type of iterable
-                (list, generator, etc.) containing any type of data.
+            data: An iterable or async iterator containing the data to stream. Can be any type of iterable
+                (list, generator, etc.) or async iterator containing any type of data. Also supports
+                another AgentResponse object for chaining streams.
             transform: Optional callable function that transforms each item in the stream
                 into a string. If not provided, items are returned as-is.
+            contentType: The MIME type of the streamed content
 
         Returns:
             AgentResponse: The response object configured for streaming. The response can
                 then be iterated over to yield the streamed data.
-
-        Example:
-            >>> response.stream([1, 2, 3], transform=str)
-            >>> for item in response:
-            ...     print(item)
         """
-        self.content_type = "text/plain"
-        self.payload = ""
-        self.metadata = None
-        self._stream = data
+
+        self._contentType = contentType
+        self._metadata = None
         self._transform = transform
+
+        if isinstance(data, AgentResponse):
+            # If data is an AgentResponse, we'll use its stream directly
+            self._stream = data
+            self._is_async = True  # AgentResponse is always async
+        else:
+            self._stream = data
+            self._is_async = hasattr(data, "__anext__")
         return self
 
     @property
@@ -396,32 +432,47 @@ class AgentResponse:
         """
         return self._stream is not None
 
-    def __iter__(self):
+    def __aiter__(self):
         """
-        Make the response object iterable for streaming.
+        Make the response object async iterable for streaming.
 
         Returns:
-            AgentResponse: The response object itself as an iterator
-
-        Raises:
-            StopIteration: If the response is not configured for streaming
+            AgentResponse: The response object itself as an async iterator
         """
-        if not self.is_stream:
-            raise StopIteration
         return self
 
-    def __next__(self):
+    async def __anext__(self):
         """
-        Get the next item from the stream.
+        Get the next item from the stream asynchronously.
 
         Returns:
             Any: The next item from the stream, transformed if a transform function is set
 
         Raises:
-            StopIteration: If the stream is exhausted or not configured for streaming
+            StopAsyncIteration: If the stream is exhausted or not configured for streaming
         """
-        if not self.is_stream:
-            raise StopIteration
-        if self._transform:
-            return self._transform(next(self._stream))
-        return next(self._stream)
+        if self._stream is not None:
+            try:
+                if isinstance(self._stream, StreamReader):
+                    # If stream is an StreamReader, use its __anext__ directly
+                    item = await self._stream.__anext__()
+                elif self._is_async:
+                    item = await self._stream.__anext__()
+                else:
+                    item = next(self._stream)
+
+                if self._transform:
+                    item = self._transform(item)
+                if isinstance(item, str):
+                    return item.encode("utf-8")
+                return item
+            except (StopAsyncIteration, StopIteration):
+                raise StopAsyncIteration
+
+        if self._buffer_read:
+            raise StopAsyncIteration
+
+        self._buffer_read = True
+        if isinstance(self._payload, str):
+            return self._payload.encode("utf-8")
+        return self._payload
