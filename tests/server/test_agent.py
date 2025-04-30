@@ -1,7 +1,6 @@
 import pytest
 import sys
 import json
-import base64
 import asyncio
 from unittest.mock import MagicMock, AsyncMock
 import httpx
@@ -22,13 +21,11 @@ class TestRemoteAgentResponse:
         reader = asyncio.StreamReader()
         reader.feed_data(b"Hello, world!")
         reader.feed_eof()
-        
+
         data = Data("text/plain", reader)
-        
-        headers = {
-            "x-agentuity-key": "value"
-        }
-        
+
+        headers = {"x-agentuity-key": "value"}
+
         response = RemoteAgentResponse(data, headers)
 
         assert response.data == data
@@ -39,9 +36,9 @@ class TestRemoteAgentResponse:
         reader = asyncio.StreamReader()
         reader.feed_data(b"Hello, world!")
         reader.feed_eof()
-        
+
         data = Data("text/plain", reader)
-        
+
         response = RemoteAgentResponse(data)
 
         assert response.metadata == {}
@@ -85,11 +82,14 @@ class TestRemoteAgent:
         """Test running a remote agent with string data."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
-        mock_response.headers = {"content-type": "text/plain", "x-agentuity-key": "value"}
-        
+        mock_response.headers = {
+            "content-type": "text/plain",
+            "x-agentuity-key": "value",
+        }
+
         async def mock_aiter_bytes():
             yield b"Response from agent"
-            
+
         mock_response.aiter_bytes = mock_aiter_bytes
 
         mock_client = AsyncMock()
@@ -100,23 +100,25 @@ class TestRemoteAgent:
         mock_stream_reader = asyncio.StreamReader()
         mock_stream_reader.feed_data(b"Response from agent")
         mock_stream_reader.feed_eof()
-        
+
         async def mock_create_stream_reader(response):
             return mock_stream_reader
-            
-        monkeypatch.setattr("agentuity.server.agent.create_stream_reader", mock_create_stream_reader)
+
+        monkeypatch.setattr(
+            "agentuity.server.agent.create_stream_reader", mock_create_stream_reader
+        )
         monkeypatch.setattr(httpx, "AsyncClient", MagicMock(return_value=mock_client))
 
         reader = asyncio.StreamReader()
         reader.feed_data(b"Hello, world!")
         reader.feed_eof()
         data = Data("text/plain", reader)
-        
+
         async def mock_stream():
             return reader
-            
+
         data.stream = mock_stream
-        
+
         result = await remote_agent.run(data)
 
         assert isinstance(result, RemoteAgentResponse)
@@ -130,7 +132,7 @@ class TestRemoteAgent:
 
         assert args[0] == "http://127.0.0.1:3000/test_agent"
         assert kwargs["headers"] is not None
-        
+
         assert "content" in kwargs
 
         span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
@@ -144,11 +146,14 @@ class TestRemoteAgent:
         """Test running a remote agent with JSON data."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
-        mock_response.headers = {"content-type": "application/json", "x-agentuity-key": "value"}
-        
+        mock_response.headers = {
+            "content-type": "application/json",
+            "x-agentuity-key": "value",
+        }
+
         async def mock_aiter_bytes():
             yield json.dumps({"result": "success"}).encode()
-            
+
         mock_response.aiter_bytes = mock_aiter_bytes
 
         mock_client = AsyncMock()
@@ -159,11 +164,13 @@ class TestRemoteAgent:
         mock_stream_reader = asyncio.StreamReader()
         mock_stream_reader.feed_data(json.dumps({"result": "success"}).encode())
         mock_stream_reader.feed_eof()
-        
+
         async def mock_create_stream_reader(response):
             return mock_stream_reader
-            
-        monkeypatch.setattr("agentuity.server.agent.create_stream_reader", mock_create_stream_reader)
+
+        monkeypatch.setattr(
+            "agentuity.server.agent.create_stream_reader", mock_create_stream_reader
+        )
         monkeypatch.setattr(httpx, "AsyncClient", MagicMock(return_value=mock_client))
 
         json_data = {"message": "Hello, world!"}
@@ -171,12 +178,12 @@ class TestRemoteAgent:
         reader.feed_data(json.dumps(json_data).encode())
         reader.feed_eof()
         data = Data("application/json", reader)
-        
+
         async def mock_stream():
             return reader
-            
+
         data.stream = mock_stream
-        
+
         result = await remote_agent.run(data)
 
         assert isinstance(result, RemoteAgentResponse)
@@ -195,10 +202,10 @@ class TestRemoteAgent:
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
         mock_response.headers = {"content-type": "application/octet-stream"}
-        
+
         async def mock_aiter_bytes():
             yield b"Binary response"
-            
+
         mock_response.aiter_bytes = mock_aiter_bytes
 
         mock_client = AsyncMock()
@@ -209,11 +216,13 @@ class TestRemoteAgent:
         mock_stream_reader = asyncio.StreamReader()
         mock_stream_reader.feed_data(b"Binary response")
         mock_stream_reader.feed_eof()
-        
+
         async def mock_create_stream_reader(response):
             return mock_stream_reader
-            
-        monkeypatch.setattr("agentuity.server.agent.create_stream_reader", mock_create_stream_reader)
+
+        monkeypatch.setattr(
+            "agentuity.server.agent.create_stream_reader", mock_create_stream_reader
+        )
         monkeypatch.setattr(httpx, "AsyncClient", MagicMock(return_value=mock_client))
 
         binary_data = b"Binary data"
@@ -221,12 +230,12 @@ class TestRemoteAgent:
         reader.feed_data(binary_data)
         reader.feed_eof()
         data = Data("application/octet-stream", reader)
-        
+
         async def mock_stream():
             return reader
-            
+
         data.stream = mock_stream
-        
+
         result = await remote_agent.run(data)
 
         assert isinstance(result, RemoteAgentResponse)
@@ -241,11 +250,14 @@ class TestRemoteAgent:
         """Test running a remote agent with metadata."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
-        mock_response.headers = {"content-type": "text/plain", "x-agentuity-response_key": "response_value"}
-        
+        mock_response.headers = {
+            "content-type": "text/plain",
+            "x-agentuity-response_key": "response_value",
+        }
+
         async def mock_aiter_bytes():
             yield b"Response with metadata"
-            
+
         mock_response.aiter_bytes = mock_aiter_bytes
 
         mock_client = AsyncMock()
@@ -256,23 +268,25 @@ class TestRemoteAgent:
         mock_stream_reader = asyncio.StreamReader()
         mock_stream_reader.feed_data(b"Response with metadata")
         mock_stream_reader.feed_eof()
-        
+
         async def mock_create_stream_reader(response):
             return mock_stream_reader
-            
-        monkeypatch.setattr("agentuity.server.agent.create_stream_reader", mock_create_stream_reader)
+
+        monkeypatch.setattr(
+            "agentuity.server.agent.create_stream_reader", mock_create_stream_reader
+        )
         monkeypatch.setattr(httpx, "AsyncClient", MagicMock(return_value=mock_client))
 
         reader = asyncio.StreamReader()
         reader.feed_data(b"Hello")
         reader.feed_eof()
         data = Data("text/plain", reader)
-        
+
         async def mock_stream():
             return mock_stream_reader
-            
+
         data.stream = mock_stream
-        
+
         metadata = {"request_key": "request_value"}
         result = await remote_agent.run(data, metadata=metadata)
 
@@ -306,10 +320,10 @@ class TestRemoteAgent:
         reader.feed_data(b"Hello, world!")
         reader.feed_eof()
         data = Data("text/plain", reader)
-        
+
         async def mock_stream():
             return reader
-            
+
         data.stream = mock_stream
 
         with pytest.raises(Exception) as excinfo:

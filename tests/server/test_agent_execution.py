@@ -61,7 +61,7 @@ class TestAgentExecution:
             ),
         ):
             mock_stream = MagicMock()
-            
+
             mock_agent_request = MagicMock(spec=AgentRequest)
             mock_agent_request._data = mock_stream
             mock_agent_request_class.return_value = mock_agent_request
@@ -74,17 +74,22 @@ class TestAgentExecution:
 
             agent = mock_agents_by_id["test_agent"]
             agent["run"].return_value = "Test response"
-            
+
             result = await run_agent(
-                mock_tracer, "test_agent", agent, mock_agent_request, mock_agent_response, mock_agent_context
+                mock_tracer,
+                "test_agent",
+                agent,
+                mock_agent_request,
+                mock_agent_response,
+                mock_agent_context,
             )
 
             assert result == "Test response"
-            
+
             agent["run"].assert_called_once_with(
                 request=mock_agent_request,
                 response=mock_agent_response,
-                context=mock_agent_context
+                context=mock_agent_context,
             )
 
             span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
@@ -96,7 +101,6 @@ class TestAgentExecution:
     ):
         """Test agent execution when an exception occurs."""
         with (
-            patch("agentuity.server.AgentRequest") as mock_agent_request_class,
             patch("agentuity.server.AgentResponse") as mock_agent_response_class,
             patch("agentuity.server.AgentContext") as mock_agent_context_class,
             patch.dict(
@@ -108,7 +112,7 @@ class TestAgentExecution:
             ),
         ):
             mock_agent_request = MagicMock(spec=AgentRequest)
-            
+
             agent = mock_agents_by_id["test_agent"]
             agent["run"].side_effect = ValueError("Invalid request")
 
@@ -121,7 +125,12 @@ class TestAgentExecution:
             agent = mock_agents_by_id["test_agent"]
             with pytest.raises(ValueError, match="Invalid request"):
                 await run_agent(
-                    mock_tracer, "test_agent", agent, mock_agent_request, mock_agent_response, mock_agent_context
+                    mock_tracer,
+                    "test_agent",
+                    agent,
+                    mock_agent_request,
+                    mock_agent_response,
+                    mock_agent_context,
                 )
 
             span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
