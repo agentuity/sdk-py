@@ -17,7 +17,7 @@ from agentuity.otel import init
 from agentuity.instrument import instrument
 from agentuity import __version__
 
-from .data import Data, encode_payload
+from .data import Data
 from .context import AgentContext
 from .request import AgentRequest
 from .response import AgentResponse

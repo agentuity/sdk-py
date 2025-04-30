@@ -124,7 +124,7 @@ class LocalAgent:
 
 
 class RemoteAgent:
-    def __init__(self, agentconfig: AgentConfig, port: int, tracer: trace.Tracer):
+    def __init__(self, agentconfig: dict, port: int, tracer: trace.Tracer):
         self.agentconfig = agentconfig
         self.port = port
         self.tracer = tracer
@@ -186,7 +186,7 @@ class RemoteAgent:
                 return RemoteAgentResponse(Data(contentType, stream), response.headers)
 
     def __str__(self) -> str:
-        return f"RemoteAgent(agent={self.agentconfig.id})"
+        return f"RemoteAgent(agent={self.agentconfig.get('id')})"
 
 
 def resolve_agent(context: any, req: Union[dict, str]):

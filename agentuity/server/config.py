@@ -57,6 +57,46 @@ class AgentConfig:
         """
         return self._config.get("filename")
 
+    @property
+    def orgId(self) -> str:
+        """
+        Get the organization ID of the agent.
+
+        Returns:
+            str: The organization ID of the agent, or None if not set
+        """
+        return self._config.get("orgId")
+
+    @property
+    def projectId(self) -> str:
+        """
+        Get the project ID of the agent.
+
+        Returns:
+            str: The project ID of the agent, or None if not set
+        """
+        return self._config.get("projectId")
+
+    @property
+    def transactionId(self) -> str:
+        """
+        Get the transaction ID of the agent.
+
+        Returns:
+            str: The transaction ID of the agent, or None if not set
+        """
+        return self._config.get("transactionId")
+
+    @property
+    def authorization(self) -> str:
+        """
+        Get the authorization token for the agent.
+
+        Returns:
+            str: The authorization token for the agent, or None if not set
+        """
+        return self._config.get("authorization")
+
     def __str__(self) -> str:
         """
         Get a string representation of the agent configuration.

@@ -58,13 +58,16 @@ class TestRemoteAgent:
     @pytest.fixture
     def agent_config(self):
         """Create an AgentConfig for testing."""
-        return AgentConfig({
-            "id": "test_agent", 
-            "name": "Test Agent", 
+        return {
+            "id": "test_agent",
+            "name": "Test Agent",
             "filename": "/path/to/agent.py",
             "url": "http://127.0.0.1:3000/test_agent",
-            "authorization": "test_auth_token"
-        })
+            "authorization": "test_auth_token",
+            "orgId": "test_org",
+            "projectId": "test_project",
+            "transactionId": "test_transaction",
+        }
 
     @pytest.fixture
     def remote_agent(self, agent_config, mock_tracer):
@@ -79,7 +82,7 @@ class TestRemoteAgent:
 
     def test_str(self, remote_agent, agent_config):
         """Test string representation of RemoteAgent."""
-        assert str(remote_agent) == f"RemoteAgent(agent={agent_config.id})"
+        assert str(remote_agent) == f"RemoteAgent(agent={agent_config['id']})"
 
     @pytest.mark.asyncio
     async def test_run_with_string_data(self, remote_agent, mock_tracer, monkeypatch):
