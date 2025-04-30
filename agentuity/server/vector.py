@@ -189,7 +189,6 @@ class VectorStore:
                     if "success" in result and result["success"]:
                         span.add_event("hit")
                         span.set_status(trace.StatusCode.OK)
-                        print(f"result: {result}")
                         return [VectorSearchResult(**doc) for doc in result["data"]]
                     elif "message" in result:
                         span.set_status(

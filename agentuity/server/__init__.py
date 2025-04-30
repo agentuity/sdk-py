@@ -164,13 +164,19 @@ async def handle_agent_welcome_request(request: web.Request):
 
 
 def make_response_headers(
-    contentType: str, metadata: dict = None, additional: dict = None
+    request: web.Request,
+    contentType: str,
+    metadata: dict = None,
+    additional: dict = None,
 ):
     headers = {}
     inject_trace_context(headers)
     headers["Content-Type"] = contentType
     headers["Server"] = "Agentuity Python SDK/" + __version__
-    headers["Access-Control-Allow-Origin"] = "*"
+    if request.headers.get("origin"):
+        headers["Access-Control-Allow-Origin"] = request.headers.get("origin")
+    else:
+        headers["Access-Control-Allow-Origin"] = "*"
     headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
     headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
     if metadata is not None:
@@ -185,7 +191,7 @@ def make_response_headers(
 async def stream_response(
     request: web.Request, iterable: Iterable[Any], contentType: str, metadata: dict = {}
 ):
-    headers = make_response_headers(contentType, metadata)
+    headers = make_response_headers(request, contentType, metadata)
     resp = web.StreamResponse(headers=headers)
     await resp.prepare(request)
 
@@ -206,7 +212,7 @@ async def stream_response(
 
 async def handle_agent_options_request(request: web.Request):
     return web.Response(
-        headers=make_response_headers("text/plain"),
+        headers=make_response_headers(request, "text/plain"),
         text="OK",
     )
 
@@ -321,7 +327,7 @@ async def handle_agent_request(request: web.Request):
                     return web.Response(
                         text="No response from agent",
                         status=204,
-                        headers=make_response_headers("text/plain"),
+                        headers=make_response_headers(request, "text/plain"),
                     )
 
                 if isinstance(response, AgentResponse):
@@ -333,21 +339,21 @@ async def handle_agent_request(request: web.Request):
                     return response
 
                 if isinstance(response, Data):
-                    headers = make_response_headers(response.contentType)
+                    headers = make_response_headers(request, response.contentType)
                     return await stream_response(
                         request, response.stream(), response.contentType
                     )
 
                 if isinstance(response, dict) or isinstance(response, list):
-                    headers = make_response_headers("application/json")
+                    headers = make_response_headers(request, "application/json")
                     return web.Response(body=json.dumps(response), headers=headers)
 
                 if isinstance(response, (str, int, float, bool)):
-                    headers = make_response_headers("text/plain")
+                    headers = make_response_headers(request, "text/plain")
                     return web.Response(text=str(response), headers=headers)
 
                 if isinstance(response, bytes):
-                    headers = make_response_headers("application/octet-stream")
+                    headers = make_response_headers(request, "application/octet-stream")
                     return web.Response(
                         body=response,
                         headers=headers,
@@ -359,7 +365,7 @@ async def handle_agent_request(request: web.Request):
                 logger.error(f"Error loading or running agent: {e}")
                 span.record_exception(e)
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-                headers = make_response_headers("text/plain")
+                headers = make_response_headers(request, "text/plain")
                 return web.Response(
                     text=str(e),
                     status=500,
@@ -370,7 +376,7 @@ async def handle_agent_request(request: web.Request):
         return web.Response(
             text=f"Agent {agentId} not found",
             status=404,
-            headers=make_response_headers("text/plain"),
+            headers=make_response_headers(request, "text/plain"),
         )
 
 
@@ -378,6 +384,7 @@ async def handle_health_check(request):
     return web.Response(
         text="OK",
         headers=make_response_headers(
+            request,
             "text/plain",
             None,
             dict({"x-agentuity-binary": "true", "x-agentuity-version": __version__}),

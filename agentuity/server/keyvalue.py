@@ -54,7 +54,6 @@ class KeyValueStore:
                     "User-Agent": f"Agentuity Python SDK/{__version__}",
                 },
             )
-            print(f"response: {response.status_code}")
             match response.status_code:
                 case 200:
                     span.add_event("hit")
@@ -72,7 +71,6 @@ class KeyValueStore:
                 case 404:
                     span.add_event("miss")
                     span.set_status(trace.StatusCode.OK)
-                    print("returning none")
                     return DataResult(None)
                 case _:
                     span.set_status(trace.StatusCode.ERROR, "Failed to get key value")
