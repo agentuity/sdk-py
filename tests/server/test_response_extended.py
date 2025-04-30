@@ -9,7 +9,7 @@ from opentelemetry import trace
 sys.modules["openlit"] = MagicMock()
 
 from agentuity.server.response import AgentResponse  # noqa: E402
-from agentuity.server.agent import RemoteAgent, RemoteAgentResponse, Data  # noqa: E402
+from agentuity.server.agent import RemoteAgent, Data  # noqa: E402
 
 
 class TestAgentResponseExtended:

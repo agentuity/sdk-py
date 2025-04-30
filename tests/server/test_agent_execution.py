@@ -86,13 +86,6 @@ class TestAgentExecution:
                 response=mock_agent_response,
                 context=mock_agent_context
             )
-            
-
-            agent["run"].assert_called_once_with(
-                request=mock_agent_request,
-                response=mock_agent_response,
-                context=mock_agent_context,
-            )
 
             span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
             span.set_status.assert_called_once()

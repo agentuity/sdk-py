@@ -1,7 +1,6 @@
 import pytest
 import sys
 import json
-import base64
 from unittest.mock import patch, MagicMock, AsyncMock
 from aiohttp.web import Request, Application, Response
 from opentelemetry import trace

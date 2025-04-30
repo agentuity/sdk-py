@@ -1,6 +1,6 @@
 import pytest
 import asyncio
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 import json
 import sys
 from opentelemetry import trace
@@ -8,7 +8,7 @@ from opentelemetry import trace
 sys.modules["openlit"] = MagicMock()
 
 from agentuity.server.response import AgentResponse  # noqa: E402
-from agentuity.server.data import Data, encode_payload  # noqa: E402
+from agentuity.server.data import Data  # noqa: E402
 
 
 class TestAgentResponse:

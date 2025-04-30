@@ -1,6 +1,4 @@
 import pytest
-import base64
-import json
 import sys
 import asyncio
 from unittest.mock import MagicMock
