@@ -1,6 +1,6 @@
 import pytest
 import asyncio
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 import json
 import sys
 from opentelemetry import trace
@@ -9,6 +9,7 @@ sys.modules["openlit"] = MagicMock()
 
 from agentuity.server.response import AgentResponse  # noqa: E402
 from agentuity.server.data import Data  # noqa: E402
+from agentuity.server.context import AgentContext  # noqa: E402
 
 
 class TestAgentResponse:
@@ -29,25 +30,34 @@ class TestAgentResponse:
                 "run": MagicMock(),
             }
         }
+        
+    @pytest.fixture
+    def mock_context(self, mock_tracer, mock_agents_by_id):
+        """Create a mock AgentContext for testing."""
+        context = MagicMock(spec=AgentContext)
+        context.tracer = mock_tracer
+        context.agents_by_id = mock_agents_by_id
+        context.port = 3500
+        return context
 
     @pytest.fixture
-    def agent_response(self, mock_tracer, mock_agents_by_id):
+    def agent_response(self, mock_context):
         """Create an AgentResponse instance for testing."""
         reader = asyncio.StreamReader()
         reader.feed_data(b"Hello, world!")
         reader.feed_eof()
         
         data = Data("text/plain", reader)
-        return AgentResponse(mock_tracer, mock_agents_by_id, 3500, data)
+        return AgentResponse(mock_context, data)
 
-    def test_init(self, agent_response, mock_tracer, mock_agents_by_id):
+    def test_init(self, agent_response, mock_context):
         """Test initialization of AgentResponse."""
         assert agent_response.contentType == "application/octet-stream"
         assert agent_response._payload is None
         assert agent_response.metadata == {}
-        assert agent_response._tracer == mock_tracer
-        assert agent_response._agents_by_id == mock_agents_by_id
-        assert agent_response._port == 3500
+        assert agent_response._tracer == mock_context.tracer
+        assert agent_response._context == mock_context
+        assert agent_response._port == mock_context.port
 
     def test_text(self, agent_response):
         """Test setting a text response."""

@@ -105,7 +105,7 @@ class TestKeyValueStore:
         mock_put.assert_called_once()
         args, kwargs = mock_put.call_args
 
-        assert args[0] == "https://api.example.com/kv/test_collection/test_key"
+        assert args[0] == "https://api.example.com/kv/2025-03-17/test_collection/test_key"
         assert kwargs["headers"]["Authorization"] == "Bearer test_api_key"
         assert kwargs["headers"]["Content-Type"] == "text/plain"
         content = kwargs["content"]
@@ -134,7 +134,7 @@ class TestKeyValueStore:
         mock_put.assert_called_once()
         args, kwargs = mock_put.call_args
 
-        assert args[0] == "https://api.example.com/kv/test_collection/test_key"
+        assert args[0] == "https://api.example.com/kv/2025-03-17/test_collection/test_key"
         assert kwargs["headers"]["Content-Type"] == "application/json"
 
         content = kwargs["content"]
@@ -211,7 +211,7 @@ class TestKeyValueStore:
         mock_delete.assert_called_once()
         args, kwargs = mock_delete.call_args
 
-        assert args[0] == "https://api.example.com/kv/test_collection/test_key"
+        assert args[0] == "https://api.example.com/kv/2025-03-17/test_collection/test_key"
         assert kwargs["headers"]["Authorization"] == "Bearer test_api_key"
 
         span = mock_tracer.start_as_current_span.return_value.__enter__.return_value

@@ -58,9 +58,13 @@ class TestRemoteAgent:
     @pytest.fixture
     def agent_config(self):
         """Create an AgentConfig for testing."""
-        return AgentConfig(
-            {"id": "test_agent", "name": "Test Agent", "filename": "/path/to/agent.py"}
-        )
+        return AgentConfig({
+            "id": "test_agent", 
+            "name": "Test Agent", 
+            "filename": "/path/to/agent.py",
+            "url": "http://127.0.0.1:3000/test_agent",
+            "authorization": "test_auth_token"
+        })
 
     @pytest.fixture
     def remote_agent(self, agent_config, mock_tracer):
@@ -70,12 +74,12 @@ class TestRemoteAgent:
     def test_init(self, remote_agent, agent_config, mock_tracer):
         """Test initialization of RemoteAgent."""
         assert remote_agent.agentconfig == agent_config
-        assert remote_agent._port == 3000
-        assert remote_agent._tracer == mock_tracer
+        assert remote_agent.port == 3000
+        assert remote_agent.tracer == mock_tracer
 
     def test_str(self, remote_agent, agent_config):
         """Test string representation of RemoteAgent."""
-        assert str(remote_agent) == f"RemoteAgent(agentconfig={agent_config})"
+        assert str(remote_agent) == f"RemoteAgent(agent={agent_config.id})"
 
     @pytest.mark.asyncio
     async def test_run_with_string_data(self, remote_agent, mock_tracer, monkeypatch):
@@ -136,9 +140,9 @@ class TestRemoteAgent:
         assert "content" in kwargs
 
         span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
-        span.set_attribute.assert_any_call("remote.agentId", "test_agent")
-        span.set_attribute.assert_any_call("remote.agentName", "Test Agent")
-        span.set_attribute.assert_any_call("scope", "local")
+        span.set_attribute.assert_any_call("@agentuity/agentId", "test_agent")
+        span.set_attribute.assert_any_call("@agentuity/agentName", "Test Agent")
+        span.set_attribute.assert_any_call("@agentuity/scope", "remote")
         span.set_status.assert_called_once()
 
     @pytest.mark.asyncio
@@ -296,8 +300,10 @@ class TestRemoteAgent:
         mock_client.post.assert_called_once()
         args, kwargs = mock_client.post.call_args
 
-        assert "x-agentuity-request_key" in kwargs["headers"]
-        assert kwargs["headers"]["x-agentuity-request_key"] == "request_value"
+        assert "x-agentuity-metadata" in kwargs["headers"]
+        metadata_json = json.loads(kwargs["headers"]["x-agentuity-metadata"])
+        assert "request_key" in metadata_json
+        assert metadata_json["request_key"] == "request_value"
 
     @pytest.mark.asyncio
     async def test_run_error(self, remote_agent, mock_tracer, monkeypatch):

@@ -72,14 +72,14 @@ class DataResult:
             self._data = data
 
     @property
-    def data(self) -> "Data":
+    def data(self) -> Optional["Data"]:
         """
         Get the data from the result of the operation.
 
         Returns:
-            Data: The data object containing the result content
+            Optional[Data]: The data object containing the result content, or None if exists is False
         """
-        return self._data
+        return None if not self._exists else self._data
 
     @property
     def exists(self) -> bool:
