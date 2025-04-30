@@ -59,16 +59,14 @@ class KeyValueStore:
                 case 200:
                     span.add_event("hit")
                     span.set_status(trace.StatusCode.OK)
+                    import asyncio
+                    reader = asyncio.StreamReader()
+                    reader.feed_data(response.content)
+                    reader.feed_eof()
+                    
+                    content_type = response.headers.get("Content-Type", "application/octet-stream")
                     return DataResult(
-                        Data(
-                            {
-                                "contentType": response.headers["Content-Type"]
-                                or "application/octet-stream",
-                                "payload": base64.b64encode(response.content).decode(
-                                    "utf-8"
-                                ),
-                            }
-                        )
+                        Data(content_type, reader)
                     )
                 case 404:
                     span.add_event("miss")

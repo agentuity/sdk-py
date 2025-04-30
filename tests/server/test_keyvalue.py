@@ -47,7 +47,8 @@ class TestKeyValueStore:
         assert result.exists is True
         assert isinstance(result.data, Data)
         assert result.data.contentType == "text/plain"
-        assert result.data.text == "Hello, world!"
+        text = await result.data.text()
+        assert text == "Hello, world!"
 
         span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
         span.set_attribute.assert_any_call("name", "test_collection")

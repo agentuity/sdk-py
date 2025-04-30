@@ -2,13 +2,14 @@ import pytest
 import json
 import base64
 import sys
+import asyncio
 from unittest.mock import MagicMock, patch, AsyncMock
 from opentelemetry import trace
 
 sys.modules["openlit"] = MagicMock()
 
 from agentuity.server.response import AgentResponse  # noqa: E402
-from agentuity.server.agent import RemoteAgent  # noqa: E402
+from agentuity.server.agent import RemoteAgent, RemoteAgentResponse, Data  # noqa: E402
 
 
 class TestAgentResponseExtended:
@@ -38,12 +39,12 @@ class TestAgentResponseExtended:
     @pytest.fixture
     def agent_response(self, mock_tracer, mock_agents_by_id):
         """Create an AgentResponse instance for testing."""
-        payload = {
-            "contentType": "text/plain",
-            "payload": base64.b64encode(b"Hello, world!").decode("utf-8"),
-            "metadata": {"key": "value"},
-        }
-        return AgentResponse(payload, mock_tracer, mock_agents_by_id, 3500)
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"Hello, world!")
+        reader.feed_eof()
+        
+        data = Data("text/plain", reader)
+        return AgentResponse(mock_tracer, mock_agents_by_id, 3500, data)
 
     @pytest.mark.asyncio
     async def test_handoff_with_id(
@@ -68,17 +69,17 @@ class TestAgentResponseExtended:
             ) as mock_handoff,
         ):
             mock_handoff.return_value = agent_response
-            agent_response.content_type = "application/json"
-            agent_response.payload = mock_response_data.data.base64
-            agent_response.metadata = {"response_key": "response_value"}
+            agent_response._contentType = "application/json"  # Access private attribute for testing
+            agent_response._payload = mock_response_data.data.base64
+            agent_response._metadata = {"response_key": "response_value"}
 
             result = await agent_response.handoff({"id": "agent_456"})
 
             mock_handoff.assert_called_once_with({"id": "agent_456"})
             assert result == agent_response
-            assert agent_response.content_type == "application/json"
-            assert agent_response.payload == mock_response_data.data.base64
-            assert agent_response.metadata == {"response_key": "response_value"}
+            assert agent_response.contentType == "application/json"
+            assert agent_response._payload == mock_response_data.data.base64
+            assert agent_response._metadata == {"response_key": "response_value"}
 
     @pytest.mark.asyncio
     async def test_handoff_with_name(
@@ -103,17 +104,17 @@ class TestAgentResponseExtended:
             ) as mock_handoff,
         ):
             mock_handoff.return_value = agent_response
-            agent_response.content_type = "text/plain"
-            agent_response.payload = mock_response_data.data.base64
-            agent_response.metadata = {"response_key": "response_value"}
+            agent_response._contentType = "text/plain"
+            agent_response._payload = mock_response_data.data.base64
+            agent_response._metadata = {"response_key": "response_value"}
 
             result = await agent_response.handoff({"name": "another_agent"})
 
             mock_handoff.assert_called_once_with({"name": "another_agent"})
             assert result == agent_response
-            assert agent_response.content_type == "text/plain"
-            assert agent_response.payload == mock_response_data.data.base64
-            assert agent_response.metadata == {"response_key": "response_value"}
+            assert agent_response.contentType == "text/plain"
+            assert agent_response._payload == mock_response_data.data.base64
+            assert agent_response._metadata == {"response_key": "response_value"}
 
     @pytest.mark.asyncio
     async def test_handoff_with_args(
@@ -138,9 +139,9 @@ class TestAgentResponseExtended:
             ) as mock_handoff,
         ):
             mock_handoff.return_value = agent_response
-            agent_response.content_type = "application/json"
-            agent_response.payload = mock_response_data.data.base64
-            agent_response.metadata = {"response_key": "response_value"}
+            agent_response._contentType = "application/json"  # Access private attribute for testing
+            agent_response._payload = mock_response_data.data.base64
+            agent_response._metadata = {"response_key": "response_value"}
 
             args = {"message": "Custom message"}
             metadata = {"custom_key": "custom_value"}
@@ -148,9 +149,9 @@ class TestAgentResponseExtended:
 
             mock_handoff.assert_called_once_with({"id": "agent_456"}, args, metadata)
             assert result == agent_response
-            assert agent_response.content_type == "application/json"
-            assert agent_response.payload == mock_response_data.data.base64
-            assert agent_response.metadata == {"response_key": "response_value"}
+            assert agent_response.contentType == "application/json"
+            assert agent_response._payload == mock_response_data.data.base64
+            assert agent_response._metadata == {"response_key": "response_value"}
 
     @pytest.mark.asyncio
     async def test_handoff_agent_not_found(self, agent_response):
@@ -175,11 +176,11 @@ class TestAgentResponseExtended:
         result = agent_response.html(html_content, metadata)
 
         assert result == agent_response  # Should return self for chaining
-        assert agent_response.content_type == "text/html"
-        assert agent_response.metadata == metadata
+        assert agent_response.contentType == "text/html"
+        assert agent_response._metadata == metadata
 
-        decoded = base64.b64decode(agent_response.payload).decode("utf-8")
-        assert decoded == html_content
+        assert isinstance(agent_response._payload, str)
+        assert agent_response._payload == html_content
 
     def test_pdf(self, agent_response):
         """Test setting a PDF response."""
@@ -335,11 +336,10 @@ class TestAgentResponseExtended:
         result = agent_response.data(string_data, content_type, metadata)
 
         assert result == agent_response
-        assert agent_response.content_type == content_type
-        assert agent_response.metadata == metadata
+        assert agent_response.contentType == content_type
+        assert agent_response._metadata == metadata
 
-        decoded = base64.b64decode(agent_response.payload).decode("utf-8")
-        assert decoded == string_data
+        assert agent_response._payload == string_data
 
     def test_data_with_dict(self, agent_response):
         """Test setting data with dictionary."""
@@ -350,11 +350,10 @@ class TestAgentResponseExtended:
         result = agent_response.data(dict_data, content_type, metadata)
 
         assert result == agent_response
-        assert agent_response.content_type == content_type
-        assert agent_response.metadata == metadata
+        assert agent_response.contentType == content_type
+        assert agent_response._metadata == metadata
 
-        decoded = base64.b64decode(agent_response.payload).decode("utf-8")
-        assert json.loads(decoded) == dict_data
+        assert agent_response._payload == json.dumps(dict_data)
 
     def test_data_with_other_type(self, agent_response):
         """Test setting data with other type."""
@@ -365,11 +364,10 @@ class TestAgentResponseExtended:
         result = agent_response.data(other_data, content_type, metadata)
 
         assert result == agent_response
-        assert agent_response.content_type == content_type
-        assert agent_response.metadata == metadata
+        assert agent_response.contentType == content_type
+        assert agent_response._metadata == metadata
 
-        decoded = base64.b64decode(agent_response.payload).decode("utf-8")
-        assert decoded == str(other_data)
+        assert agent_response._payload == str(other_data)
 
     def test_markdown(self, agent_response):
         """Test setting a markdown response."""
@@ -379,8 +377,7 @@ class TestAgentResponseExtended:
         result = agent_response.markdown(markdown_content, metadata)
 
         assert result == agent_response
-        assert agent_response.content_type == "text/markdown"
-        assert agent_response.metadata == metadata
+        assert agent_response.contentType == "text/markdown"
+        assert agent_response._metadata == metadata
 
-        decoded = base64.b64decode(agent_response.payload).decode("utf-8")
-        assert decoded == markdown_content
+        assert agent_response._payload == markdown_content

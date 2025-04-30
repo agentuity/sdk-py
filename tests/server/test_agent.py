@@ -2,6 +2,7 @@ import pytest
 import sys
 import json
 import base64
+import asyncio
 from unittest.mock import MagicMock, AsyncMock
 import httpx
 from opentelemetry import trace
@@ -18,25 +19,31 @@ class TestRemoteAgentResponse:
 
     def test_init(self):
         """Test initialization of RemoteAgentResponse."""
-        data = {
-            "contentType": "text/plain",
-            "payload": base64.b64encode(b"Hello, world!").decode("utf-8"),
-            "metadata": {"key": "value"},
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"Hello, world!")
+        reader.feed_eof()
+        
+        data = Data("text/plain", reader)
+        
+        headers = {
+            "x-agentuity-key": "value"
         }
+        
+        response = RemoteAgentResponse(data, headers)
 
-        response = RemoteAgentResponse(data)
-
-        assert isinstance(response.data, Data)
-        assert response.contentType == "text/plain"
+        assert response.data == data
         assert response.metadata == {"key": "value"}
 
     def test_init_default_values(self):
         """Test initialization with default values."""
-        data = {"payload": base64.b64encode(b"Hello, world!").decode("utf-8")}
-
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"Hello, world!")
+        reader.feed_eof()
+        
+        data = Data("text/plain", reader)
+        
         response = RemoteAgentResponse(data)
 
-        assert response.contentType == "text/plain"
         assert response.metadata == {}
 
 
@@ -78,11 +85,17 @@ class TestRemoteAgent:
         """Test running a remote agent with string data."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
+        mock_response.headers = {"content-type": "text/plain", "x-agentuity-key": "value"}
         mock_response.json.return_value = {
             "contentType": "text/plain",
             "payload": base64.b64encode(b"Response from agent").decode("utf-8"),
             "metadata": {"key": "value"},
         }
+        
+        async def mock_aiter_bytes():
+            yield b"Response from agent"
+            
+        mock_response.aiter_bytes = mock_aiter_bytes
 
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
@@ -92,11 +105,17 @@ class TestRemoteAgent:
         mock_async_client = MagicMock(return_value=mock_client)
         monkeypatch.setattr(httpx, "AsyncClient", mock_async_client)
 
-        result = await remote_agent.run("Hello, world!")
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"Hello, world!")
+        reader.feed_eof()
+        data = Data("text/plain", reader)
+        
+        result = await remote_agent.run(data)
 
         assert isinstance(result, RemoteAgentResponse)
-        assert result.contentType == "text/plain"
-        assert result.data.text == "Response from agent"
+        assert result.data.contentType == "text/plain"
+        text = await result.data.text()
+        assert text == "Response from agent"
         assert result.metadata == {"key": "value"}
 
         mock_client.post.assert_called_once()
@@ -104,11 +123,8 @@ class TestRemoteAgent:
 
         assert args[0] == "http://127.0.0.1:3000/test_agent"
         assert kwargs["headers"] is not None
-
-        payload = kwargs["json"]
-        assert payload["trigger"] == "agent"
-        assert payload["contentType"] == "text/plain"
-        assert "payload" in payload
+        
+        assert "content" in kwargs
 
         span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
         span.set_attribute.assert_any_call("remote.agentId", "test_agent")
@@ -121,6 +137,7 @@ class TestRemoteAgent:
         """Test running a remote agent with JSON data."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
+        mock_response.headers = {"content-type": "application/json", "x-agentuity-key": "value"}
         mock_response.json.return_value = {
             "contentType": "application/json",
             "payload": base64.b64encode(
@@ -128,6 +145,11 @@ class TestRemoteAgent:
             ).decode("utf-8"),
             "metadata": {"key": "value"},
         }
+        
+        async def mock_aiter_bytes():
+            yield json.dumps({"result": "success"}).encode()
+            
+        mock_response.aiter_bytes = mock_aiter_bytes
 
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
@@ -138,26 +160,38 @@ class TestRemoteAgent:
         monkeypatch.setattr(httpx, "AsyncClient", mock_async_client)
 
         json_data = {"message": "Hello, world!"}
-        result = await remote_agent.run(json_data, content_type="application/json")
+        reader = asyncio.StreamReader()
+        reader.feed_data(json.dumps(json_data).encode())
+        reader.feed_eof()
+        data = Data("application/json", reader)
+        
+        result = await remote_agent.run(data)
 
         assert isinstance(result, RemoteAgentResponse)
-        assert result.contentType == "application/json"
-        assert result.data.json == {"result": "success"}
+        assert result.data.contentType == "application/json"
+        json_data = await result.data.json()
+        assert json_data == {"result": "success"}
 
         mock_client.post.assert_called_once()
         args, kwargs = mock_client.post.call_args
 
-        assert kwargs["json"]["contentType"] == "application/json"
+        assert "content" in kwargs
 
     @pytest.mark.asyncio
     async def test_run_with_binary_data(self, remote_agent, mock_tracer, monkeypatch):
         """Test running a remote agent with binary data."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
+        mock_response.headers = {"content-type": "application/octet-stream"}
         mock_response.json.return_value = {
             "contentType": "application/octet-stream",
             "payload": base64.b64encode(b"Binary response").decode("utf-8"),
         }
+        
+        async def mock_aiter_bytes():
+            yield b"Binary response"
+            
+        mock_response.aiter_bytes = mock_aiter_bytes
 
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
@@ -168,13 +202,17 @@ class TestRemoteAgent:
         monkeypatch.setattr(httpx, "AsyncClient", mock_async_client)
 
         binary_data = b"Binary data"
-        result = await remote_agent.run(
-            binary_data, content_type="application/octet-stream"
-        )
+        reader = asyncio.StreamReader()
+        reader.feed_data(binary_data)
+        reader.feed_eof()
+        data = Data("application/octet-stream", reader)
+        
+        result = await remote_agent.run(data)
 
         assert isinstance(result, RemoteAgentResponse)
-        assert result.contentType == "application/octet-stream"
-        assert result.data.binary == b"Binary response"
+        assert result.data.contentType == "application/octet-stream"
+        binary_data = await result.data.binary()
+        assert binary_data == b"Binary response"
 
         mock_client.post.assert_called_once()
 
@@ -183,6 +221,7 @@ class TestRemoteAgent:
         """Test running a remote agent with metadata."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
+        mock_response.headers = {"content-type": "text/plain", "x-agentuity-response_key": "response_value"}
         mock_response.json.return_value = {
             "contentType": "text/plain",
             "payload": base64.b64encode(b"Response with metadata").decode("utf-8"),
@@ -197,8 +236,13 @@ class TestRemoteAgent:
         mock_async_client = MagicMock(return_value=mock_client)
         monkeypatch.setattr(httpx, "AsyncClient", mock_async_client)
 
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"Hello")
+        reader.feed_eof()
+        data = Data("text/plain", reader)
+        
         metadata = {"request_key": "request_value"}
-        result = await remote_agent.run("Hello", metadata=metadata)
+        result = await remote_agent.run(data, metadata=metadata)
 
         assert isinstance(result, RemoteAgentResponse)
         assert result.metadata == {"response_key": "response_value"}
@@ -206,13 +250,15 @@ class TestRemoteAgent:
         mock_client.post.assert_called_once()
         args, kwargs = mock_client.post.call_args
 
-        assert kwargs["json"]["metadata"] == metadata
+        assert "x-agentuity-request_key" in kwargs["headers"]
+        assert kwargs["headers"]["x-agentuity-request_key"] == "request_value"
 
     @pytest.mark.asyncio
     async def test_run_error(self, remote_agent, mock_tracer, monkeypatch):
         """Test error handling during remote agent execution."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 500
+        mock_response.headers = {}
         mock_response.content = b"Internal server error"
         mock_response.text = "Internal server error"
 
@@ -224,8 +270,13 @@ class TestRemoteAgent:
         mock_async_client = MagicMock(return_value=mock_client)
         monkeypatch.setattr(httpx, "AsyncClient", mock_async_client)
 
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"Hello, world!")
+        reader.feed_eof()
+        data = Data("text/plain", reader)
+
         with pytest.raises(Exception) as excinfo:
-            await remote_agent.run("Hello, world!")
+            await remote_agent.run(data)
 
         assert "Internal server error" in str(excinfo.value)
 

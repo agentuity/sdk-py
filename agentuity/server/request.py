@@ -78,4 +78,4 @@ class AgentRequest:
             str: A formatted string containing the request's trigger, content type,
                 and metadata
         """
-        return f"AgentRequest(trigger={self.trigger},contentType={self.contentType},metadata={self.metadata})"
+        return f"AgentRequest(trigger={self.trigger},contentType={self._data.contentType},metadata={self.metadata})"
