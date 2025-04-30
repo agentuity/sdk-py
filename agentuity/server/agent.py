@@ -135,14 +135,15 @@ class RemoteAgent:
         metadata: Optional[dict] = None,
     ) -> RemoteAgentResponse:
         with self.tracer.start_as_current_span("remoteagent.run") as span:
-            span.set_attribute("@agentuity/agentId", self.agentconfig.id)
-            span.set_attribute("@agentuity/agentName", self.agentconfig.name)
-            span.set_attribute("@agentuity/orgId", self.agentconfig._config.get("orgId"))
+            span.set_attribute("@agentuity/agentId", self.agentconfig.get("id"))
+            span.set_attribute("@agentuity/agentName", self.agentconfig.get("name"))
+            span.set_attribute("@agentuity/orgId", self.agentconfig.get("orgId"))
             span.set_attribute(
-                "@agentuity/projectId", self.agentconfig._config.get("projectId")
+                "@agentuity/projectId", self.agentconfig.get("projectId")
             )
             span.set_attribute(
-                "@agentuity/transactionId", self.agentconfig._config.get("transactionId")
+                "@agentuity/transactionId",
+                self.agentconfig.get("transactionId"),
             )
             span.set_attribute("@agentuity/scope", "remote")
 
@@ -154,7 +155,7 @@ class RemoteAgent:
             if metadata is not None:
                 headers["x-agentuity-metadata"] = json.dumps(metadata)
             headers["Content-Type"] = data.contentType
-            headers["Authorization"] = f"Bearer {self.agentconfig._config.get('authorization')}"
+            headers["Authorization"] = f"Bearer {self.agentconfig.get('authorization')}"
             headers["User-Agent"] = f"Agentuity Python SDK/{__version__}"
 
             async def data_generator():
@@ -163,7 +164,7 @@ class RemoteAgent:
 
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    self.agentconfig._config.get("url"),
+                    self.agentconfig.get("url"),
                     content=data_generator(),
                     headers=headers,
                 )
@@ -194,7 +195,7 @@ def resolve_agent(context: any, req: Union[dict, str]):
             req = {"id": req}
         else:
             req = {"name": req}
-    
+
     found = None
     if "id" in req and req.get("id") in context.agents_by_id:
         found = context.agents_by_id[req.get("id")]
@@ -232,7 +233,11 @@ def resolve_agent(context: any, req: Union[dict, str]):
             json=req,
         )
         span.set_attribute("http.status_code", response.status_code)
-        name = req.get("name", req.get("id"))
+        name = None
+        if "name" in req:
+            name = req.get("name")
+        elif "id" in req:
+            name = req.get("id")
         errmsg = f"agent {name} not found or you don't have access to it"
         if response.status_code == 404:
             span.set_status(

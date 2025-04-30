@@ -102,16 +102,16 @@ def isBase64Content(val: Any) -> bool:
     return False
 
 
-def encode_welcome(val):
+async def encode_welcome(val):
     if isinstance(val, dict):
         if "prompts" in val:
             for prompt in val["prompts"]:
                 if "data" in prompt:
                     if not isBase64Content(prompt["data"]):
-                        payload = value_to_payload(
+                        data = value_to_payload(
                             prompt.get("contentType", "text/plain"), prompt["data"]
                         )
-                        ct = payload["contentType"]
+                        ct = data.contentType
                         if (
                             "text/" in ct
                             or "json" in ct
@@ -119,13 +119,13 @@ def encode_welcome(val):
                             or "audio" in ct
                             or "video" in ct
                         ):
-                            prompt["data"] = encode_payload(payload["payload"])
+                            prompt["data"] = await data.base64()
                         else:
-                            prompt["data"] = payload["payload"]
+                            prompt["data"] = await data.text()
                         prompt["contentType"] = ct
         else:
             for key, value in val.items():
-                val[key] = encode_welcome(value)
+                val[key] = await encode_welcome(value)
     return val
 
 
@@ -135,9 +135,9 @@ async def handle_welcome_request(request: web.Request):
         if "welcome" in agent and agent["welcome"] is not None:
             fn = agent["welcome"]()
             if isinstance(fn, dict):
-                res[agent["id"]] = encode_welcome(fn)
+                res[agent["id"]] = await encode_welcome(fn)
             else:
-                res[agent["id"]] = encode_welcome(await fn)
+                res[agent["id"]] = await encode_welcome(await fn)
     return web.json_response(res)
 
 
@@ -148,7 +148,7 @@ async def handle_agent_welcome_request(request: web.Request):
         if "welcome" in agent and agent["welcome"] is not None:
             fn = agent["welcome"]()
             if not isinstance(fn, dict):
-                fn = encode_welcome(await fn)
+                fn = await encode_welcome(await fn)
             return web.json_response(fn)
         else:
             return web.Response(

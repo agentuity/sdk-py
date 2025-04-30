@@ -51,6 +51,162 @@ class EmptyDataReader(StreamReader):
         pass
 
 
+class StringStreamReader(StreamReader):
+    def __init__(self, data: str, protocol=None, limit=2**16):
+        super().__init__(protocol, limit)
+        self._data = data.encode("utf-8")
+        self._pos = 0
+        self._eof = False
+
+    async def read(self) -> bytes:
+        if self._eof:
+            return b""
+        data = self._data[self._pos :]
+        self._pos = len(self._data)
+        self._eof = True
+        return data
+
+    async def readany(self) -> bytes:
+        return await self.read()
+
+    async def readexactly(self, n: int) -> bytes:
+        if n < 0:
+            raise ValueError("n must be non-negative")
+        if self._eof:
+            if n > 0:
+                raise ValueError("Not enough data to read")
+            return b""
+        remaining = len(self._data) - self._pos
+        if n > remaining:
+            raise ValueError("Not enough data to read")
+        data = self._data[self._pos : self._pos + n]
+        self._pos += n
+        if self._pos >= len(self._data):
+            self._eof = True
+        return data
+
+    async def readline(self) -> bytes:
+        if self._eof:
+            return b""
+        data = self._data[self._pos :]
+        self._pos = len(self._data)
+        self._eof = True
+        return data
+
+    async def readchunk(self) -> tuple[bytes, bool]:
+        if self._eof:
+            return b"", True
+        data = self._data[self._pos :]
+        self._pos = len(self._data)
+        self._eof = True
+        return data, True
+
+    def at_eof(self) -> bool:
+        return self._eof
+
+    def exception(self) -> Optional[Exception]:
+        return None
+
+    def set_exception(self, exc: Exception) -> None:
+        pass
+
+    def unread_data(self, data: bytes) -> None:
+        if self._pos < len(data):
+            raise ValueError("Cannot unread more data than was read")
+        self._pos -= len(data)
+        self._eof = False
+
+    def feed_eof(self) -> None:
+        self._eof = True
+
+    def feed_data(self, data: bytes) -> None:
+        raise NotImplementedError("StringStreamReader does not support feeding data")
+
+    def begin_http_chunk_receiving(self) -> None:
+        pass
+
+    def end_http_chunk_receiving(self) -> None:
+        pass
+
+
+class BytesStreamReader(StreamReader):
+    def __init__(self, data: bytes, protocol=None, limit=2**16):
+        super().__init__(protocol, limit)
+        self._data = data
+        self._pos = 0
+        self._eof = False
+
+    async def read(self) -> bytes:
+        if self._eof:
+            return b""
+        data = self._data[self._pos :]
+        self._pos = len(self._data)
+        self._eof = True
+        return data
+
+    async def readany(self) -> bytes:
+        return await self.read()
+
+    async def readexactly(self, n: int) -> bytes:
+        if n < 0:
+            raise ValueError("n must be non-negative")
+        if self._eof:
+            if n > 0:
+                raise ValueError("Not enough data to read")
+            return b""
+        remaining = len(self._data) - self._pos
+        if n > remaining:
+            raise ValueError("Not enough data to read")
+        data = self._data[self._pos : self._pos + n]
+        self._pos += n
+        if self._pos >= len(self._data):
+            self._eof = True
+        return data
+
+    async def readline(self) -> bytes:
+        if self._eof:
+            return b""
+        data = self._data[self._pos :]
+        self._pos = len(self._data)
+        self._eof = True
+        return data
+
+    async def readchunk(self) -> tuple[bytes, bool]:
+        if self._eof:
+            return b"", True
+        data = self._data[self._pos :]
+        self._pos = len(self._data)
+        self._eof = True
+        return data, True
+
+    def at_eof(self) -> bool:
+        return self._eof
+
+    def exception(self) -> Optional[Exception]:
+        return None
+
+    def set_exception(self, exc: Exception) -> None:
+        pass
+
+    def unread_data(self, data: bytes) -> None:
+        if self._pos < len(data):
+            raise ValueError("Cannot unread more data than was read")
+        self._pos -= len(data)
+        self._eof = False
+
+    def feed_eof(self) -> None:
+        self._eof = True
+
+    def feed_data(self, data: bytes) -> None:
+        raise NotImplementedError("BytesStreamReader does not support feeding data")
+
+    def begin_http_chunk_receiving(self) -> None:
+        pass
+
+    def end_http_chunk_receiving(self) -> None:
+        pass
+
+
 class DataResult:
     """
     A container class for the result of a data operation, providing access to the data
@@ -212,9 +368,9 @@ def encode_payload(data: Union[str, bytes]) -> str:
 
 def value_to_payload(
     content_type: str, value: Union[str, int, float, bool, list, dict, bytes, "Data"]
-) -> dict:
+) -> Data:
     """
-    Convert a value to a payload dictionary with appropriate content type.
+    Convert a value to a Data object.
 
     Args:
         content_type: The desired content type for the payload
@@ -225,28 +381,23 @@ def value_to_payload(
             - list or dict (will be converted to JSON)
 
     Returns:
-        dict: Dictionary containing:
-            - contentType: The content type of the payload
-            - payload: The encoded payload data
+        Data: The Data object containing
 
     Raises:
         ValueError: If the value type is not supported
     """
     if isinstance(value, Data):
-        content_type = content_type or value.contentType
-        payload = base64.b64decode(value.base64)
-        return {"contentType": content_type, "payload": payload}
+        return value
     elif isinstance(value, bytes):
         content_type = content_type or "application/octet-stream"
-        payload = value
-        return {"contentType": content_type, "payload": payload}
+        return Data(content_type, BytesStreamReader(value))
     elif isinstance(value, (str, int, float, bool)):
         content_type = content_type or "text/plain"
         payload = str(value)
-        return {"contentType": content_type, "payload": payload}
+        return Data(content_type, StringStreamReader(payload))
     elif isinstance(value, (list, dict)):
         content_type = content_type or "application/json"
         payload = json.dumps(value)
-        return {"contentType": content_type, "payload": payload}
+        return Data(content_type, StringStreamReader(payload))
     else:
         raise ValueError(f"Unsupported value type: {type(value)}")

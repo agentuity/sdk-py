@@ -115,11 +115,10 @@ class KeyValueStore:
             content_type = params.get("contentType", None)
             payload = None
 
-            # FIXME
             try:
-                p = value_to_payload(content_type, value)
-                payload = p["payload"]
-                content_type = p["contentType"]
+                data = value_to_payload(content_type, value)
+                content_type = data.contentType
+                payload = await data.binary()
             except Exception as e:
                 span.set_status(trace.StatusCode.ERROR, "Failed to encode value")
                 raise e
