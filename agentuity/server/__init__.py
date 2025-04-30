@@ -170,6 +170,9 @@ def make_response_headers(
     inject_trace_context(headers)
     headers["Content-Type"] = contentType
     headers["Server"] = "Agentuity Python SDK/" + __version__
+    headers["Access-Control-Allow-Origin"] = "*"
+    headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
     if metadata is not None:
         for key, value in metadata.items():
             headers[f"x-agentuity-{key}"] = str(value)
@@ -199,6 +202,13 @@ async def stream_response(
 
     await resp.write_eof()
     return resp
+
+
+async def handle_agent_options_request(request: web.Request):
+    return web.Response(
+        headers=make_response_headers("text/plain"),
+        text="OK",
+    )
 
 
 async def handle_agent_request(request: web.Request):
@@ -500,6 +510,7 @@ def autostart(callback: Callable[[], None] = None):
     app.router.add_get("/", handle_index)
     app.router.add_get("/_health", handle_health_check)
     app.router.add_post("/{agent_id}", handle_agent_request)
+    app.router.add_options("/{agent_id}", handle_agent_options_request)
     app.router.add_get("/welcome", handle_welcome_request)
     app.router.add_get("/welcome/{agent_id}", handle_agent_welcome_request)
 
