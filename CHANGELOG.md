@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.82] - 2025-05-01
+
+### Added
+- Async functionality for agent execution and improved agent-to-agent communication ([#38](https://github.com/agentuity/sdk-py/pull/38))
+
+### Changed
+- Refactored server module for asynchronous operation support ([#38](https://github.com/agentuity/sdk-py/pull/38))
+- Enhanced data handling for better async compatibility ([#38](https://github.com/agentuity/sdk-py/pull/38))
+
+### Fixed
+- Various test failures and lint issues related to the async refactoring ([#38](https://github.com/agentuity/sdk-py/pull/38))
+
 ## [0.0.80] - 2025-04-29
 
 ### Changed
