@@ -2,89 +2,127 @@ import pytest
 import base64
 import json
 import sys
+import asyncio
 from unittest.mock import MagicMock
 from agentuity.server.data import (
     Data,
     DataResult,
     encode_payload,
-    decode_payload,
-    decode_payload_bytes,
 )
 
 sys.modules["openlit"] = MagicMock()
 
 
+def decode_payload(payload: str) -> str:
+    """
+    Decode a base64 payload into a UTF-8 string.
+
+    Args:
+        payload: Base64 encoded string
+
+    Returns:
+        str: Decoded UTF-8 string
+    """
+    return base64.b64decode(payload).decode("utf-8")
+
+
+def decode_payload_bytes(payload: str) -> bytes:
+    """
+    Decode a base64 payload into bytes.
+
+    Args:
+        payload: Base64 encoded string
+
+    Returns:
+        bytes: Decoded binary data
+    """
+    return base64.b64decode(payload)
+
+
 class TestData:
     """Test suite for the Data class."""
 
-    def test_init(self):
+    @pytest.mark.asyncio
+    async def test_init(self):
         """Test initialization of Data object."""
-        data_dict = {
-            "contentType": "text/plain",
-            "payload": "SGVsbG8sIHdvcmxkIQ==",  # "Hello, world!" in base64
-        }
-        data = Data(data_dict)
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"Hello, world!")
+        reader.feed_eof()
+        
+        data = Data("text/plain", reader)
         assert data.contentType == "text/plain"
-        assert data.base64 == "SGVsbG8sIHdvcmxkIQ=="
+        assert await data.base64() == "SGVsbG8sIHdvcmxkIQ=="
 
-    def test_content_type_default(self):
+    @pytest.mark.asyncio
+    async def test_content_type_default(self):
         """Test default content type is used when not provided."""
-        data_dict = {
-            "payload": "SGVsbG8sIHdvcmxkIQ==",
-        }
-        data = Data(data_dict)
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"Hello, world!")
+        reader.feed_eof()
+        
+        # Default content type should be "application/octet-stream"
+        data = Data("application/octet-stream", reader)
         assert data.contentType == "application/octet-stream"
 
-    def test_text_property(self):
+    @pytest.mark.asyncio
+    async def test_text_property(self):
         """Test the text property decodes base64 to text."""
-        data_dict = {
-            "contentType": "text/plain",
-            "payload": "SGVsbG8sIHdvcmxkIQ==",  # "Hello, world!" in base64
-        }
-        data = Data(data_dict)
-        assert data.text == "Hello, world!"
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"Hello, world!")
+        reader.feed_eof()
+        
+        data = Data("text/plain", reader)
+        text = await data.text()
+        assert text == "Hello, world!"
 
-    def test_json_property(self):
+    @pytest.mark.asyncio
+    async def test_json_property(self):
         """Test the json property decodes base64 to JSON."""
         json_obj = {"message": "Hello, world!"}
         json_str = json.dumps(json_obj)
-        data_dict = {
-            "contentType": "application/json",
-            "payload": base64.b64encode(json_str.encode("utf-8")).decode("utf-8"),
-        }
-        data = Data(data_dict)
-        assert data.json == json_obj
+        
+        reader = asyncio.StreamReader()
+        reader.feed_data(json_str.encode("utf-8"))
+        reader.feed_eof()
+        
+        data = Data("application/json", reader)
+        json_data = await data.json()
+        assert json_data == json_obj
 
-    def test_json_property_invalid(self):
+    @pytest.mark.asyncio
+    async def test_json_property_invalid(self):
         """Test json property raises ValueError for invalid JSON."""
-        data_dict = {
-            "contentType": "application/json",
-            "payload": "SGVsbG8sIHdvcmxkIQ==",  # "Hello, world!" in base64, not valid JSON
-        }
-        data = Data(data_dict)
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"Hello, world!")  # Not valid JSON
+        reader.feed_eof()
+        
+        data = Data("application/json", reader)
         with pytest.raises(ValueError, match="Data is not JSON"):
-            data.json
+            await data.json()
 
-    def test_binary_property(self):
+    @pytest.mark.asyncio
+    async def test_binary_property(self):
         """Test the binary property decodes base64 to bytes."""
-        data_dict = {
-            "contentType": "application/octet-stream",
-            "payload": "SGVsbG8sIHdvcmxkIQ==",  # "Hello, world!" in base64
-        }
-        data = Data(data_dict)
-        assert data.binary == b"Hello, world!"
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"Hello, world!")
+        reader.feed_eof()
+        
+        data = Data("application/octet-stream", reader)
+        binary = await data.binary()
+        assert binary == b"Hello, world!"
 
 
 class TestDataResult:
     """Test suite for the DataResult class."""
 
-    def test_init_with_data(self):
+    @pytest.mark.asyncio
+    async def test_init_with_data(self):
         """Test initialization with Data object."""
-        data_dict = {
-            "contentType": "text/plain",
-            "payload": "SGVsbG8sIHdvcmxkIQ==",
-        }
-        data = Data(data_dict)
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"Hello, world!")
+        reader.feed_eof()
+        
+        data = Data("text/plain", reader)
         result = DataResult(data)
         assert result.data == data
         assert result.exists is True

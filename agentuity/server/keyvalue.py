@@ -1,5 +1,4 @@
 import httpx
-import base64
 from typing import Union, Optional
 from .data import DataResult, Data, value_to_payload
 from agentuity import __version__
@@ -49,7 +48,7 @@ class KeyValueStore:
             span.set_attribute("name", name)
             span.set_attribute("key", key)
             response = httpx.get(
-                f"{self.base_url}/kv/{name}/{key}",
+                f"{self.base_url}/kv/2025-03-17/{name}/{key}",
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "User-Agent": f"Agentuity Python SDK/{__version__}",
@@ -59,23 +58,23 @@ class KeyValueStore:
                 case 200:
                     span.add_event("hit")
                     span.set_status(trace.StatusCode.OK)
-                    return DataResult(
-                        Data(
-                            {
-                                "contentType": response.headers["Content-Type"]
-                                or "application/octet-stream",
-                                "payload": base64.b64encode(response.content).decode(
-                                    "utf-8"
-                                ),
-                            }
-                        )
+                    import asyncio
+
+                    reader = asyncio.StreamReader()
+                    reader.feed_data(response.content)
+                    reader.feed_eof()
+
+                    content_type = response.headers.get(
+                        "Content-Type", "application/octet-stream"
                     )
+                    return DataResult(Data(content_type, reader))
                 case 404:
                     span.add_event("miss")
                     span.set_status(trace.StatusCode.OK)
                     return DataResult(None)
                 case _:
                     span.set_status(trace.StatusCode.ERROR, "Failed to get key value")
+                    span.record_exception(Exception(response.content.decode("utf-8")))
                     raise Exception(f"Failed to get key value: {response.status_code}")
 
     async def set(
@@ -117,9 +116,9 @@ class KeyValueStore:
             payload = None
 
             try:
-                p = value_to_payload(content_type, value)
-                payload = p["payload"]
-                content_type = p["contentType"]
+                data = value_to_payload(content_type, value)
+                content_type = data.contentType
+                payload = await data.binary()
             except Exception as e:
                 span.set_status(trace.StatusCode.ERROR, "Failed to encode value")
                 raise e
@@ -132,7 +131,7 @@ class KeyValueStore:
             span.set_attribute("contentType", content_type)
 
             response = httpx.put(
-                f"{self.base_url}/kv/{name}/{key}{ttlstr}",
+                f"{self.base_url}/kv/2025-03-17/{name}/{key}{ttlstr}",
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "User-Agent": f"Agentuity Python SDK/{__version__}",
@@ -143,6 +142,7 @@ class KeyValueStore:
 
             if response.status_code != 201:
                 span.set_status(trace.StatusCode.ERROR, "Failed to set key value")
+                span.record_exception(Exception(response.content.decode("utf-8")))
                 raise Exception(f"Failed to set key value: {response.status_code}")
             else:
                 span.set_status(trace.StatusCode.OK)
@@ -162,7 +162,7 @@ class KeyValueStore:
             span.set_attribute("name", name)
             span.set_attribute("key", key)
             response = httpx.delete(
-                f"{self.base_url}/kv/{name}/{key}",
+                f"{self.base_url}/kv/2025-03-17/{name}/{key}",
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "User-Agent": f"Agentuity Python SDK/{__version__}",
@@ -170,6 +170,7 @@ class KeyValueStore:
             )
             if response.status_code != 200:
                 span.set_status(trace.StatusCode.ERROR, "Failed to delete key value")
+                span.record_exception(Exception(response.content.decode("utf-8")))
                 raise Exception(f"Failed to delete key value: {response.status_code}")
             else:
                 span.set_status(trace.StatusCode.OK)

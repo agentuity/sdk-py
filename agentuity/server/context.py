@@ -1,9 +1,10 @@
 import os
+from typing import Union
 from logging import Logger
 from opentelemetry import trace
 from .config import AgentConfig
-from .agent import RemoteAgent
 from agentuity.otel import create_logger
+from .agent import LocalAgent, RemoteAgent, resolve_agent
 
 
 class AgentContext:
@@ -14,17 +15,23 @@ class AgentContext:
 
     def __init__(
         self,
+        base_url: str,
+        api_key: str,
         services: dict,
         logger: Logger,
         tracer: trace.Tracer,
         agent: dict,
         agents_by_id: dict,
         port: int,
+        run_id: str,
+        scope: str,
     ):
         """
         Initialize the AgentContext with required services and configuration.
 
         Args:
+            base_url: The base URL of the Agentuity Cloud
+            api_key: The API key for the Agentuity Cloud
             services: Dictionary containing service instances:
                 - kv: Key-value store service
                 - vector: Vector store service
@@ -33,8 +40,12 @@ class AgentContext:
             agent: Dictionary containing the current agent's configuration
             agents_by_id: Dictionary mapping agent IDs to their configurations
             port: Port number for agent communication
+            run_id: The run id for the executing session
+            scope: The scope of the agent invocation
         """
-        self._port = port
+        self.port = port
+        self.base_url = base_url
+        self.api_key = api_key
 
         """
         the key value store
@@ -48,6 +59,14 @@ class AgentContext:
         the version of the Agentuity SDK
         """
         self.sdkVersion = os.getenv("AGENTUITY_SDK_VERSION", "unknown")
+        """
+        the run id for the executing session
+        """
+        self.runId = run_id
+        """
+        the scope of the agent invocation either local or remote
+        """
+        self.scope = scope
         """
         returns true if the agent is running in devmode
         """
@@ -94,21 +113,19 @@ class AgentContext:
         self.agents = []
         for agent in agents_by_id.values():
             self.agents.append(AgentConfig(agent))
+        self.agents_by_id = agents_by_id
 
-    def get_agent(self, agent_id_or_name: str) -> "RemoteAgent":
+    def get_agent(self, agent_id_or_name: str) -> Union["LocalAgent", "RemoteAgent"]:
         """
-        Retrieve a RemoteAgent instance by its ID or name.
+        Retrieve a LocalAgent instance by its ID or name or a RemoteAgent instance by its ID.
 
         Args:
             agent_id_or_name: The unique identifier or display name of the agent
 
         Returns:
-            RemoteAgent: The requested agent instance
+            Union["LocalAgent", "RemoteAgent"]: The requested agent instance
 
         Raises:
             ValueError: If no agent is found with the given ID or name
         """
-        for agent in self.agents:
-            if agent.id == agent_id_or_name or agent.name == agent_id_or_name:
-                return RemoteAgent(agent, self._port, self.tracer)
-        raise ValueError(f"Agent {agent_id_or_name} not found")
+        return resolve_agent(self, agent_id_or_name)

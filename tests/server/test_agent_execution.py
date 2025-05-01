@@ -60,7 +60,10 @@ class TestAgentExecution:
                 },
             ),
         ):
+            mock_stream = MagicMock()
+
             mock_agent_request = MagicMock(spec=AgentRequest)
+            mock_agent_request._data = mock_stream
             mock_agent_request_class.return_value = mock_agent_request
 
             mock_agent_response = MagicMock(spec=AgentResponse)
@@ -70,18 +73,18 @@ class TestAgentExecution:
             mock_agent_context_class.return_value = mock_agent_context
 
             agent = mock_agents_by_id["test_agent"]
+            agent["run"].return_value = "Test response"
+
             result = await run_agent(
-                mock_tracer, "test_agent", agent, mock_payload, mock_agents_by_id
+                mock_tracer,
+                "test_agent",
+                agent,
+                mock_agent_request,
+                mock_agent_response,
+                mock_agent_context,
             )
 
             assert result == "Test response"
-
-            mock_agent_request_class.assert_called_once_with(mock_payload)
-            mock_agent_request.validate.assert_called_once()
-
-            mock_agent_response_class.assert_called_once()
-
-            mock_agent_context_class.assert_called_once()
 
             agent["run"].assert_called_once_with(
                 request=mock_agent_request,
@@ -98,7 +101,6 @@ class TestAgentExecution:
     ):
         """Test agent execution when an exception occurs."""
         with (
-            patch("agentuity.server.AgentRequest") as mock_agent_request_class,
             patch("agentuity.server.AgentResponse") as mock_agent_response_class,
             patch("agentuity.server.AgentContext") as mock_agent_context_class,
             patch.dict(
@@ -110,9 +112,9 @@ class TestAgentExecution:
             ),
         ):
             mock_agent_request = MagicMock(spec=AgentRequest)
-            mock_agent_request_class.return_value = mock_agent_request
 
-            mock_agent_request.validate.side_effect = ValueError("Invalid request")
+            agent = mock_agents_by_id["test_agent"]
+            agent["run"].side_effect = ValueError("Invalid request")
 
             mock_agent_response = MagicMock(spec=AgentResponse)
             mock_agent_response_class.return_value = mock_agent_response
@@ -123,7 +125,12 @@ class TestAgentExecution:
             agent = mock_agents_by_id["test_agent"]
             with pytest.raises(ValueError, match="Invalid request"):
                 await run_agent(
-                    mock_tracer, "test_agent", agent, mock_payload, mock_agents_by_id
+                    mock_tracer,
+                    "test_agent",
+                    agent,
+                    mock_agent_request,
+                    mock_agent_response,
+                    mock_agent_context,
                 )
 
             span = mock_tracer.start_as_current_span.return_value.__enter__.return_value

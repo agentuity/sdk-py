@@ -14,3 +14,4 @@ wheels/
 /agents/
 /agentuity.yaml
 .DS_Store
+.env

@@ -4,13 +4,10 @@ import logging
 import os
 import sys
 import asyncio
-import aiohttp
 import platform
 import re
 from aiohttp import web
-from aiohttp_sse import sse_response
-import base64
-from typing import Callable, Any
+from typing import Callable, Iterable, Any
 import traceback
 
 from opentelemetry import trace
@@ -18,14 +15,14 @@ from opentelemetry.propagate import extract, inject
 
 from agentuity.otel import init
 from agentuity.instrument import instrument
+from agentuity import __version__
 
-from .data import Data, encode_payload
+from .data import Data
 from .context import AgentContext
 from .request import AgentRequest
 from .response import AgentResponse
 from .keyvalue import KeyValueStore
 from .vector import VectorStore
-from .agent import RemoteAgentResponse
 from .data import value_to_payload
 
 logger = logging.getLogger(__name__)
@@ -71,41 +68,13 @@ def load_agent_module(agent_id: str, name: str, filename: str):
     }
 
 
-async def run_agent(tracer, agentId, agent, payload, agents_by_id):
+async def run_agent(
+    tracer, agentId, agent, agent_request, agent_response, agent_context
+):
     with tracer.start_as_current_span("agent.run") as span:
         span.set_attribute("@agentuity/agentId", agentId)
         span.set_attribute("@agentuity/agentName", agent["name"])
         try:
-            agent_request = AgentRequest(payload)
-            agent_request.validate()
-
-            agent_response = AgentResponse(
-                payload=payload, tracer=tracer, agents_by_id=agents_by_id, port=port
-            )
-            agent_context = AgentContext(
-                services={
-                    "kv": KeyValueStore(
-                        base_url=os.environ.get(
-                            "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
-                        ),
-                        api_key=os.environ.get("AGENTUITY_API_KEY"),
-                        tracer=tracer,
-                    ),
-                    "vector": VectorStore(
-                        base_url=os.environ.get(
-                            "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
-                        ),
-                        api_key=os.environ.get("AGENTUITY_API_KEY"),
-                        tracer=tracer,
-                    ),
-                },
-                logger=logger,
-                tracer=tracer,
-                agent=agent,
-                agents_by_id=agents_by_id,
-                port=port,
-            )
-
             result = await agent["run"](
                 request=agent_request,
                 response=agent_response,
@@ -122,111 +91,6 @@ async def run_agent(tracer, agentId, agent, payload, agents_by_id):
             raise e
 
 
-async def handle_run_request(request):
-    agentId = request.match_info["agent_id"]
-    logger.debug(f"request: POST /run/{agentId}")
-
-    body = await request.read()
-
-    payload = {
-        "trigger": "manual",
-        "contentType": request.headers.get("Content-Type", "application/json"),
-        "payload": base64.b64encode(body).decode("utf-8"),
-        "metadata": {
-            "headers": dict(request.headers),
-        },
-    }
-
-    async with aiohttp.ClientSession() as session:
-        target_url = f"http://127.0.0.1:{port}/{agentId}"
-
-        try:
-            # Make the request and get the response
-            async with session.post(
-                target_url,
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=300,  # Add a timeout to prevent hanging
-            ) as response:
-                # Read the entire response body
-                response_body = await response.read()
-
-                # Try to parse as JSON
-                try:
-                    # Parse the response as JSON
-                    response_json = json.loads(response_body)
-
-                    content_type = response_json["contentType"]
-                    body = base64.b64decode(response_json["payload"])
-
-                    resp = web.Response(
-                        status=response.status,
-                        body=body,
-                        content_type=content_type,
-                    )
-
-                    # Copy relevant headers from the original response
-                    for header_name, header_value in response.headers.items():
-                        if header_name.lower() not in (
-                            "content-length",
-                            "content-type",
-                        ):
-                            resp.headers[header_name] = header_value
-
-                    # Add trace context to response headers
-                    inject_trace_context(resp.headers)
-
-                    return resp
-
-                except json.JSONDecodeError:
-                    # If not JSON, fall back to streaming the original response
-                    resp = web.StreamResponse(
-                        status=response.status,
-                        reason=response.reason,
-                        headers=response.headers,
-                    )
-
-                    # Add trace context to response headers
-                    inject_trace_context(resp.headers)
-
-                    # Start the response
-                    await resp.prepare(request)
-
-                    # Write the original body
-                    await resp.write(response_body)
-                    await resp.write_eof()
-
-                    return resp
-
-        except aiohttp.ClientError as e:
-            # Handle HTTP errors
-            logger.error(f"HTTP error occurred: {str(e)}")
-            resp = web.json_response(
-                {
-                    "error": "Bad Gateway",
-                    "message": f"Error forwarding request to {target_url}",
-                    "details": str(e),
-                },
-                status=502,
-            )
-            # Only add trace context, not Content-Type
-            inject_trace_context(resp.headers)
-            return resp
-
-        except Exception as e:
-            resp = web.json_response(
-                {
-                    "error": "Internal Server Error",
-                    "message": "An unexpected error occurred",
-                    "details": str(e),
-                },
-                status=500,
-            )
-            inject_trace_context(resp.headers)
-            logger.error(f"Error in handle_sdk_request: {str(e)}")
-            return resp
-
-
 def isBase64Content(val: Any) -> bool:
     if isinstance(val, str):
         return (
@@ -238,16 +102,16 @@ def isBase64Content(val: Any) -> bool:
     return False
 
 
-def encode_welcome(val):
+async def encode_welcome(val):
     if isinstance(val, dict):
         if "prompts" in val:
             for prompt in val["prompts"]:
                 if "data" in prompt:
                     if not isBase64Content(prompt["data"]):
-                        payload = value_to_payload(
+                        data = value_to_payload(
                             prompt.get("contentType", "text/plain"), prompt["data"]
                         )
-                        ct = payload["contentType"]
+                        ct = data.contentType
                         if (
                             "text/" in ct
                             or "json" in ct
@@ -255,13 +119,13 @@ def encode_welcome(val):
                             or "audio" in ct
                             or "video" in ct
                         ):
-                            prompt["data"] = encode_payload(payload["payload"])
+                            prompt["data"] = await data.base64()
                         else:
-                            prompt["data"] = payload["payload"]
+                            prompt["data"] = await data.text()
                         prompt["contentType"] = ct
         else:
             for key, value in val.items():
-                val[key] = encode_welcome(value)
+                val[key] = await encode_welcome(value)
     return val
 
 
@@ -271,9 +135,9 @@ async def handle_welcome_request(request: web.Request):
         if "welcome" in agent and agent["welcome"] is not None:
             fn = agent["welcome"]()
             if isinstance(fn, dict):
-                res[agent["id"]] = encode_welcome(fn)
+                res[agent["id"]] = await encode_welcome(fn)
             else:
-                res[agent["id"]] = encode_welcome(await fn)
+                res[agent["id"]] = await encode_welcome(await fn)
     return web.json_response(res)
 
 
@@ -284,7 +148,7 @@ async def handle_agent_welcome_request(request: web.Request):
         if "welcome" in agent and agent["welcome"] is not None:
             fn = agent["welcome"]()
             if not isinstance(fn, dict):
-                fn = encode_welcome(await fn)
+                fn = await encode_welcome(await fn)
             return web.json_response(fn)
         else:
             return web.Response(
@@ -299,20 +163,66 @@ async def handle_agent_welcome_request(request: web.Request):
         )
 
 
+def make_response_headers(
+    request: web.Request,
+    contentType: str,
+    metadata: dict = None,
+    additional: dict = None,
+):
+    headers = {}
+    inject_trace_context(headers)
+    headers["Content-Type"] = contentType
+    headers["Server"] = "Agentuity Python SDK/" + __version__
+    if request.headers.get("origin"):
+        headers["Access-Control-Allow-Origin"] = request.headers.get("origin")
+    else:
+        headers["Access-Control-Allow-Origin"] = "*"
+    headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    if metadata is not None:
+        for key, value in metadata.items():
+            headers[f"x-agentuity-{key}"] = str(value)
+    if additional is not None:
+        for key, value in additional.items():
+            headers[key] = value
+    return headers
+
+
+async def stream_response(
+    request: web.Request, iterable: Iterable[Any], contentType: str, metadata: dict = {}
+):
+    headers = make_response_headers(request, contentType, metadata)
+    resp = web.StreamResponse(headers=headers)
+    await resp.prepare(request)
+
+    if hasattr(iterable, "__anext__"):
+        # Handle async iterators
+        async for chunk in iterable:
+            if chunk is not None:
+                await resp.write(chunk)
+    else:
+        # Handle regular iterators
+        for chunk in iterable:
+            if chunk is not None:
+                await resp.write(chunk)
+
+    await resp.write_eof()
+    return resp
+
+
+async def handle_agent_options_request(request: web.Request):
+    return web.Response(
+        headers=make_response_headers(request, "text/plain"),
+        text="OK",
+    )
+
+
 async def handle_agent_request(request: web.Request):
     # Access the agents_by_id from the app state
     agents_by_id = request.app["agents_by_id"]
 
     agentId = request.match_info["agent_id"]
     logger.debug(f"request: POST /{agentId}")
-
-    # Read and parse the request body as JSON
-    try:
-        payload = await request.json()
-    except json.JSONDecodeError:
-        return web.Response(
-            text="Invalid JSON in request body", status=400, content_type="text/plain"
-        )
 
     # Check if the agent exists in our map
     if agentId in agents_by_id:
@@ -337,116 +247,149 @@ async def handle_agent_request(request: web.Request):
             },
         ) as span:
             try:
-                is_sse = request.headers.get("accept") == "text/event-stream"
+                trigger = request.headers.get("x-agentuity-trigger", "manual")
+                contentType = request.headers.get(
+                    "content-type", "application/octet-stream"
+                )
+                metadata = {}
+                scope = "local"
+                if span.is_recording():
+                    run_id = span.get_span_context().trace_id
+                else:
+                    run_id = None
+                for key, value in request.headers.items():
+                    if key.startswith("x-agentuity-") and key != "x-agentuity-trigger":
+                        if key == "x-agentuity-run-id":
+                            run_id = value
+                        elif key == "x-agentuity-scope":
+                            scope = value
+                        elif key == "x-agentuity-metadata":
+                            try:
+                                metadata = json.loads(value)
+                                if "runid" in metadata:
+                                    run_id = metadata["runid"]
+                                    del metadata["runid"]
+                                if "scope" in metadata:
+                                    scope = metadata["scope"]
+                                    del metadata["scope"]
+                            except json.JSONDecodeError:
+                                logger.error(
+                                    f"Error parsing x-agentuity-metadata: {value}"
+                                )
+                        else:
+                            metadata[key[12:]] = value
+
+                span.set_attribute("@agentuity/scope", scope)
+
+                agent_request = AgentRequest(
+                    trigger, metadata, contentType, request.content
+                )
+                agent_context = AgentContext(
+                    base_url=os.environ.get(
+                        "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
+                    ),
+                    api_key=os.environ.get("AGENTUITY_API_KEY"),
+                    services={
+                        "kv": KeyValueStore(
+                            base_url=os.environ.get(
+                                "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
+                            ),
+                            api_key=os.environ.get("AGENTUITY_API_KEY"),
+                            tracer=tracer,
+                        ),
+                        "vector": VectorStore(
+                            base_url=os.environ.get(
+                                "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
+                            ),
+                            api_key=os.environ.get("AGENTUITY_API_KEY"),
+                            tracer=tracer,
+                        ),
+                    },
+                    logger=logger,
+                    tracer=tracer,
+                    agent=agent,
+                    agents_by_id=agents_by_id,
+                    port=port,
+                    run_id=run_id,
+                    scope=scope,
+                )
+                agent_response = AgentResponse(
+                    context=agent_context,
+                    data=agent_request.data,
+                )
 
                 # Call the run function and get the response
-                response = run_agent(tracer, agentId, agent, payload, agents_by_id)
+                response = await run_agent(
+                    tracer, agentId, agent, agent_request, agent_response, agent_context
+                )
 
-                # Prepare response headers
-                headers = {}  # Don't include Content-Type in headers
-                inject_trace_context(headers)
-
-                # handle server side events
-                if is_sse:
-                    async with sse_response(request, headers=headers) as resp:
-                        response = await response
-                        if not isinstance(response, AgentResponse):
-                            return web.Response(
-                                text="Expected a AgentResponse response when using SSE",
-                                status=500,
-                                headers=headers,
-                                content_type="text/plain",
-                            )
-                        if not response.is_stream:
-                            return web.Response(
-                                text="Expected a stream response when using SSE",
-                                status=500,
-                                headers=headers,
-                                content_type="text/plain",
-                            )
-                        for chunk in response:
-                            if chunk is None:
-                                resp.force_close()
-                                break
-                            await resp.send(chunk)
-                    return resp
-
-                # handle normal response
-                response = await response
+                if response is None:
+                    return web.Response(
+                        text="No response from agent",
+                        status=204,
+                        headers=make_response_headers(request, "text/plain"),
+                    )
 
                 if isinstance(response, AgentResponse):
-                    payload = response.payload
-                    if response.is_stream:
-                        payload = ""
-                        for chunk in response:
-                            if chunk is not None:
-                                payload += chunk
-                        payload = encode_payload(payload)
-                    response = {
-                        "contentType": response.content_type,
-                        "payload": payload,
-                        "metadata": response.metadata,
-                    }
-                elif isinstance(response, RemoteAgentResponse):
-                    response = {
-                        "contentType": response.contentType,
-                        "payload": response.data.base64,
-                        "metadata": response.metadata,
-                    }
-                elif isinstance(response, Data):
-                    response = {
-                        "contentType": response.contentType,
-                        "payload": response.base64,
-                        "metadata": {},
-                    }
-                elif isinstance(response, dict) or isinstance(response, list):
-                    response = {
-                        "contentType": "application/json",
-                        "payload": encode_payload(json.dumps(response)),
-                        "metadata": {},
-                    }
-                elif isinstance(response, (str, int, float, bool)):
-                    response = {
-                        "contentType": "text/plain",
-                        "payload": encode_payload(str(response)),
-                        "metadata": {},
-                    }
-                elif isinstance(response, bytes):
-                    response = {
-                        "contentType": "application/octet-stream",
-                        "payload": base64.b64encode(response).decode("utf-8"),
-                        "metadata": {},
-                    }
-                else:
-                    raise ValueError("Unsupported response type")
+                    return await stream_response(
+                        request, response, response.contentType, response.metadata
+                    )
 
-                span.set_status(trace.Status(trace.StatusCode.OK))
-                return web.json_response(response, headers=headers)
+                if isinstance(response, web.Response):
+                    return response
+
+                if isinstance(response, Data):
+                    headers = make_response_headers(request, response.contentType)
+                    return await stream_response(
+                        request, response.stream(), response.contentType
+                    )
+
+                if isinstance(response, dict) or isinstance(response, list):
+                    headers = make_response_headers(request, "application/json")
+                    return web.Response(body=json.dumps(response), headers=headers)
+
+                if isinstance(response, (str, int, float, bool)):
+                    headers = make_response_headers(request, "text/plain")
+                    return web.Response(text=str(response), headers=headers)
+
+                if isinstance(response, bytes):
+                    headers = make_response_headers(request, "application/octet-stream")
+                    return web.Response(
+                        body=response,
+                        headers=headers,
+                    )
+
+                raise ValueError(f"Unsupported response type: {type(response)}")
 
             except Exception as e:
                 logger.error(f"Error loading or running agent: {e}")
                 span.record_exception(e)
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-
-                # Prepare error response
-                headers = {}  # Don't include Content-Type in headers
-                inject_trace_context(headers)
-
+                headers = make_response_headers(request, "text/plain")
                 return web.Response(
                     text=str(e),
                     status=500,
                     headers=headers,
-                    content_type="text/plain",  # Set content_type separately
                 )
     else:
         # Agent not found
         return web.Response(
-            text=f"Agent {agentId} not found", status=404, content_type="text/plain"
+            text=f"Agent {agentId} not found",
+            status=404,
+            headers=make_response_headers(request, "text/plain"),
         )
 
 
 async def handle_health_check(request):
-    return web.json_response({"status": "ok"})
+    return web.Response(
+        text="OK",
+        headers=make_response_headers(
+            request,
+            "text/plain",
+            None,
+            dict({"x-agentuity-binary": "true", "x-agentuity-version": __version__}),
+        ),
+    )
 
 
 async def handle_index(request):
@@ -455,11 +398,11 @@ async def handle_index(request):
     id = "agent_1234"
     for agent in agents_by_id.values():
         id = agent["id"]
-        buf += f"POST /run/{agent['id']} - [{agent['name']}]\n"
+        buf += f"POST /{agent['id']} - [{agent['name']}]\n"
     buf += "\n"
     if platform.system() != "Windows":
         buf += "Example usage:\n\n"
-        buf += f'curl http://localhost:{port}/run/{id} \\\n\t--json \'{{"message":"Hello, world!"}}\'\n'
+        buf += f'curl http://localhost:{port}/{id} \\\n\t--json \'{{"message":"Hello, world!"}}\'\n'
         buf += "\n"
     return web.Response(text=buf, content_type="text/plain")
 
@@ -573,8 +516,8 @@ def autostart(callback: Callable[[], None] = None):
     # Add routes
     app.router.add_get("/", handle_index)
     app.router.add_get("/_health", handle_health_check)
-    app.router.add_post("/run/{agent_id}", handle_run_request)
     app.router.add_post("/{agent_id}", handle_agent_request)
+    app.router.add_options("/{agent_id}", handle_agent_options_request)
     app.router.add_get("/welcome", handle_welcome_request)
     app.router.add_get("/welcome/{agent_id}", handle_agent_welcome_request)
 

@@ -1,5 +1,6 @@
 import pytest
-from unittest.mock import MagicMock, patch
+import asyncio
+from unittest.mock import MagicMock
 import json
 import sys
 from opentelemetry import trace
@@ -7,7 +8,8 @@ from opentelemetry import trace
 sys.modules["openlit"] = MagicMock()
 
 from agentuity.server.response import AgentResponse  # noqa: E402
-from agentuity.server.data import encode_payload  # noqa: E402
+from agentuity.server.data import Data  # noqa: E402
+from agentuity.server.context import AgentContext  # noqa: E402
 
 
 class TestAgentResponse:
@@ -28,61 +30,71 @@ class TestAgentResponse:
                 "run": MagicMock(),
             }
         }
+        
+    @pytest.fixture
+    def mock_context(self, mock_tracer, mock_agents_by_id):
+        """Create a mock AgentContext for testing."""
+        context = MagicMock(spec=AgentContext)
+        context.tracer = mock_tracer
+        context.agents_by_id = mock_agents_by_id
+        context.port = 3500
+        return context
 
     @pytest.fixture
-    def agent_response(self, mock_tracer, mock_agents_by_id):
+    def agent_response(self, mock_context):
         """Create an AgentResponse instance for testing."""
-        payload = {
-            "contentType": "text/plain",
-            "payload": encode_payload("Hello, world!"),
-            "metadata": {"key": "value"},
-        }
-        return AgentResponse(payload, mock_tracer, mock_agents_by_id, 3500)
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"Hello, world!")
+        reader.feed_eof()
+        
+        data = Data("text/plain", reader)
+        return AgentResponse(mock_context, data)
 
-    def test_init(self, agent_response, mock_tracer, mock_agents_by_id):
+    def test_init(self, agent_response, mock_context):
         """Test initialization of AgentResponse."""
-        assert agent_response.content_type == "text/plain"
-        assert agent_response.payload == ""
+        assert agent_response.contentType == "application/octet-stream"
+        assert agent_response._payload is None
         assert agent_response.metadata == {}
-        assert agent_response._tracer == mock_tracer
-        assert agent_response._agents_by_id == mock_agents_by_id
-        assert agent_response._port == 3500
+        assert agent_response._tracer == mock_context.tracer
+        assert agent_response._context == mock_context
+        assert agent_response._port == mock_context.port
 
     def test_text(self, agent_response):
         """Test setting a text response."""
         result = agent_response.text("Hello, world!")
         assert result == agent_response  # Should return self for chaining
-        assert agent_response.content_type == "text/plain"
-        assert agent_response.payload == encode_payload("Hello, world!")
-        assert agent_response.metadata is None
+        assert agent_response.contentType == "text/plain"
+        assert agent_response._payload == "Hello, world!"
+        assert agent_response._metadata is None
 
         result = agent_response.text("Hello, world!", {"key": "value"})
-        assert agent_response.metadata == {"key": "value"}
+        assert agent_response._metadata == {"key": "value"}
 
     def test_json(self, agent_response):
         """Test setting a JSON response."""
         json_data = {"message": "Hello, world!"}
         result = agent_response.json(json_data)
         assert result == agent_response  # Should return self for chaining
-        assert agent_response.content_type == "application/json"
-        assert agent_response.payload == encode_payload(json.dumps(json_data))
+        assert agent_response.contentType == "application/json"
+        assert agent_response._payload == json.dumps(json_data)
 
     def test_binary(self, agent_response):
         """Test setting a binary response."""
-        with patch("agentuity.server.response.encode_payload") as mock_encode:
-            binary_data = b"Hello, world!"
-            agent_response.binary(binary_data)
-            mock_encode.assert_called_once_with(binary_data)
+        binary_data = b"Hello, world!"
+        result = agent_response.binary(binary_data)
+        assert result == agent_response  # Should return self for chaining
+        assert agent_response.contentType == "application/octet-stream"
+        assert agent_response._payload == binary_data
 
     def test_empty(self, agent_response):
         """Test setting an empty response."""
         result = agent_response.empty()
         assert result == agent_response  # Should return self for chaining
-        assert agent_response.metadata is None
+        assert agent_response._metadata is None
 
         metadata = {"key": "value"}
         result = agent_response.empty(metadata)
-        assert agent_response.metadata == metadata
+        assert agent_response._metadata == metadata
 
     def test_is_stream(self, agent_response):
         """Test is_stream property."""
@@ -96,9 +108,9 @@ class TestAgentResponse:
         data = ["chunk1", "chunk2"]
         result = agent_response.stream(data)
         assert result == agent_response  # Should return self for chaining
-        assert agent_response.content_type == "text/plain"
-        assert agent_response.payload == ""
-        assert agent_response.metadata is None
+        assert agent_response.contentType == "application/octet-stream"
+        assert agent_response._payload is None
+        assert agent_response._metadata is None
         assert agent_response._stream == data
         assert agent_response._transform is None
 
@@ -108,19 +120,34 @@ class TestAgentResponse:
         result = agent_response.stream(data, transform_fn)
         assert agent_response._transform == transform_fn
 
-    def test_iteration(self, agent_response):
+    @pytest.mark.asyncio
+    async def test_iteration(self, agent_response):
         """Test iteration over streaming response."""
-        with pytest.raises(StopIteration):
-            next(agent_response)
+        agent_response._stream = None
+        agent_response._payload = None
+        agent_response._buffer_read = True
+        
+        with pytest.raises(StopAsyncIteration):
+            await agent_response.__anext__()
+            
+        agent_response._buffer_read = False
+        agent_response._payload = "test payload"
+        result = await agent_response.__anext__()
+        assert result == b"test payload"
+        
+        agent_response._stream = iter([b"chunk1", b"chunk2"])
+        agent_response._is_async = False
+        result = await agent_response.__anext__()
+        assert result == b"chunk1"
+        
+        result = await agent_response.__anext__()
+        assert result == b"chunk2"
+        
+        with pytest.raises(StopAsyncIteration):
+            await agent_response.__anext__()
 
-        data = iter(["chunk1", "chunk2"])
-        agent_response._stream = data
-        assert next(agent_response) == "chunk1"
-        assert next(agent_response) == "chunk2"
-        with pytest.raises(StopIteration):
-            next(agent_response)
-
-        data = iter(["chunk1", "chunk2"])
+        data = iter([b"chunk1", b"chunk2"])
         agent_response._stream = data
         agent_response._transform = lambda x: f"transformed: {x}"
-        assert next(agent_response) == "transformed: chunk1"
+        result = await agent_response.__anext__()
+        assert result == b"transformed: b'chunk1'"

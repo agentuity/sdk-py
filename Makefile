@@ -18,3 +18,9 @@ lint:
 
 format:
 	@ruff format
+
+dev:
+	@uv run --env-file .env ./test.py
+
+test:
+	@. .venv/bin/activate && python -m pytest -v

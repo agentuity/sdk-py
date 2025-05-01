@@ -17,22 +17,22 @@ class TestVectorSearchResult:
         result = VectorSearchResult(
             id="test_id",
             key="test_key",
-            distance=0.75,
+            similarity=0.75,
             metadata={"source": "test_source"},
         )
 
         assert result.id == "test_id"
         assert result.key == "test_key"
-        assert result.distance == 0.75
+        assert result.similarity == 0.75
         assert result.metadata == {"source": "test_source"}
 
     def test_init_without_metadata(self):
         """Test initialization of VectorSearchResult without metadata."""
-        result = VectorSearchResult(id="test_id", key="test_key", distance=0.75)
+        result = VectorSearchResult(id="test_id", key="test_key", similarity=0.75)
 
         assert result.id == "test_id"
         assert result.key == "test_key"
-        assert result.distance == 0.75
+        assert result.similarity == 0.75
         assert result.metadata is None
 
 
@@ -79,7 +79,7 @@ class TestVectorStore:
             httpx.put.assert_called_once()
             args, kwargs = httpx.put.call_args
 
-            assert args[0] == "https://api.example.com/vector/test_collection"
+            assert args[0] == "https://api.example.com/vector/2025-03-17/test_collection"
             assert kwargs["headers"]["Authorization"] == "Bearer test_api_key"
             assert kwargs["json"] == documents
 
@@ -136,7 +136,7 @@ class TestVectorStore:
                 {
                     "id": "doc1_id",
                     "key": "doc1",
-                    "distance": 0.75,
+                    "similarity": 0.75,
                     "metadata": {"source": "test"},
                 }
             ],
@@ -149,13 +149,13 @@ class TestVectorStore:
             assert isinstance(results[0], VectorSearchResult)
             assert results[0].id == "doc1_id"
             assert results[0].key == "doc1"
-            assert results[0].distance == 0.75
+            assert results[0].similarity == 0.75
             assert results[0].metadata == {"source": "test"}
 
             httpx.get.assert_called_once()
             args, kwargs = httpx.get.call_args
 
-            assert args[0] == "https://api.example.com/vector/test_collection/doc1"
+            assert args[0] == "https://api.example.com/vector/2025-03-17/test_collection/doc1"
             assert kwargs["headers"]["Authorization"] == "Bearer test_api_key"
 
             span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
@@ -207,13 +207,13 @@ class TestVectorStore:
                 {
                     "id": "doc1_id",
                     "key": "doc1",
-                    "distance": 0.85,
+                    "similarity": 0.85,
                     "metadata": {"source": "test"},
                 },
                 {
                     "id": "doc2_id",
                     "key": "doc2",
-                    "distance": 0.75,
+                    "similarity": 0.75,
                     "metadata": {"source": "test"},
                 },
             ],
@@ -232,14 +232,14 @@ class TestVectorStore:
             assert isinstance(results[0], VectorSearchResult)
             assert results[0].id == "doc1_id"
             assert results[0].key == "doc1"
-            assert results[0].distance == 0.85
+            assert results[0].similarity == 0.85
             assert results[1].id == "doc2_id"
-            assert results[1].distance == 0.75
+            assert results[1].similarity == 0.75
 
             httpx.post.assert_called_once()
             args, kwargs = httpx.post.call_args
 
-            assert args[0] == "https://api.example.com/vector/search/test_collection"
+            assert args[0] == "https://api.example.com/vector/2025-03-17/search/test_collection"
             assert kwargs["headers"]["Authorization"] == "Bearer test_api_key"
             assert kwargs["json"]["query"] == "test query"
             assert kwargs["json"]["limit"] == 5
@@ -304,7 +304,7 @@ class TestVectorStore:
             httpx.delete.assert_called_once()
             args, kwargs = httpx.delete.call_args
 
-            assert args[0] == "https://api.example.com/vector/test_collection/doc1"
+            assert args[0] == "https://api.example.com/vector/2025-03-17/test_collection/doc1"
             assert kwargs["headers"]["Authorization"] == "Bearer test_api_key"
 
             span = mock_tracer.start_as_current_span.return_value.__enter__.return_value

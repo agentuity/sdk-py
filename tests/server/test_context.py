@@ -7,7 +7,6 @@ sys.modules["openlit"] = MagicMock()
 
 from agentuity.server.context import AgentContext  # noqa: E402
 from agentuity.server.config import AgentConfig  # noqa: E402
-from agentuity.server.agent import RemoteAgent  # noqa: E402
 
 
 class TestAgentContext:
@@ -32,8 +31,8 @@ class TestAgentContext:
     def mock_agent(self):
         """Create a mock agent for testing."""
         return {
-            "id": "test_agent",
-            "name": "Test Agent",
+            "id": "current_agent",
+            "name": "Current Agent",
             "filename": "/path/to/agent.py",
         }
 
@@ -60,12 +59,16 @@ class TestAgentContext:
         """Create an AgentContext instance for testing."""
         with patch("agentuity.server.context.create_logger", return_value=mock_logger):
             return AgentContext(
+                base_url="https://api.example.com",
+                api_key="test_api_key",
                 services=mock_services,
                 logger=mock_logger,
                 tracer=mock_tracer,
                 agent=mock_agent,
                 agents_by_id=mock_agents_by_id,
                 port=3000,
+                run_id="test-run-id",
+                scope="local",
             )
 
     def test_init(
@@ -109,12 +112,16 @@ class TestAgentContext:
             }
 
             context = AgentContext(
+                base_url="https://api.example.com",
+                api_key="test_api_key",
                 services=mock_services,
                 logger=mock_logger,
                 tracer=mock_tracer,
                 agent=mock_agent,
                 agents_by_id=mock_agents_by_id,
                 port=3000,
+                run_id="test-run-id",
+                scope="local",
             )
 
             assert context.sdkVersion == "1.0.0"
@@ -134,12 +141,16 @@ class TestAgentContext:
             patch.dict("os.environ", {}, clear=True),
         ):
             context = AgentContext(
+                base_url="https://api.example.com",
+                api_key="test_api_key",
                 services=mock_services,
                 logger=mock_logger,
                 tracer=mock_tracer,
                 agent=mock_agent,
                 agents_by_id=mock_agents_by_id,
                 port=3000,
+                run_id="test-run-id",
+                scope="local",
             )
             assert context.sdkVersion == "unknown"
             assert context.devmode == "false"
@@ -151,35 +162,41 @@ class TestAgentContext:
 
     def test_get_agent_by_id(self, agent_context, mock_tracer):
         """Test getting an agent by ID."""
-        with patch("agentuity.server.context.RemoteAgent") as mock_remote_agent:
-            mock_instance = MagicMock(spec=RemoteAgent)
-            mock_remote_agent.return_value = mock_instance
+        with patch("agentuity.server.agent.LocalAgent") as mock_local_agent:
+            mock_instance = MagicMock()
+            mock_local_agent.return_value = mock_instance
 
             result = agent_context.get_agent("test_agent")
 
             assert result == mock_instance
-            mock_remote_agent.assert_called_once()
-            args, kwargs = mock_remote_agent.call_args
+            mock_local_agent.assert_called_once()
+            args, kwargs = mock_local_agent.call_args
             assert args[0].id == "test_agent"
             assert args[1] == 3000
             assert args[2] == mock_tracer
 
     def test_get_agent_by_name(self, agent_context, mock_tracer):
         """Test getting an agent by name."""
-        with patch("agentuity.server.context.RemoteAgent") as mock_remote_agent:
-            mock_instance = MagicMock(spec=RemoteAgent)
-            mock_remote_agent.return_value = mock_instance
+        with patch("agentuity.server.agent.LocalAgent") as mock_local_agent:
+            mock_instance = MagicMock()
+            mock_local_agent.return_value = mock_instance
 
             result = agent_context.get_agent("Another Agent")
 
             assert result == mock_instance
-            mock_remote_agent.assert_called_once()
-            args, kwargs = mock_remote_agent.call_args
+            mock_local_agent.assert_called_once()
+            args, kwargs = mock_local_agent.call_args
             assert args[0].id == "another_agent"
             assert args[1] == 3000
             assert args[2] == mock_tracer
 
     def test_get_agent_not_found(self, agent_context):
         """Test getting a non-existent agent raises ValueError."""
-        with pytest.raises(ValueError, match="Agent non_existent_agent not found"):
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        
+        with (
+            patch("httpx.post", return_value=mock_response),
+            pytest.raises(ValueError, match="agent non_existent_agent not found or you don't have access to it"),
+        ):
             agent_context.get_agent("non_existent_agent")
