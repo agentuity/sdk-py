@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Various test failures and lint issues related to the async refactoring ([#38](https://github.com/agentuity/sdk-py/pull/38))
 
+## [0.0.81] - 2025-04-29
+
+### Changed
+- In production we must bind to 0.0.0.0 ([#37](https://github.com/agentuity/sdk-py/pull/37))
+
 ## [0.0.80] - 2025-04-29
 
 ### Changed
