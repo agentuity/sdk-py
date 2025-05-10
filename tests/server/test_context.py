@@ -194,9 +194,12 @@ class TestAgentContext:
         """Test getting a non-existent agent raises ValueError."""
         mock_response = MagicMock()
         mock_response.status_code = 404
-        
+
         with (
             patch("httpx.post", return_value=mock_response),
-            pytest.raises(ValueError, match="agent non_existent_agent not found or you don't have access to it"),
+            pytest.raises(
+                ValueError,
+                match="agent non_existent_agent not found or you don't have access to it",
+            ),
         ):
             agent_context.get_agent("non_existent_agent")

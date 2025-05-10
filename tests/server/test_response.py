@@ -30,7 +30,7 @@ class TestAgentResponse:
                 "run": MagicMock(),
             }
         }
-        
+
     @pytest.fixture
     def mock_context(self, mock_tracer, mock_agents_by_id):
         """Create a mock AgentContext for testing."""
@@ -46,7 +46,7 @@ class TestAgentResponse:
         reader = asyncio.StreamReader()
         reader.feed_data(b"Hello, world!")
         reader.feed_eof()
-        
+
         data = Data("text/plain", reader)
         return AgentResponse(mock_context, data)
 
@@ -126,23 +126,23 @@ class TestAgentResponse:
         agent_response._stream = None
         agent_response._payload = None
         agent_response._buffer_read = True
-        
+
         with pytest.raises(StopAsyncIteration):
             await agent_response.__anext__()
-            
+
         agent_response._buffer_read = False
         agent_response._payload = "test payload"
         result = await agent_response.__anext__()
         assert result == b"test payload"
-        
+
         agent_response._stream = iter([b"chunk1", b"chunk2"])
         agent_response._is_async = False
         result = await agent_response.__anext__()
         assert result == b"chunk1"
-        
+
         result = await agent_response.__anext__()
         assert result == b"chunk2"
-        
+
         with pytest.raises(StopAsyncIteration):
             await agent_response.__anext__()
 

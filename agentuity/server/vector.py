@@ -1,5 +1,5 @@
 import httpx
-from typing import Optional
+from typing import Optional, Union
 from agentuity import __version__
 from opentelemetry import trace
 
@@ -14,13 +14,17 @@ class VectorSearchResult:
     @param metadata: the metadata of the vector or None if no metadata provided
     """
 
-    def __init__(
-        self, id: str, key: str, similarity: float, metadata: Optional[dict] = None
-    ):
-        self.id = id
-        self.key = key
-        self.similarity = similarity
-        self.metadata = metadata
+    def __init__(self, doc: Union[dict, str], **kwargs):
+        if isinstance(doc, dict):
+            self.id = doc["id"]
+            self.key = doc["key"]
+            self.similarity = doc["similarity"] if "similarity" in doc else 0
+            self.metadata = doc["metadata"] if "metadata" in doc else None
+        else:
+            self.id = kwargs.get("id", doc)
+            self.key = kwargs.get("key", "")
+            self.similarity = kwargs.get("similarity", 0)
+            self.metadata = kwargs.get("metadata", None)
 
 
 class VectorStore:
@@ -77,11 +81,11 @@ class VectorStore:
             )
             if response.status_code == 200:
                 result = response.json()
-                if result["success"]:
+                if "success" in result and result["success"]:
                     ids = []
                     for doc in result["data"]:
                         ids.append(doc["id"])
-                    span.add_event("upsert_count", len(ids))
+                    span.add_event("upsert_count", attributes={"count": len(ids)})
                     span.set_status(trace.StatusCode.OK)
                     return ids
                 else:
@@ -94,7 +98,7 @@ class VectorStore:
                 span.record_exception(Exception(response.content.decode("utf-8")))
                 raise Exception(f"Failed to upsert documents: {response.status_code}")
 
-    async def get(self, name: str, key: str) -> list[VectorSearchResult]:
+    async def get(self, name: str, key: str) -> VectorSearchResult:
         """
         Retrieve vectors from the vector storage by key.
 
@@ -103,7 +107,7 @@ class VectorStore:
             key: The key to search for
 
         Returns:
-            list[VectorSearchResult]: List of matching vector search results. Returns empty list
+            VectorSearchResult: matching vector search results. Returns None
                 if no matches found.
 
         Raises:
@@ -125,7 +129,10 @@ class VectorStore:
                     if result["success"]:
                         span.add_event("hit")
                         span.set_status(trace.StatusCode.OK)
-                        return [VectorSearchResult(**doc) for doc in result["data"]]
+                        if "data" in result:
+                            return VectorSearchResult(result["data"])
+                        else:
+                            return None
                     else:
                         span.set_status(
                             trace.StatusCode.ERROR, "Failed to get documents"
@@ -134,7 +141,7 @@ class VectorStore:
                 case 404:
                     span.add_event("miss")
                     span.set_status(trace.StatusCode.OK)
-                    return []
+                    return None
                 case _:
                     span.set_status(trace.StatusCode.ERROR, "Failed to get documents")
                     span.record_exception(Exception(response.content.decode("utf-8")))
@@ -189,7 +196,7 @@ class VectorStore:
                     if "success" in result and result["success"]:
                         span.add_event("hit")
                         span.set_status(trace.StatusCode.OK)
-                        return [VectorSearchResult(**doc) for doc in result["data"]]
+                        return [VectorSearchResult(doc) for doc in result["data"]]
                     elif "message" in result:
                         span.set_status(
                             trace.StatusCode.ERROR, "Failed to search documents"
@@ -245,7 +252,7 @@ class VectorStore:
                 result = response.json()
                 if result["success"]:
                     count = result["data"] if "data" in result else 0
-                    span.add_event("delete_count", count)
+                    span.add_event("delete_count", attributes={"count": count})
                     span.set_status(trace.StatusCode.OK)
                     return count
                 else:

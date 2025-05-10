@@ -79,7 +79,9 @@ class TestVectorStore:
             httpx.put.assert_called_once()
             args, kwargs = httpx.put.call_args
 
-            assert args[0] == "https://api.example.com/vector/2025-03-17/test_collection"
+            assert (
+                args[0] == "https://api.example.com/vector/2025-03-17/test_collection"
+            )
             assert kwargs["headers"]["Authorization"] == "Bearer test_api_key"
             assert kwargs["json"] == documents
 
@@ -155,7 +157,10 @@ class TestVectorStore:
             httpx.get.assert_called_once()
             args, kwargs = httpx.get.call_args
 
-            assert args[0] == "https://api.example.com/vector/2025-03-17/test_collection/doc1"
+            assert (
+                args[0]
+                == "https://api.example.com/vector/2025-03-17/test_collection/doc1"
+            )
             assert kwargs["headers"]["Authorization"] == "Bearer test_api_key"
 
             span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
@@ -239,7 +244,10 @@ class TestVectorStore:
             httpx.post.assert_called_once()
             args, kwargs = httpx.post.call_args
 
-            assert args[0] == "https://api.example.com/vector/2025-03-17/search/test_collection"
+            assert (
+                args[0]
+                == "https://api.example.com/vector/2025-03-17/search/test_collection"
+            )
             assert kwargs["headers"]["Authorization"] == "Bearer test_api_key"
             assert kwargs["json"]["query"] == "test query"
             assert kwargs["json"]["limit"] == 5
@@ -304,7 +312,10 @@ class TestVectorStore:
             httpx.delete.assert_called_once()
             args, kwargs = httpx.delete.call_args
 
-            assert args[0] == "https://api.example.com/vector/2025-03-17/test_collection/doc1"
+            assert (
+                args[0]
+                == "https://api.example.com/vector/2025-03-17/test_collection/doc1"
+            )
             assert kwargs["headers"]["Authorization"] == "Bearer test_api_key"
 
             span = mock_tracer.start_as_current_span.return_value.__enter__.return_value

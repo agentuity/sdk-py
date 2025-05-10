@@ -362,6 +362,7 @@ async def handle_agent_request(request: web.Request):
                 raise ValueError(f"Unsupported response type: {type(response)}")
 
             except Exception as e:
+                print(traceback.format_exc())
                 logger.error(f"Error loading or running agent: {e}")
                 span.record_exception(e)
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))

@@ -36,7 +36,7 @@ class TestAgentResponseExtended:
                 "run": MagicMock(),
             },
         }
-        
+
     @pytest.fixture
     def mock_context(self, mock_tracer, mock_agents_by_id):
         """Create a mock AgentContext for testing."""
@@ -54,7 +54,7 @@ class TestAgentResponseExtended:
         reader = asyncio.StreamReader()
         reader.feed_data(b"Hello, world!")
         reader.feed_eof()
-        
+
         data = Data("text/plain", reader)
         return AgentResponse(mock_context, data)
 
@@ -73,15 +73,15 @@ class TestAgentResponseExtended:
         mock_remote_agent.run.return_value = mock_response_data
 
         with (
-            patch(
-                "agentuity.server.agent.RemoteAgent", return_value=mock_remote_agent
-            ),
+            patch("agentuity.server.agent.RemoteAgent", return_value=mock_remote_agent),
             patch(
                 "agentuity.server.response.AgentResponse.handoff", new=AsyncMock()
             ) as mock_handoff,
         ):
             mock_handoff.return_value = agent_response
-            agent_response._contentType = "application/json"  # Access private attribute for testing
+            agent_response._contentType = (
+                "application/json"  # Access private attribute for testing
+            )
             agent_response._payload = mock_response_data.data.base64
             agent_response._metadata = {"response_key": "response_value"}
 
@@ -108,9 +108,7 @@ class TestAgentResponseExtended:
         mock_remote_agent.run.return_value = mock_response_data
 
         with (
-            patch(
-                "agentuity.server.agent.RemoteAgent", return_value=mock_remote_agent
-            ),
+            patch("agentuity.server.agent.RemoteAgent", return_value=mock_remote_agent),
             patch(
                 "agentuity.server.response.AgentResponse.handoff", new=AsyncMock()
             ) as mock_handoff,
@@ -143,15 +141,15 @@ class TestAgentResponseExtended:
         mock_remote_agent.run.return_value = mock_response_data
 
         with (
-            patch(
-                "agentuity.server.agent.RemoteAgent", return_value=mock_remote_agent
-            ),
+            patch("agentuity.server.agent.RemoteAgent", return_value=mock_remote_agent),
             patch(
                 "agentuity.server.response.AgentResponse.handoff", new=AsyncMock()
             ) as mock_handoff,
         ):
             mock_handoff.return_value = agent_response
-            agent_response._contentType = "application/json"  # Access private attribute for testing
+            agent_response._contentType = (
+                "application/json"  # Access private attribute for testing
+            )
             agent_response._payload = mock_response_data.data.base64
             agent_response._metadata = {"response_key": "response_value"}
 
@@ -170,14 +168,17 @@ class TestAgentResponseExtended:
         """Test handoff when agent is not found."""
         empty_agents_by_id = {}
         mock_context.agents_by_id = empty_agents_by_id
-        
+
         mock_response = MagicMock()
         mock_response.status_code = 404
         mock_response.text = "agent not found"
-        
+
         with (
             patch("httpx.post", return_value=mock_response),
-            pytest.raises(ValueError, match="agent non_existent_agent not found or you don't have access to it")
+            pytest.raises(
+                ValueError,
+                match="agent non_existent_agent not found or you don't have access to it",
+            ),
         ):
             await agent_response.handoff({"id": "non_existent_agent"})
 

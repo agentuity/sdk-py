@@ -48,7 +48,7 @@ class TestData:
         reader = asyncio.StreamReader()
         reader.feed_data(b"Hello, world!")
         reader.feed_eof()
-        
+
         data = Data("text/plain", reader)
         assert data.contentType == "text/plain"
         assert await data.base64() == "SGVsbG8sIHdvcmxkIQ=="
@@ -59,7 +59,7 @@ class TestData:
         reader = asyncio.StreamReader()
         reader.feed_data(b"Hello, world!")
         reader.feed_eof()
-        
+
         # Default content type should be "application/octet-stream"
         data = Data("application/octet-stream", reader)
         assert data.contentType == "application/octet-stream"
@@ -70,7 +70,7 @@ class TestData:
         reader = asyncio.StreamReader()
         reader.feed_data(b"Hello, world!")
         reader.feed_eof()
-        
+
         data = Data("text/plain", reader)
         text = await data.text()
         assert text == "Hello, world!"
@@ -80,11 +80,11 @@ class TestData:
         """Test the json property decodes base64 to JSON."""
         json_obj = {"message": "Hello, world!"}
         json_str = json.dumps(json_obj)
-        
+
         reader = asyncio.StreamReader()
         reader.feed_data(json_str.encode("utf-8"))
         reader.feed_eof()
-        
+
         data = Data("application/json", reader)
         json_data = await data.json()
         assert json_data == json_obj
@@ -95,7 +95,7 @@ class TestData:
         reader = asyncio.StreamReader()
         reader.feed_data(b"Hello, world!")  # Not valid JSON
         reader.feed_eof()
-        
+
         data = Data("application/json", reader)
         with pytest.raises(ValueError, match="Data is not JSON"):
             await data.json()
@@ -106,7 +106,7 @@ class TestData:
         reader = asyncio.StreamReader()
         reader.feed_data(b"Hello, world!")
         reader.feed_eof()
-        
+
         data = Data("application/octet-stream", reader)
         binary = await data.binary()
         assert binary == b"Hello, world!"
@@ -121,7 +121,7 @@ class TestDataResult:
         reader = asyncio.StreamReader()
         reader.feed_data(b"Hello, world!")
         reader.feed_eof()
-        
+
         data = Data("text/plain", reader)
         result = DataResult(data)
         assert result.data == data
