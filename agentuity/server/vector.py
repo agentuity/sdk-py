@@ -1,5 +1,5 @@
 import httpx
-from typing import Optional, Union
+from typing import Optional
 from agentuity import __version__
 from opentelemetry import trace
 
@@ -14,14 +14,14 @@ class VectorSearchResult:
     @param metadata: the metadata of the vector or None if no metadata provided
     """
 
-    def __init__(self, doc: Union[dict, str], **kwargs):
-        if isinstance(doc, dict):
-            self.id = doc["id"]
-            self.key = doc["key"]
-            self.similarity = doc["similarity"] if "similarity" in doc else 0
-            self.metadata = doc["metadata"] if "metadata" in doc else None
+    def __init__(self, doc: Optional[dict] = None, **kwargs):
+        if doc is not None:
+            self.id = doc.get("id", "")
+            self.key = doc.get("key", "")
+            self.similarity = doc.get("similarity", 0)
+            self.metadata = doc.get("metadata", None)
         else:
-            self.id = kwargs.get("id", doc)
+            self.id = kwargs.get("id", "")
             self.key = kwargs.get("key", "")
             self.similarity = kwargs.get("similarity", 0)
             self.metadata = kwargs.get("metadata", None)
@@ -130,7 +130,7 @@ class VectorStore:
                         span.add_event("hit")
                         span.set_status(trace.StatusCode.OK)
                         if "data" in result:
-                            return VectorSearchResult(result["data"])
+                            return VectorSearchResult(**result["data"])
                         else:
                             return None
                     else:
@@ -196,7 +196,7 @@ class VectorStore:
                     if "success" in result and result["success"]:
                         span.add_event("hit")
                         span.set_status(trace.StatusCode.OK)
-                        return [VectorSearchResult(doc) for doc in result["data"]]
+                        return [VectorSearchResult(**doc) for doc in result["data"]]
                     elif "message" in result:
                         span.set_status(
                             trace.StatusCode.ERROR, "Failed to search documents"
