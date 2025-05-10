@@ -17,9 +17,9 @@ class TestAgentRequest:
         reader = asyncio.StreamReader()
         reader.feed_data(b"Hello, world!")
         reader.feed_eof()
-        
+
         request = AgentRequest("manual", {"key": "value"}, "text/plain", reader)
-        
+
         assert isinstance(request, AgentRequest)
         assert isinstance(request.data, Data)
         assert request.data.contentType == "text/plain"
@@ -31,7 +31,7 @@ class TestAgentRequest:
         reader = asyncio.StreamReader()
         reader.feed_data(b"Hello, world!")
         reader.feed_eof()
-        
+
         request = AgentRequest("manual", {"key": "value"}, "text/plain", reader)
         assert isinstance(request.data, Data)
         assert await request.data.text() == "Hello, world!"
@@ -41,7 +41,7 @@ class TestAgentRequest:
         reader = asyncio.StreamReader()
         reader.feed_data(b"Hello, world!")
         reader.feed_eof()
-        
+
         request = AgentRequest("manual", {"key": "value"}, "text/plain", reader)
         assert isinstance(request.data, Data)
 
@@ -50,7 +50,7 @@ class TestAgentRequest:
         reader = asyncio.StreamReader()
         reader.feed_data(b"Hello, world!")
         reader.feed_eof()
-        
+
         request = AgentRequest("manual", {"key": "value"}, "text/plain", reader)
         assert request.trigger == "manual"
 
@@ -59,7 +59,7 @@ class TestAgentRequest:
         reader = asyncio.StreamReader()
         reader.feed_data(b"Hello, world!")
         reader.feed_eof()
-        
+
         request = AgentRequest("manual", {"key": "value"}, "text/plain", reader)
         assert request.metadata == {"key": "value"}
 
@@ -68,7 +68,7 @@ class TestAgentRequest:
         reader = asyncio.StreamReader()
         reader.feed_data(b"Hello, world!")
         reader.feed_eof()
-        
+
         request = AgentRequest("manual", {}, "text/plain", reader)
         assert request.metadata == {}
 
@@ -77,7 +77,7 @@ class TestAgentRequest:
         reader = asyncio.StreamReader()
         reader.feed_data(b"Hello, world!")
         reader.feed_eof()
-        
+
         request = AgentRequest("manual", {"key": "value"}, "text/plain", reader)
         assert request.get("key") == "value"
         assert request.get("non_existent") is None

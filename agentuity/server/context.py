@@ -5,6 +5,8 @@ from opentelemetry import trace
 from .config import AgentConfig
 from agentuity.otel import create_logger
 from .agent import LocalAgent, RemoteAgent, resolve_agent
+from .vector import VectorStore
+from .keyvalue import KeyValueStore
 
 
 class AgentContext:
@@ -50,11 +52,11 @@ class AgentContext:
         """
         the key value store
         """
-        self.kv = services.get("kv")
+        self.kv: KeyValueStore = services.get("kv")
         """
         the vector store
         """
-        self.vector = services.get("vector")
+        self.vector: VectorStore = services.get("vector")
         """
         the version of the Agentuity SDK
         """
