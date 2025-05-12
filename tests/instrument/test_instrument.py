@@ -143,7 +143,7 @@ class TestInstrumentFunctions:
         try:
             os.environ["AGENTUITY_TRANSPORT_URL"] = "https://test.com"
             os.environ["AGENTUITY_API_KEY"] = "test_api_key"
-            os.environ["AGENTUITY_SDK_KEY"] = "test_sdk_key"
+            os.environ["AGENTUITY_SDK_KEY"] = "test_api_key"
             with (
                 patch("agentuity.instrument.is_module_available", return_value=False),
                 patch(
