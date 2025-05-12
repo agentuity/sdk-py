@@ -57,6 +57,7 @@ class TestAgentExecution:
                 {
                     "AGENTUITY_TRANSPORT_URL": "https://test.com",
                     "AGENTUITY_API_KEY": "test_key",
+                    "AGENTUITY_SDK_KEY": "test_sdk_key",
                 },
             ),
         ):
@@ -108,6 +109,7 @@ class TestAgentExecution:
                 {
                     "AGENTUITY_TRANSPORT_URL": "https://test.com",
                     "AGENTUITY_API_KEY": "test_key",
+                    "AGENTUITY_SDK_KEY": "test_sdk_key",
                 },
             ),
         ):
