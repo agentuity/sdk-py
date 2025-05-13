@@ -123,6 +123,8 @@ class TestInstrumentFunctions:
                 del os.environ["AGENTUITY_TRANSPORT_URL"]
             if "AGENTUITY_API_KEY" in os.environ:
                 del os.environ["AGENTUITY_API_KEY"]
+            if "AGENTUITY_SDK_KEY" in os.environ:
+                del os.environ["AGENTUITY_SDK_KEY"]
 
             with patch("agentuity.instrument.logger") as mock_logger:
                 instrument()
@@ -141,7 +143,7 @@ class TestInstrumentFunctions:
         try:
             os.environ["AGENTUITY_TRANSPORT_URL"] = "https://test.com"
             os.environ["AGENTUITY_API_KEY"] = "test_api_key"
-
+            os.environ["AGENTUITY_SDK_KEY"] = "test_api_key"
             with (
                 patch("agentuity.instrument.is_module_available", return_value=False),
                 patch(
@@ -155,6 +157,46 @@ class TestInstrumentFunctions:
             ):
                 instrument()
 
+        finally:
+            os.environ.clear()
+            os.environ.update(original_env)
+
+    def test_instrument_with_only_api_key(self):
+        """Test instrument with only AGENTUITY_API_KEY set."""
+        original_env = os.environ.copy()
+        try:
+            os.environ["AGENTUITY_TRANSPORT_URL"] = "https://test.com"
+            os.environ["AGENTUITY_API_KEY"] = "test_api_key"
+            if "AGENTUITY_SDK_KEY" in os.environ:
+                del os.environ["AGENTUITY_SDK_KEY"]
+            with (
+                patch("agentuity.instrument.is_module_available", return_value=False),
+                patch("agentuity.instrument.configure_litellm_provider", return_value=False),
+                patch("agentuity.instrument.configure_native_provider", return_value=False),
+                patch("agentuity.instrument.logger") as mock_logger,
+            ):
+                instrument()
+                mock_logger.warning.assert_not_called()
+        finally:
+            os.environ.clear()
+            os.environ.update(original_env)
+
+    def test_instrument_with_only_sdk_key(self):
+        """Test instrument with only AGENTUITY_SDK_KEY set."""
+        original_env = os.environ.copy()
+        try:
+            os.environ["AGENTUITY_TRANSPORT_URL"] = "https://test.com"
+            os.environ["AGENTUITY_SDK_KEY"] = "test_api_key"
+            if "AGENTUITY_API_KEY" in os.environ:
+                del os.environ["AGENTUITY_API_KEY"]
+            with (
+                patch("agentuity.instrument.is_module_available", return_value=False),
+                patch("agentuity.instrument.configure_litellm_provider", return_value=False),
+                patch("agentuity.instrument.configure_native_provider", return_value=False),
+                patch("agentuity.instrument.logger") as mock_logger,
+            ):
+                instrument()
+                mock_logger.warning.assert_not_called()
         finally:
             os.environ.clear()
             os.environ.update(original_env)
