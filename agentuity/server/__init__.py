@@ -23,7 +23,7 @@ from .request import AgentRequest
 from .response import AgentResponse
 from .keyvalue import KeyValueStore
 from .vector import VectorStore
-from .data import value_to_payload
+from .data import dataLikeToData
 
 logger = logging.getLogger(__name__)
 port = int(os.environ.get("AGENTUITY_CLOUD_PORT", os.environ.get("PORT", 3500)))
@@ -108,8 +108,9 @@ async def encode_welcome(val):
             for prompt in val["prompts"]:
                 if "data" in prompt:
                     if not isBase64Content(prompt["data"]):
-                        data = value_to_payload(
-                            prompt.get("contentType", "text/plain"), prompt["data"]
+                        data = dataLikeToData(
+                            prompt["data"],
+                            prompt.get("contentType", "text/plain"),
                         )
                         ct = data.contentType
                         if (

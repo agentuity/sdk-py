@@ -366,19 +366,20 @@ def encode_payload(data: Union[str, bytes]) -> str:
         return base64.b64encode(data.encode("utf-8")).decode("utf-8")
 
 
-def value_to_payload(
-    content_type: str, value: Union[str, int, float, bool, list, dict, bytes, "Data"]
-) -> Data:
+DataLike = Union[str, int, float, bool, list, dict, bytes, "Data"]
+
+
+def dataLikeToData(value: DataLike, content_type: str = None) -> Data:
     """
     Convert a value to a Data object.
 
     Args:
-        content_type: The desired content type for the payload
         value: The value to convert. Can be:
             - Data object
             - bytes
             - str, int, float, bool
             - list or dict (will be converted to JSON)
+        content_type: The desired content type for the payload to override the inferred type
 
     Returns:
         Data: The Data object containing

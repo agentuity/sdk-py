@@ -8,7 +8,7 @@ import asyncio
 from agentuity import __version__
 
 from .config import AgentConfig
-from .data import Data
+from .data import Data, DataLike, dataLikeToData
 
 
 class RemoteAgentResponse:
@@ -60,7 +60,7 @@ class LocalAgent:
 
     async def run(
         self,
-        data: "Data",
+        somedata: "DataLike",
         metadata: Optional[dict] = None,
     ) -> RemoteAgentResponse:
         """
@@ -81,6 +81,8 @@ class LocalAgent:
             span.set_attribute("remote.agentName", self.agentconfig.name)
             span.set_attribute("@agentuity/scope", "local")
 
+            data = dataLikeToData(somedata)
+
             url = f"http://127.0.0.1:{self._port}/{self.agentconfig.id}"
             headers = {
                 "x-agentuity-trigger": "agent",
@@ -95,7 +97,9 @@ class LocalAgent:
                 async for chunk in await data.stream():
                     yield chunk
 
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(
+                timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0)
+            ) as client:
                 response = await client.post(
                     url, content=data_generator(), headers=headers
                 )
@@ -131,7 +135,7 @@ class RemoteAgent:
 
     async def run(
         self,
-        data: "Data",
+        somedata: "DataLike",
         metadata: Optional[dict] = None,
     ) -> RemoteAgentResponse:
         with self.tracer.start_as_current_span("remoteagent.run") as span:
@@ -146,6 +150,8 @@ class RemoteAgent:
                 self.agentconfig.get("transactionId"),
             )
             span.set_attribute("@agentuity/scope", "remote")
+
+            data = data = dataLikeToData(somedata)
 
             headers = {
                 "x-agentuity-trigger": "agent",
@@ -162,7 +168,9 @@ class RemoteAgent:
                 async for chunk in await data.stream():
                     yield chunk
 
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(
+                timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0)
+            ) as client:
                 response = await client.post(
                     self.agentconfig.get("url"),
                     content=data_generator(),
