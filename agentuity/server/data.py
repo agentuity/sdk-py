@@ -368,7 +368,7 @@ class Data:
                 # Avoid instantiating a coroutine – check the *function* first
                 if asyncio.iscoroutinefunction(self._stream.read):
                     raise RuntimeError("This Data instance requires async access")
-                data = self._stream.read()          # guaranteed to be bytes now
+                data = self._stream.read()  # guaranteed to be bytes now
                 self._data = data
                 self._loaded = True
             else:
@@ -383,8 +383,6 @@ class Data:
         return self._ensure_stream_loaded_sync()
 
     def json_sync(self) -> dict:
-        import json
-
         return json.loads(self.text_sync())
 
 
@@ -446,7 +444,7 @@ class IteratorStreamReader(StreamReader):
             except StopIteration:
                 self._eof = True
                 if len(self._buffer) < n:
-                    raise ValueError("Not enough data to read")
+                    raise ValueError("Not enough data to read") from None
                 break
 
         result = self._buffer[:n]
@@ -530,7 +528,7 @@ class AsyncIteratorStreamReader(StreamReader):
             except StopAsyncIteration:
                 self._eof = True
                 if len(self._buffer) < n:
-                    raise ValueError("Not enough data to read")
+                    raise ValueError("Not enough data to read") from None
                 break
 
         result = self._buffer[:n]
