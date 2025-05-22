@@ -629,8 +629,18 @@ def dataLikeToData(value: DataLike, content_type: str = None) -> Data:
         content_type = content_type or "application/octet-stream"
         return Data(content_type, value)
     elif isinstance(value, collections.abc.Iterator):
+        import itertools
         content_type = content_type or "application/octet-stream"
-        return Data(content_type, IteratorStreamReader(value))
+        # ensure this iterator yields bytes
+        try:
+            first = next(value)
+        except StopIteration:
+            validated_iter = iter(())
+        else:
+            if not isinstance(first, (bytes, bytearray)):
+                raise ValueError("Iterator must yield bytes")
+            validated_iter = itertools.chain([first], value)
+        return Data(content_type, IteratorStreamReader(validated_iter))
     elif isinstance(value, collections.abc.AsyncIterator):
         content_type = content_type or "application/octet-stream"
         return Data(content_type, AsyncIteratorStreamReader(value))
