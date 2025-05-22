@@ -85,7 +85,7 @@ make build
 
 In your project, install the local SDK build:
 
-```
+```bash
 uv add ~/path/to/sdk-py/dist/agentuity-0.0.83.post2+d07b43907c8002056fe3550ddef946d1dbb0eeff.tar.gz
 ```
 
