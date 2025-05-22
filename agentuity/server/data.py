@@ -365,9 +365,10 @@ class Data:
                 self._data = data
                 self._loaded = True
             elif hasattr(self._stream, "read"):
-                data = self._stream.read()
-                if hasattr(data, "__await__") or asyncio.iscoroutine(data):
+                # Avoid instantiating a coroutine – check the *function* first
+                if asyncio.iscoroutinefunction(self._stream.read):
                     raise RuntimeError("This Data instance requires async access")
+                data = self._stream.read()          # guaranteed to be bytes now
                 self._data = data
                 self._loaded = True
             else:
