@@ -490,6 +490,56 @@ class IteratorStreamReader(StreamReader):
         pass
 
 
+class EmptyAsyncIterator:
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        raise StopAsyncIteration
+
+
+class AsyncChain:
+    def __init__(self, first, rest):
+        self._first = first
+        self._rest = rest
+        self._first_yielded = False
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if not self._first_yielded:
+            self._first_yielded = True
+            return self._first
+        return await anext(self._rest)
+
+
+async def validate_async_iterator(
+    iterator: AsyncIterator[bytes],
+) -> AsyncIterator[bytes]:
+    """
+    Validate that an async iterator yields bytes and reconstruct it with the first item.
+
+    Args:
+        iterator: The async iterator to validate
+
+    Returns:
+        AsyncIterator[bytes]: A validated async iterator that yields bytes
+
+    Raises:
+        ValueError: If the iterator yields non-bytes data
+    """
+    try:
+        first = await anext(iterator)
+    except StopAsyncIteration:
+        return EmptyAsyncIterator()
+
+    if not isinstance(first, (bytes, bytearray)):
+        raise ValueError("Async iterator must yield bytes")
+
+    return AsyncChain(first, iterator)
+
+
 class AsyncIteratorStreamReader(StreamReader):
     def __init__(self, iterator: AsyncIterator[bytes], protocol=None, limit=2**16):
         super().__init__(protocol, limit)
@@ -576,6 +626,34 @@ class AsyncIteratorStreamReader(StreamReader):
         pass
 
 
+class ValidatedAsyncIterator:
+    def __init__(self, iterator: AsyncIterator[bytes]):
+        self._iterator = iterator
+        self._validated = False
+        self._first = None
+        self._first_yielded = False
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if not self._validated:
+            try:
+                self._first = await anext(self._iterator)
+                if not isinstance(self._first, (bytes, bytearray)):
+                    raise ValueError("Async iterator must yield bytes")
+                self._validated = True
+            except StopAsyncIteration:
+                self._validated = True
+                raise
+
+        if not self._first_yielded:
+            self._first_yielded = True
+            return self._first
+
+        return await anext(self._iterator)
+
+
 DataLike = Union[
     str,
     int,
@@ -630,6 +708,7 @@ def dataLikeToData(value: DataLike, content_type: str = None) -> Data:
         return Data(content_type, value)
     elif isinstance(value, collections.abc.Iterator):
         import itertools
+
         content_type = content_type or "application/octet-stream"
         # ensure this iterator yields bytes
         try:
@@ -643,6 +722,8 @@ def dataLikeToData(value: DataLike, content_type: str = None) -> Data:
         return Data(content_type, IteratorStreamReader(validated_iter))
     elif isinstance(value, collections.abc.AsyncIterator):
         content_type = content_type or "application/octet-stream"
-        return Data(content_type, AsyncIteratorStreamReader(value))
+        return Data(
+            content_type, AsyncIteratorStreamReader(ValidatedAsyncIterator(value))
+        )
     else:
         raise ValueError(f"Unsupported value type: {type(value)}")
