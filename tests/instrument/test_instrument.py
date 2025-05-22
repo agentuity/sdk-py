@@ -171,8 +171,13 @@ class TestInstrumentFunctions:
                 del os.environ["AGENTUITY_SDK_KEY"]
             with (
                 patch("agentuity.instrument.is_module_available", return_value=False),
-                patch("agentuity.instrument.configure_litellm_provider", return_value=False),
-                patch("agentuity.instrument.configure_native_provider", return_value=False),
+                patch(
+                    "agentuity.instrument.configure_litellm_provider",
+                    return_value=False,
+                ),
+                patch(
+                    "agentuity.instrument.configure_native_provider", return_value=False
+                ),
                 patch("agentuity.instrument.logger") as mock_logger,
             ):
                 instrument()
@@ -191,8 +196,13 @@ class TestInstrumentFunctions:
                 del os.environ["AGENTUITY_API_KEY"]
             with (
                 patch("agentuity.instrument.is_module_available", return_value=False),
-                patch("agentuity.instrument.configure_litellm_provider", return_value=False),
-                patch("agentuity.instrument.configure_native_provider", return_value=False),
+                patch(
+                    "agentuity.instrument.configure_litellm_provider",
+                    return_value=False,
+                ),
+                patch(
+                    "agentuity.instrument.configure_native_provider", return_value=False
+                ),
                 patch("agentuity.instrument.logger") as mock_logger,
             ):
                 instrument()

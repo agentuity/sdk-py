@@ -39,7 +39,7 @@ The Agentuity Python SDK is a powerful toolkit for building, deploying, and mana
 To use this SDK in a real project, you should install the Agentuity CLI.
 
 ```bash
-curl -sSL https://agentuity.sh/install.sh | bash
+curl -fsSL https://agentuity.sh | sh
 ```
 
 
@@ -73,41 +73,31 @@ uv install
 
 ### Local Development
 
-Create a minimal agentuity.yaml file in the root of the project:
+Create a new agent project or use an existing one like normal.
 
-```yaml
-project_id: proj_mv0w67c4851eX0oTglYLzP3OgS2BjN54
-name: test
-agents:
-  - id: agent_HaDpiH67c4851eISzbAWfZqwLtnpguW6
-    name: myfirstagent
-```
+To link your local python SDK to your project, run the following commands:
 
-Create a test agent:
+Build the SDK:
 
 ```bash
-mkdir -p agents/myfirstagent
-touch agents/myfirstagent/agent.py
+make build
 ```
 
-Create a test agent:
+In your project, install the local SDK build:
 
-```python
-def run(request, response, context):
-    return response.text("Hello, world")
+```
+uv add ~/path/to/sdk-py/dist/agentuity-0.0.83.post2+d07b43907c8002056fe3550ddef946d1dbb0eeff.tar.gz
 ```
 
-Run the test server:
+Make sure to replace the path with the actual path to the SDK build.
+
+Now you can run your project like normal.
 
 ```bash
-uv run test.py
+agentuity dev
 ```
 
-Hit the test endpoint:
 
-```bash
-curl -v http://localhost:3500/agent_HaDpiH67c4851eISzbAWfZqwLtnpguW6 --json '{"hello":"world"}'
-```
 
 ## License
 

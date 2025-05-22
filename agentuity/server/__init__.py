@@ -288,20 +288,23 @@ async def handle_agent_request(request: web.Request):
                     base_url=os.environ.get(
                         "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
                     ),
-                    api_key=os.environ.get("AGENTUITY_API_KEY") or os.environ.get("AGENTUITY_SDK_KEY"),
+                    api_key=os.environ.get("AGENTUITY_API_KEY")
+                    or os.environ.get("AGENTUITY_SDK_KEY"),
                     services={
                         "kv": KeyValueStore(
                             base_url=os.environ.get(
                                 "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
                             ),
-                            api_key=os.environ.get("AGENTUITY_API_KEY") or os.environ.get("AGENTUITY_SDK_KEY"),
+                            api_key=os.environ.get("AGENTUITY_API_KEY")
+                            or os.environ.get("AGENTUITY_SDK_KEY"),
                             tracer=tracer,
                         ),
                         "vector": VectorStore(
                             base_url=os.environ.get(
                                 "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
                             ),
-                            api_key=os.environ.get("AGENTUITY_API_KEY") or os.environ.get("AGENTUITY_SDK_KEY"),
+                            api_key=os.environ.get("AGENTUITY_API_KEY")
+                            or os.environ.get("AGENTUITY_SDK_KEY"),
                             tracer=tracer,
                         ),
                     },
