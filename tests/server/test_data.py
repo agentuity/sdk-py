@@ -8,6 +8,7 @@ from agentuity.server.data import (
     Data,
     DataResult,
     encode_payload,
+    dataLikeToData,
 )
 
 sys.modules["openlit"] = MagicMock()
@@ -151,3 +152,238 @@ class TestEncodingFunctions:
         """Test decode_payload_bytes function."""
         decoded = decode_payload_bytes("SGVsbG8sIHdvcmxkIQ==")
         assert decoded == b"Hello, world!"
+
+
+class TestDataLikeToData:
+    """Test suite for the dataLikeToData function."""
+
+    @pytest.mark.asyncio
+    async def test_bytes_iterator(self):
+        """Test converting a bytes iterator to Data."""
+        chunks = [b"Hello", b", ", b"world", b"!"]
+        iterator = iter(chunks)
+
+        data = dataLikeToData(iterator)
+        assert data.contentType == "application/octet-stream"
+        assert await data.binary() == b"Hello, world!"
+
+    @pytest.mark.asyncio
+    async def test_bytes_iterator_with_content_type(self):
+        """Test converting a bytes iterator to Data with custom content type."""
+        chunks = [b"Hello", b", ", b"world", b"!"]
+        iterator = iter(chunks)
+
+        data = dataLikeToData(iterator, content_type="text/plain")
+        assert data.contentType == "text/plain"
+        assert await data.binary() == b"Hello, world!"
+
+    @pytest.mark.asyncio
+    async def test_empty_iterator(self):
+        """Test converting an empty iterator to Data."""
+        iterator = iter([])
+
+        data = dataLikeToData(iterator)
+        assert data.contentType == "application/octet-stream"
+        assert await data.binary() == b""
+
+    @pytest.mark.asyncio
+    async def test_large_iterator(self):
+        """Test converting a large iterator to Data."""
+        chunks = [b"x" * 1024 for _ in range(10)]  # 10KB of data
+        iterator = iter(chunks)
+
+        data = dataLikeToData(iterator)
+        assert data.contentType == "application/octet-stream"
+        result = await data.binary()
+        assert len(result) == 10240  # 10KB
+        assert result == b"x" * 10240  # Check that all bytes are 'x'
+
+    @pytest.mark.asyncio
+    async def test_mixed_chunk_sizes(self):
+        """Test converting an iterator with mixed chunk sizes to Data."""
+        chunks = [b"Hello", b"", b", ", b"world", b"!", b""]
+        iterator = iter(chunks)
+
+        data = dataLikeToData(iterator)
+        assert data.contentType == "application/octet-stream"
+        assert await data.binary() == b"Hello, world!"
+
+    @pytest.mark.asyncio
+    async def test_str(self):
+        data = dataLikeToData("hello world")
+        assert data.contentType == "text/plain"
+        assert await data.text() == "hello world"
+
+    @pytest.mark.asyncio
+    async def test_int(self):
+        data = dataLikeToData(42)
+        assert data.contentType == "text/plain"
+        assert await data.text() == "42"
+
+    @pytest.mark.asyncio
+    async def test_float(self):
+        data = dataLikeToData(3.14)
+        assert data.contentType == "text/plain"
+        assert await data.text() == "3.14"
+
+    @pytest.mark.asyncio
+    async def test_bool(self):
+        data = dataLikeToData(True)
+        assert data.contentType == "text/plain"
+        assert await data.text() == "True"
+
+    @pytest.mark.asyncio
+    async def test_list(self):
+        value = [1, 2, 3]
+        data = dataLikeToData(value)
+        assert data.contentType == "application/json"
+        assert await data.json() == value
+
+    @pytest.mark.asyncio
+    async def test_dict(self):
+        value = {"a": 1, "b": 2}
+        data = dataLikeToData(value)
+        assert data.contentType == "application/json"
+        assert await data.json() == value
+
+    @pytest.mark.asyncio
+    async def test_bytes(self):
+        value = b"bytes data"
+        data = dataLikeToData(value)
+        assert data.contentType == "application/octet-stream"
+        assert await data.binary() == value
+
+    @pytest.mark.asyncio
+    async def test_data(self):
+        # Passing a Data object should return the same object
+        orig = dataLikeToData("hello")
+        data = dataLikeToData(orig)
+        assert data is orig
+        assert await data.text() == "hello"
+
+    @pytest.mark.asyncio
+    async def test_streamreader(self):
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"streamreader data")
+        reader.feed_eof()
+        data = dataLikeToData(reader)
+        assert data.contentType == "application/octet-stream"
+        assert await data.binary() == b"streamreader data"
+
+    def test_str_sync(self):
+        data = dataLikeToData("hello world")
+        assert data.text_sync() == "hello world"
+
+    def test_int_sync(self):
+        data = dataLikeToData(42)
+        assert data.text_sync() == "42"
+
+    def test_float_sync(self):
+        data = dataLikeToData(3.14)
+        assert data.text_sync() == "3.14"
+
+    def test_bool_sync(self):
+        data = dataLikeToData(True)
+        assert data.text_sync() == "True"
+
+    def test_list_sync(self):
+        value = [1, 2, 3]
+        data = dataLikeToData(value)
+        assert data.json_sync() == value
+
+    def test_dict_sync(self):
+        value = {"a": 1, "b": 2}
+        data = dataLikeToData(value)
+        assert data.json_sync() == value
+
+    def test_bytes_sync(self):
+        value = b"bytes data"
+        data = dataLikeToData(value)
+        assert data.binary_sync() == value
+
+    def test_data_sync(self):
+        orig = dataLikeToData("hello")
+        data = dataLikeToData(orig)
+        assert data.text_sync() == "hello"
+
+    def test_streamreader_sync_raises(self):
+        import asyncio
+
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"streamreader data")
+        reader.feed_eof()
+        data = dataLikeToData(reader)
+        import pytest
+
+        with pytest.raises(RuntimeError, match="requires async access"):
+            data.binary_sync()
+
+    @pytest.mark.asyncio
+    async def test_async_iterator(self):
+        """Test converting an async iterator to Data."""
+
+        async def gen():
+            yield b"Hello"
+            yield b", "
+            yield b"world"
+            yield b"!"
+
+        data = dataLikeToData(gen())
+        assert data.contentType == "application/octet-stream"
+        assert await data.binary() == b"Hello, world!"
+
+    @pytest.mark.asyncio
+    async def test_async_iterator_with_content_type(self):
+        """Test converting an async iterator to Data with custom content type."""
+
+        async def gen():
+            yield b"Hello"
+            yield b", "
+            yield b"world"
+            yield b"!"
+
+        data = dataLikeToData(gen(), content_type="text/plain")
+        assert data.contentType == "text/plain"
+        assert await data.binary() == b"Hello, world!"
+
+    @pytest.mark.asyncio
+    async def test_empty_async_iterator(self):
+        """Test converting an empty async iterator to Data."""
+
+        async def gen():
+            if False:
+                yield b""
+
+        data = dataLikeToData(gen())
+        assert data.contentType == "application/octet-stream"
+        assert await data.binary() == b""
+
+    @pytest.mark.asyncio
+    async def test_large_async_iterator(self):
+        """Test converting a large async iterator to Data."""
+
+        async def gen():
+            for _ in range(10):
+                yield b"x" * 1024  # 10KB of data
+
+        data = dataLikeToData(gen())
+        assert data.contentType == "application/octet-stream"
+        result = await data.binary()
+        assert len(result) == 10240  # 10KB
+        assert result == b"x" * 10240
+
+    @pytest.mark.asyncio
+    async def test_mixed_chunk_sizes_async_iterator(self):
+        """Test converting an async iterator with mixed chunk sizes to Data."""
+
+        async def gen():
+            yield b"Hello"
+            yield b""
+            yield b", "
+            yield b"world"
+            yield b"!"
+            yield b""
+
+        data = dataLikeToData(gen())
+        assert data.contentType == "application/octet-stream"
+        assert await data.binary() == b"Hello, world!"

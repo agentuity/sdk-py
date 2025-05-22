@@ -1,6 +1,6 @@
 import httpx
 from typing import Union, Optional
-from .data import DataResult, Data, value_to_payload
+from .data import DataResult, Data, dataLikeToData
 from agentuity import __version__
 from opentelemetry import trace
 
@@ -116,7 +116,7 @@ class KeyValueStore:
             payload = None
 
             try:
-                data = value_to_payload(content_type, value)
+                data = dataLikeToData(value, content_type)
                 content_type = data.contentType
                 payload = await data.binary()
             except Exception as e:
