@@ -298,7 +298,7 @@ class Data:
             IO[bytes]: A file-like object providing access to the data as bytes
         """
         if self._loaded:
-            raise ValueError("Stream already loaded")
+            return BytesStreamReader(self._data)
         return self._stream
 
     @property
