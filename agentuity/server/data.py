@@ -1,8 +1,10 @@
-from typing import Optional, Union
+from typing import Optional, Union, Iterator, AsyncIterator
 import base64
 import json
 from typing import IO
 from aiohttp import StreamReader
+import collections.abc
+import asyncio
 
 
 class EmptyDataReader(StreamReader):
@@ -58,13 +60,16 @@ class StringStreamReader(StreamReader):
         self._pos = 0
         self._eof = False
 
-    async def read(self) -> bytes:
+    def read_sync(self) -> bytes:
         if self._eof:
             return b""
         data = self._data[self._pos :]
         self._pos = len(self._data)
         self._eof = True
         return data
+
+    async def read(self) -> bytes:
+        return self.read_sync()
 
     async def readany(self) -> bytes:
         return await self.read()
@@ -136,13 +141,16 @@ class BytesStreamReader(StreamReader):
         self._pos = 0
         self._eof = False
 
-    async def read(self) -> bytes:
+    def read_sync(self) -> bytes:
         if self._eof:
             return b""
         data = self._data[self._pos :]
         self._pos = len(self._data)
         self._eof = True
         return data
+
+    async def read(self) -> bytes:
+        return self.read_sync()
 
     async def readany(self) -> bytes:
         return await self.read()
@@ -349,6 +357,35 @@ class Data:
         data = await self._ensure_stream_loaded()
         return data
 
+    def _ensure_stream_loaded_sync(self):
+        if not self._loaded:
+            # Try to read synchronously
+            if hasattr(self._stream, "read_sync"):
+                data = self._stream.read_sync()
+                self._data = data
+                self._loaded = True
+            elif hasattr(self._stream, "read"):
+                data = self._stream.read()
+                if hasattr(data, "__await__") or asyncio.iscoroutine(data):
+                    raise RuntimeError("This Data instance requires async access")
+                self._data = data
+                self._loaded = True
+            else:
+                raise RuntimeError("This Data instance requires async access")
+        return self._data
+
+    def text_sync(self) -> str:
+        data = self._ensure_stream_loaded_sync()
+        return data.decode("utf-8")
+
+    def binary_sync(self) -> bytes:
+        return self._ensure_stream_loaded_sync()
+
+    def json_sync(self) -> dict:
+        import json
+
+        return json.loads(self.text_sync())
+
 
 def encode_payload(data: Union[str, bytes]) -> str:
     """
@@ -366,7 +403,193 @@ def encode_payload(data: Union[str, bytes]) -> str:
         return base64.b64encode(data.encode("utf-8")).decode("utf-8")
 
 
-DataLike = Union[str, int, float, bool, list, dict, bytes, "Data"]
+class IteratorStreamReader(StreamReader):
+    def __init__(self, iterator: Iterator[bytes], protocol=None, limit=2**16):
+        super().__init__(protocol, limit)
+        self._iterator = iterator
+        self._buffer = b""
+        self._eof = False
+
+    async def read(self) -> bytes:
+        if self._eof:
+            return b""
+        try:
+            chunks = []
+            while True:
+                try:
+                    chunk = next(self._iterator)
+                    chunks.append(chunk)
+                except StopIteration:
+                    break
+            self._eof = True
+            return b"".join(chunks)
+        except Exception as e:
+            self.set_exception(e)
+            raise
+
+    async def readany(self) -> bytes:
+        return await self.read()
+
+    async def readexactly(self, n: int) -> bytes:
+        if n < 0:
+            raise ValueError("n must be non-negative")
+        if self._eof:
+            if n > 0:
+                raise ValueError("Not enough data to read")
+            return b""
+
+        while len(self._buffer) < n:
+            try:
+                chunk = next(self._iterator)
+                self._buffer += chunk
+            except StopIteration:
+                self._eof = True
+                if len(self._buffer) < n:
+                    raise ValueError("Not enough data to read")
+                break
+
+        result = self._buffer[:n]
+        self._buffer = self._buffer[n:]
+        return result
+
+    async def readline(self) -> bytes:
+        return await self.read()
+
+    async def readchunk(self) -> tuple[bytes, bool]:
+        if self._eof:
+            return b"", True
+        try:
+            chunk = next(self._iterator)
+            return chunk, False
+        except StopIteration:
+            self._eof = True
+            return b"", True
+
+    def at_eof(self) -> bool:
+        return self._eof
+
+    def exception(self) -> Optional[Exception]:
+        return None
+
+    def set_exception(self, exc: Exception) -> None:
+        pass
+
+    def unread_data(self, data: bytes) -> None:
+        self._buffer = data + self._buffer
+        self._eof = False
+
+    def feed_eof(self) -> None:
+        self._eof = True
+
+    def feed_data(self, data: bytes) -> None:
+        raise NotImplementedError("IteratorStreamReader does not support feeding data")
+
+    def begin_http_chunk_receiving(self) -> None:
+        pass
+
+    def end_http_chunk_receiving(self) -> None:
+        pass
+
+
+class AsyncIteratorStreamReader(StreamReader):
+    def __init__(self, iterator: AsyncIterator[bytes], protocol=None, limit=2**16):
+        super().__init__(protocol, limit)
+        self._iterator = iterator
+        self._buffer = b""
+        self._eof = False
+
+    async def read(self) -> bytes:
+        if self._eof:
+            return b""
+        try:
+            chunks = []
+            async for chunk in self._iterator:
+                chunks.append(chunk)
+            self._eof = True
+            return b"".join(chunks)
+        except Exception as e:
+            self.set_exception(e)
+            raise
+
+    async def readany(self) -> bytes:
+        return await self.read()
+
+    async def readexactly(self, n: int) -> bytes:
+        if n < 0:
+            raise ValueError("n must be non-negative")
+        if self._eof:
+            if n > 0:
+                raise ValueError("Not enough data to read")
+            return b""
+
+        while len(self._buffer) < n:
+            try:
+                chunk = await anext(self._iterator)
+                self._buffer += chunk
+            except StopAsyncIteration:
+                self._eof = True
+                if len(self._buffer) < n:
+                    raise ValueError("Not enough data to read")
+                break
+
+        result = self._buffer[:n]
+        self._buffer = self._buffer[n:]
+        return result
+
+    async def readline(self) -> bytes:
+        return await self.read()
+
+    async def readchunk(self) -> tuple[bytes, bool]:
+        if self._eof:
+            return b"", True
+        try:
+            chunk = await anext(self._iterator)
+            return chunk, False
+        except StopAsyncIteration:
+            self._eof = True
+            return b"", True
+
+    def at_eof(self) -> bool:
+        return self._eof
+
+    def exception(self) -> Optional[Exception]:
+        return None
+
+    def set_exception(self, exc: Exception) -> None:
+        pass
+
+    def unread_data(self, data: bytes) -> None:
+        self._buffer = data + self._buffer
+        self._eof = False
+
+    def feed_eof(self) -> None:
+        self._eof = True
+
+    def feed_data(self, data: bytes) -> None:
+        raise NotImplementedError(
+            "AsyncIteratorStreamReader does not support feeding data"
+        )
+
+    def begin_http_chunk_receiving(self) -> None:
+        pass
+
+    def end_http_chunk_receiving(self) -> None:
+        pass
+
+
+DataLike = Union[
+    str,
+    int,
+    float,
+    bool,
+    list,
+    dict,
+    bytes,
+    "Data",
+    StreamReader,
+    Iterator[bytes],
+    AsyncIterator[bytes],
+]
 
 
 def dataLikeToData(value: DataLike, content_type: str = None) -> Data:
@@ -379,6 +602,9 @@ def dataLikeToData(value: DataLike, content_type: str = None) -> Data:
             - bytes
             - str, int, float, bool
             - list or dict (will be converted to JSON)
+            - StreamReader
+            - Iterator[bytes]
+            - AsyncIterator[bytes]
         content_type: The desired content type for the payload to override the inferred type
 
     Returns:
@@ -400,5 +626,14 @@ def dataLikeToData(value: DataLike, content_type: str = None) -> Data:
         content_type = content_type or "application/json"
         payload = json.dumps(value)
         return Data(content_type, StringStreamReader(payload))
+    elif isinstance(value, (StreamReader, asyncio.StreamReader)):
+        content_type = content_type or "application/octet-stream"
+        return Data(content_type, value)
+    elif isinstance(value, collections.abc.Iterator):
+        content_type = content_type or "application/octet-stream"
+        return Data(content_type, IteratorStreamReader(value))
+    elif isinstance(value, collections.abc.AsyncIterator):
+        content_type = content_type or "application/octet-stream"
+        return Data(content_type, AsyncIteratorStreamReader(value))
     else:
         raise ValueError(f"Unsupported value type: {type(value)}")
