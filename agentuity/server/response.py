@@ -2,8 +2,7 @@ from typing import Optional, Iterable, Callable, Any, Union, AsyncIterator
 import json
 from .agent import resolve_agent
 from asyncio import StreamReader
-from .data import Data
-import asyncio
+from .data import Data, DataLike, dataLikeToData
 
 
 class AgentResponse:
@@ -56,7 +55,7 @@ class AgentResponse:
         return self._metadata if self._metadata else {}
 
     async def handoff(
-        self, params: dict, args: Optional[dict] = None, metadata: Optional[dict] = None
+        self, params: dict, args: "DataLike" = None, metadata: Optional[dict] = None
     ) -> "AgentResponse":
         """
         Handoff the current request to another agent within the same project.
@@ -82,12 +81,7 @@ class AgentResponse:
         if not args:
             agent_response = await found_agent.run(self._data, metadata)
         else:
-            # Create a StreamReader from the args data
-            reader = asyncio.StreamReader()
-            reader.feed_data(json.dumps(args).encode("utf-8"))
-            reader.feed_eof()
-            # FIXME: need to be any serializable type
-            data = Data("application/json", reader)
+            data = dataLikeToData(args)
             agent_response = await found_agent.run(data, metadata)
 
         self._metadata = agent_response.metadata
