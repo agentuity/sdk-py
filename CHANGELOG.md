@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.85] - 2025-05-22
+
+### Added
+- Added support for constructing data objects from both synchronous and asynchronous byte iterators ([#45](https://github.com/agentuity/sdk-py/pull/45))
+- Added synchronous reading methods for data objects ([#45](https://github.com/agentuity/sdk-py/pull/45))
+
+### Changed
+- Improved local development instructions in README ([#44](https://github.com/agentuity/sdk-py/pull/44))
+- Enhanced agent input handling to accept a broader range of data types ([#45](https://github.com/agentuity/sdk-py/pull/45))
+- Configured explicit timeout settings for agent network operations ([#45](https://github.com/agentuity/sdk-py/pull/45))
+
+### Fixed
+- Improved data conversion logic to handle a wider range of input types ([#45](https://github.com/agentuity/sdk-py/pull/45))
+
 ## [0.0.84] - 2025-05-14
 
 ### Added
