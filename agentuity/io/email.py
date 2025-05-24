@@ -12,24 +12,11 @@ class Email(dict):
         Initialize an Email object.
         """
         self._email = mailparser.parse_from_string(email)
-        super().__init__(
-            {
-                "subject": self.subject,
-                "from_email": self.from_email,
-                "from_name": self.from_name,
-                "to": self.to,
-                "date": self.date.isoformat() if self.date else None,
-                "messageId": self.messageId,
-                "headers": self.headers,
-                "text": self.text,
-                "html": self.html,
-                "attachments": self.attachments,
-            }
-        )
+        super().__init__(self._get_email_dict())
 
-    def __dict__(self):
+    def _get_email_dict(self) -> dict:
         """
-        Make the Email object directly JSON serializable.
+        Get email data as a dictionary.
         """
         return {
             "subject": self.subject,
@@ -54,27 +41,10 @@ class Email(dict):
         """
         Make the Email object behave like a dictionary.
         """
-        if key == "subject":
-            return self.subject
-        elif key == "from_email":
-            return self.from_email
-        elif key == "from_name":
-            return self.from_name
-        elif key == "to":
-            return self.to
-        elif key == "date":
-            return self.date.isoformat() if self.date else None
-        elif key == "messageId":
-            return self.messageId
-        elif key == "headers":
-            return self.headers
-        elif key == "text":
-            return self.text
-        elif key == "html":
-            return self.html
-        elif key == "attachments":
-            return self.attachments
-        raise KeyError(key)
+        email_dict = self._get_email_dict()
+        if key not in email_dict:
+            raise KeyError(key)
+        return email_dict[key]
 
     def keys(self):
         """
@@ -97,18 +67,7 @@ class Email(dict):
         """
         Convert the Email object to a dictionary.
         """
-        return {
-            "subject": self.subject,
-            "from_email": self.from_email,
-            "from_name": self.from_name,
-            "to": self.to,
-            "date": self.date.isoformat() if self.date else None,
-            "messageId": self.messageId,
-            "headers": self.headers,
-            "text": self.text,
-            "html": self.html,
-            "attachments": self.attachments,
-        }
+        return self._get_email_dict()
 
     def __str__(self) -> str:
         """
@@ -136,6 +95,8 @@ class Email(dict):
         """
         Return the from email address of the email.
         """
+        if not hasattr(self._email, "from_") or not self._email.from_:
+            return None
         if isinstance(self._email.from_, list) and len(self._email.from_) > 0:
             if isinstance(self._email.from_[0], tuple):
                 # ('Jeff Haynie', 'jhaynie@agentuity.com')
@@ -151,6 +112,8 @@ class Email(dict):
         """
         Return the from name of the email.
         """
+        if not hasattr(self._email, "from_") or not self._email.from_:
+            return None
         if isinstance(self._email.from_, list) and len(self._email.from_) > 0:
             if isinstance(self._email.from_[0], tuple):
                 # ('Jeff Haynie', 'jhaynie@agentuity.com')
@@ -160,10 +123,12 @@ class Email(dict):
         return None
 
     @property
-    def to(self) -> str:
+    def to(self) -> str | None:
         """
         Return the to address of the email.
         """
+        if not hasattr(self._email, "to") or not self._email.to:
+            return None
         if isinstance(self._email.to, list) and len(self._email.to) > 0:
             if isinstance(self._email.to[0], tuple):
                 # ('Jeff Haynie', 'jhaynie@agentuity.com')

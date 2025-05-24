@@ -157,7 +157,7 @@ class AgentResponse:
             if hasattr(data, "__dict__"):
                 self._payload = json.dumps(data.__dict__)
             else:
-                raise ValueError("data is not JSON serializable")
+                raise ValueError("data is not JSON serializable") from None
         return self
 
     def binary(
