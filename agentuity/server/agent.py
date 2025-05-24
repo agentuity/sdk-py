@@ -151,7 +151,7 @@ class RemoteAgent:
             )
             span.set_attribute("@agentuity/scope", "remote")
 
-            data = data = dataLikeToData(somedata)
+            data = dataLikeToData(somedata)
 
             headers = {
                 "x-agentuity-trigger": "agent",
