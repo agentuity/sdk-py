@@ -7,13 +7,13 @@ resolution-markers = [
 
 [[package]]
 name = "agentuity"
-version = "0.0.76.post2+48f96ac9d63e2a0c42e2121ab3684c00b99b2f90"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
     { name = "aiohttp-sse" },
     { name = "asyncio" },
     { name = "httpx" },
+    { name = "mail-parser" },
     { name = "openai-agents" },
     { name = "openlit" },
     { name = "opentelemetry-api" },
@@ -38,6 +38,7 @@ requires-dist = [
     { name = "aiohttp-sse", specifier = ">=2.2.0" },
     { name = "asyncio", specifier = ">=3.4.3" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "mail-parser", specifier = ">=4.1.2" },
     { name = "openai-agents", specifier = ">=0.0.3" },
     { name = "openlit", specifier = ">=1.33.19" },
     { name = "opentelemetry-api", specifier = ">=1.31.1" },
@@ -603,6 +604,15 @@ wheels = [
 ]
 
 [[package]]
+name = "ipaddress"
+version = "1.0.23"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b9/9a/3e9da40ea28b8210dd6504d3fe9fe7e013b62bf45902b458d1cdc3c34ed9/ipaddress-1.0.23.tar.gz", hash = "sha256:b7f8e0369580bb4a24d5ba1d7cc29660a4a6987763faf1d8a8046830e020e7e2", size = 32958 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c2/f8/49697181b1651d8347d24c095ce46c7346c37335ddc7d255833e7cde674d/ipaddress-1.0.23-py2.py3-none-any.whl", hash = "sha256:6e0f4a39e66cb5bb9a137b00276a2eff74f93b71dcbdad6f10ff7df9d3557fcc", size = 18159 },
+]
+
+[[package]]
 name = "jiter"
 version = "0.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -668,6 +678,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/00/2a/e867e8531cf3e36b41201936b7fa7ba7b5702dbef42922193f05c8976cd6/jmespath-1.0.1.tar.gz", hash = "sha256:90261b206d6defd58fdd5e85f478bf633a2901798906be2ad389150c5c60edbe", size = 25843 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/31/b4/b9b800c45527aadd64d5b442f9b932b00648617eb5d63d2c7a6587b7cafc/jmespath-1.0.1-py3-none-any.whl", hash = "sha256:02e2e4cc71b5bcab88332eebf907519190dd9e6e82107fa7f83b1003a6252980", size = 20256 },
+]
+
+[[package]]
+name = "mail-parser"
+version = "4.1.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ipaddress" },
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/cb/d7/f1a78ace3f44d61d763c94b32d8a101f0d2b76a2e274c7e1f55bd91a1657/mail_parser-4.1.2.tar.gz", hash = "sha256:35e3568b84361a3caba0f86b3a27a5756cebbd07e458fd91ab793c45f8a09160", size = 26948 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e8/b1/7dffb0bb284339f542f9890b45c3accedc634aec898a84915f8eea7c776d/mail_parser-4.1.2-py3-none-any.whl", hash = "sha256:a6267daa42b9a2dd18a667aacb4891d662a50503c78749089d5f09ebf2a31d2b", size = 27002 },
 ]
 
 [[package]]

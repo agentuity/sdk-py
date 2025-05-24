@@ -5,6 +5,7 @@ from typing import IO
 from aiohttp import StreamReader
 import collections.abc
 import asyncio
+from agentuity.io.email import Email
 
 
 class EmptyDataReader(StreamReader):
@@ -384,6 +385,11 @@ class Data:
 
     def json_sync(self) -> dict:
         return json.loads(self.text_sync())
+
+    async def email(self) -> "Email":
+        if self._contentType != "message/rfc822":
+            raise ValueError("The content type is not a valid email")
+        return Email(await self.text())
 
 
 def encode_payload(data: Union[str, bytes]) -> str:

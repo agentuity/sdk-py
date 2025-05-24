@@ -135,7 +135,7 @@ class AgentResponse:
         self._metadata = metadata
         return self
 
-    def json(self, data: dict, metadata: Optional[dict] = None) -> "AgentResponse":
+    def json(self, data: Any, metadata: Optional[dict] = None) -> "AgentResponse":
         """
         Set a JSON response.
 
@@ -147,8 +147,14 @@ class AgentResponse:
             AgentResponse: The response object with JSON content
         """
         self._contentType = "application/json"
-        self._payload = json.dumps(data)
         self._metadata = metadata
+        try:
+            self._payload = json.dumps(data)
+        except TypeError:
+            if hasattr(data, "__dict__"):
+                self._payload = json.dumps(data.__dict__)
+            else:
+                raise ValueError("data is not JSON serializable") from None
         return self
 
     def binary(
