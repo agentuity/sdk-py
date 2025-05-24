@@ -122,8 +122,10 @@ class Email(dict):
             if isinstance(self._email.from_[0], tuple):
                 # ('Jeff Haynie', 'jhaynie@agentuity.com')
                 return self._email.from_[0][0]
-            else:
+            elif isinstance(self._email.from_[0], str):
                 return self._email.from_[0]
+        elif isinstance(self._email.from_, str):
+            return self._email.from_
         return None
 
     @property
@@ -137,8 +139,10 @@ class Email(dict):
             if isinstance(self._email.to[0], tuple):
                 # ('Jeff Haynie', 'jhaynie@agentuity.com')
                 return self._email.to[0][1]
-            else:
+            elif isinstance(self._email.to[0], str):
                 return self._email.to[0]
+        elif isinstance(self._email.to, str):
+            return self._email.to
         return None
 
     @property
