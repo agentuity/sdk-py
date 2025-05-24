@@ -11,8 +11,12 @@ class Email(dict):
         """
         Initialize an Email object.
         """
-        self._email = mailparser.parse_from_string(email)
-        super().__init__(self._get_email_dict())
+        try:
+            self._email = mailparser.parse_from_string(email)
+            super().__init__(self._get_email_dict())
+        except Exception as e:
+            # Initialize with empty email object or re-raise with more context
+            raise ValueError(f"Failed to parse email: {str(e)}") from e
 
     def _get_email_dict(self) -> dict:
         """
@@ -84,11 +88,11 @@ class Email(dict):
         )
 
     @property
-    def subject(self) -> str:
+    def subject(self) -> str | None:
         """
         Return the subject of the email.
         """
-        return self._email.subject
+        return getattr(self._email, "subject", None)
 
     @property
     def from_email(self) -> str | None:
@@ -142,14 +146,14 @@ class Email(dict):
         """
         Return the date of the email.
         """
-        return self._email.date
+        return getattr(self._email, "date", None)
 
     @property
     def messageId(self) -> str:
         """
         Return the message id of the email.
         """
-        return self._email.message_id
+        return getattr(self._email, "message_id", "")
 
     @property
     def headers(self) -> dict:
