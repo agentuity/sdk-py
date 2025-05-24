@@ -48,7 +48,7 @@ class Email(dict):
         """
         Make the Email object directly JSON serializable.
         """
-        return iter(self.__dict__().items())
+        return iter(self._get_email_dict().items())
 
     def __getitem__(self, key):
         """
