@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.86] - 2025-05-24
+
+### Added
+- Added Email class for parsing inbound email messages with support for extracting subject, sender, recipients, and attachments ([#48](https://github.com/agentuity/sdk-py/pull/48))
+- Added async email() method to Data class for parsing RFC822 email content ([#48](https://github.com/agentuity/sdk-py/pull/48))
+- Added mail-parser dependency for email parsing functionality ([#48](https://github.com/agentuity/sdk-py/pull/48))
+
+### Changed
+- Updated AgentResponse.handoff() to accept DataLike types instead of only dict for improved flexibility ([#47](https://github.com/agentuity/sdk-py/pull/47))
+- Enhanced JSON serialization in AgentResponse.json() with better error handling and fallback for objects with __dict__ ([#48](https://github.com/agentuity/sdk-py/pull/48))
+
+### Fixed
+- Fixed duplicate variable assignment in RemoteAgent.run() method ([#47](https://github.com/agentuity/sdk-py/pull/47))
+
 ## [0.0.85] - 2025-05-22
 
 ### Added
