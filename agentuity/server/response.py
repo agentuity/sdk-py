@@ -152,8 +152,6 @@ class AgentResponse:
         try:
             self._payload = json.dumps(data)
         except TypeError:
-            traceback.print_exc()
-            print(type(data))
             if hasattr(data, "__dict__"):
                 self._payload = json.dumps(data.__dict__)
             else:
