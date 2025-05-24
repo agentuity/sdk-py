@@ -160,25 +160,25 @@ class Email(dict):
         """
         Return the headers of the email.
         """
-        return self._email.headers
+        return getattr(self._email, "headers", {})
 
     @property
     def text(self) -> str:
         """
         Return the text of the email.
         """
-        return self._email.text_plain
+        return getattr(self._email, "text_plain", "")
 
     @property
     def html(self) -> str:
         """
         Return the html of the email.
         """
-        return self._email.text_html
+        return getattr(self._email, "text_html", "")
 
     @property
     def attachments(self) -> list:
         """
         Return the attachments of the email.
         """
-        return self._email.attachments
+        return getattr(self._email, "attachments", [])
