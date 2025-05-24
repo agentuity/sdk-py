@@ -136,7 +136,6 @@ class Email(dict):
         """
         Return the from email address of the email.
         """
-        print(type(self._email.from_), self._email.from_)
         if isinstance(self._email.from_, list) and len(self._email.from_) > 0:
             if isinstance(self._email.from_[0], tuple):
                 # ('Jeff Haynie', 'jhaynie@agentuity.com')
