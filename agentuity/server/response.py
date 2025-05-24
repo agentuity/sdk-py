@@ -35,6 +35,7 @@ class AgentResponse:
         self._buffer_read = False
         self._data = data
         self._is_async = False
+        self._handoff_params = None  # Store handoff parameters for deferred execution
 
     @property
     def contentType(self) -> str:
@@ -54,11 +55,12 @@ class AgentResponse:
         """
         return self._metadata if self._metadata else {}
 
-    async def handoff(
+    def handoff(
         self, params: dict, args: "DataLike" = None, metadata: Optional[dict] = None
     ) -> "AgentResponse":
         """
-        Handoff the current request to another agent within the same project.
+        Configure a handoff to another agent within the same project. The actual execution
+        is deferred until the response is processed by the framework.
 
         Args:
             params: Dictionary containing either 'id' or 'name' to identify the target agent
@@ -66,13 +68,35 @@ class AgentResponse:
             metadata: Optional metadata to pass to the target agent
 
         Returns:
+            AgentResponse: The response object configured for handoff
+
+        Raises:
+            ValueError: If params doesn't contain 'id' or 'name'
+        """
+        if "id" not in params and "name" not in params:
+            raise ValueError("params must have an id or name")
+
+        # Store handoff parameters for deferred execution
+        self._handoff_params = {"params": params, "args": args, "metadata": metadata}
+
+        return self
+
+    async def _execute_handoff(self):
+        """
+        Execute the deferred handoff operation. This is called internally by the framework.
+
+        Returns:
             AgentResponse: The response from the target agent
 
         Raises:
             ValueError: If agent is not found by id or name
         """
-        if "id" not in params and "name" not in params:
-            raise ValueError("params must have an id or name")
+        if not self._handoff_params:
+            return self
+
+        params = self._handoff_params["params"]
+        args = self._handoff_params["args"]
+        metadata = self._handoff_params["metadata"]
 
         found_agent = resolve_agent(self._context, params)
         if found_agent is None:
@@ -88,7 +112,20 @@ class AgentResponse:
         self._contentType = agent_response.data.contentType
         self._stream = await agent_response.data.stream()
 
+        # Clear handoff params since we've executed
+        self._handoff_params = None
+
         return self
+
+    @property
+    def has_pending_handoff(self) -> bool:
+        """
+        Check if this response has a pending handoff that needs to be executed.
+
+        Returns:
+            bool: True if there's a pending handoff, False otherwise
+        """
+        return self._handoff_params is not None
 
     def empty(self, metadata: Optional[dict] = None) -> "AgentResponse":
         """

@@ -67,8 +67,14 @@ Clone the repository and install dependencies:
 git clone https://github.com/agenuity/sdk-py.git
 cd sdk-py
 
-# Install dependencies using uv (recommended)
-uv install
+# Create a new virtual env
+uv venv
+
+# activate it 
+source .venv/bin/activate
+
+# install dependencies
+uv pip install -e .
 ```
 
 ### Local Development
@@ -76,6 +82,11 @@ uv install
 Create a new agent project or use an existing one like normal.
 
 To link your local python SDK to your project, run the following commands:
+
+Install the dependencies 
+```bash
+make install
+```
 
 Build the SDK:
 

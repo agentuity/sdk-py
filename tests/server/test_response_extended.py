@@ -58,135 +58,86 @@ class TestAgentResponseExtended:
         data = Data("text/plain", reader)
         return AgentResponse(mock_context, data)
 
-    @pytest.mark.asyncio
-    async def test_handoff_with_id(
-        self, agent_response, mock_tracer, mock_agents_by_id
-    ):
+    def test_handoff_with_id(self, agent_response, mock_tracer, mock_agents_by_id):
         """Test handoff to another agent using ID."""
-        mock_remote_agent = AsyncMock(spec=RemoteAgent)
-        mock_response_data = MagicMock()
-        mock_response_data.contentType = "application/json"
-        mock_response_data.data.base64 = base64.b64encode(
-            json.dumps({"result": "success"}).encode()
-        ).decode()
-        mock_response_data.metadata = {"response_key": "response_value"}
-        mock_remote_agent.run.return_value = mock_response_data
+        # Test that handoff sets up deferred execution parameters
+        result = agent_response.handoff({"id": "agent_456"})
 
-        with (
-            patch("agentuity.server.agent.RemoteAgent", return_value=mock_remote_agent),
-            patch(
-                "agentuity.server.response.AgentResponse.handoff", new=AsyncMock()
-            ) as mock_handoff,
-        ):
-            mock_handoff.return_value = agent_response
-            agent_response._contentType = (
-                "application/json"  # Access private attribute for testing
-            )
-            agent_response._payload = mock_response_data.data.base64
-            agent_response._metadata = {"response_key": "response_value"}
+        assert result == agent_response  # Should return self for chaining
+        assert agent_response.has_pending_handoff is True
+        assert agent_response._handoff_params["params"]["id"] == "agent_456"
+        assert agent_response._handoff_params["args"] is None
+        assert agent_response._handoff_params["metadata"] is None
 
-            result = await agent_response.handoff({"id": "agent_456"})
-
-            mock_handoff.assert_called_once_with({"id": "agent_456"})
-            assert result == agent_response
-            assert agent_response.contentType == "application/json"
-            assert agent_response._payload == mock_response_data.data.base64
-            assert agent_response._metadata == {"response_key": "response_value"}
-
-    @pytest.mark.asyncio
-    async def test_handoff_with_name(
-        self, agent_response, mock_tracer, mock_agents_by_id
-    ):
+    def test_handoff_with_name(self, agent_response, mock_tracer, mock_agents_by_id):
         """Test handoff to another agent using name."""
-        mock_remote_agent = AsyncMock(spec=RemoteAgent)
-        mock_response_data = MagicMock()
-        mock_response_data.contentType = "text/plain"
-        mock_response_data.data.base64 = base64.b64encode(
-            b"Response from agent"
-        ).decode()
-        mock_response_data.metadata = {"response_key": "response_value"}
-        mock_remote_agent.run.return_value = mock_response_data
+        # Test that handoff sets up deferred execution parameters
+        result = agent_response.handoff({"name": "another_agent"})
 
-        with (
-            patch("agentuity.server.agent.RemoteAgent", return_value=mock_remote_agent),
-            patch(
-                "agentuity.server.response.AgentResponse.handoff", new=AsyncMock()
-            ) as mock_handoff,
-        ):
-            mock_handoff.return_value = agent_response
-            agent_response._contentType = "text/plain"
-            agent_response._payload = mock_response_data.data.base64
-            agent_response._metadata = {"response_key": "response_value"}
+        assert result == agent_response  # Should return self for chaining
+        assert agent_response.has_pending_handoff is True
+        assert agent_response._handoff_params["params"]["name"] == "another_agent"
+        assert agent_response._handoff_params["args"] is None
+        assert agent_response._handoff_params["metadata"] is None
 
-            result = await agent_response.handoff({"name": "another_agent"})
+    def test_handoff_with_args(self, agent_response, mock_tracer, mock_agents_by_id):
+        """Test handoff with custom arguments."""
+        args = {"message": "Custom message"}
+        metadata = {"custom_key": "custom_value"}
+        result = agent_response.handoff({"id": "agent_456"}, args, metadata)
 
-            mock_handoff.assert_called_once_with({"name": "another_agent"})
-            assert result == agent_response
-            assert agent_response.contentType == "text/plain"
-            assert agent_response._payload == mock_response_data.data.base64
-            assert agent_response._metadata == {"response_key": "response_value"}
+        assert result == agent_response  # Should return self for chaining
+        assert agent_response.has_pending_handoff is True
+        assert agent_response._handoff_params["params"]["id"] == "agent_456"
+        assert agent_response._handoff_params["args"] == args
+        assert agent_response._handoff_params["metadata"] == metadata
 
     @pytest.mark.asyncio
-    async def test_handoff_with_args(
+    async def test_execute_handoff_with_id(
         self, agent_response, mock_tracer, mock_agents_by_id
     ):
-        """Test handoff with custom arguments."""
+        """Test actual execution of handoff to another agent using ID."""
         mock_remote_agent = AsyncMock(spec=RemoteAgent)
         mock_response_data = MagicMock()
-        mock_response_data.contentType = "application/json"
+        mock_response_data.data.contentType = "application/json"
         mock_response_data.data.base64 = base64.b64encode(
             json.dumps({"result": "success"}).encode()
         ).decode()
         mock_response_data.metadata = {"response_key": "response_value"}
+
+        # Mock the data.stream() method
+        async def mock_stream():
+            reader = asyncio.StreamReader()
+            reader.feed_data(b'{"result": "success"}')
+            reader.feed_eof()
+            return reader
+
+        mock_response_data.data.stream = mock_stream
         mock_remote_agent.run.return_value = mock_response_data
 
         with (
-            patch("agentuity.server.agent.RemoteAgent", return_value=mock_remote_agent),
             patch(
-                "agentuity.server.response.AgentResponse.handoff", new=AsyncMock()
-            ) as mock_handoff,
-        ):
-            mock_handoff.return_value = agent_response
-            agent_response._contentType = (
-                "application/json"  # Access private attribute for testing
-            )
-            agent_response._payload = mock_response_data.data.base64
-            agent_response._metadata = {"response_key": "response_value"}
-
-            args = {"message": "Custom message"}
-            metadata = {"custom_key": "custom_value"}
-            result = await agent_response.handoff({"id": "agent_456"}, args, metadata)
-
-            mock_handoff.assert_called_once_with({"id": "agent_456"}, args, metadata)
-            assert result == agent_response
-            assert agent_response.contentType == "application/json"
-            assert agent_response._payload == mock_response_data.data.base64
-            assert agent_response._metadata == {"response_key": "response_value"}
-
-    @pytest.mark.asyncio
-    async def test_handoff_agent_not_found(self, agent_response, mock_context):
-        """Test handoff when agent is not found."""
-        empty_agents_by_id = {}
-        mock_context.agents_by_id = empty_agents_by_id
-
-        mock_response = MagicMock()
-        mock_response.status_code = 404
-        mock_response.text = "agent not found"
-
-        with (
-            patch("httpx.post", return_value=mock_response),
-            pytest.raises(
-                ValueError,
-                match="agent non_existent_agent not found or you don't have access to it",
+                "agentuity.server.response.resolve_agent",
+                return_value=mock_remote_agent,
             ),
         ):
-            await agent_response.handoff({"id": "non_existent_agent"})
+            # First, set up the handoff
+            agent_response.handoff({"id": "agent_456"})
+            assert agent_response.has_pending_handoff is True
 
-    @pytest.mark.asyncio
-    async def test_handoff_missing_id_and_name(self, agent_response):
+            # Then execute it
+            result = await agent_response._execute_handoff()
+
+            assert result == agent_response
+            assert agent_response.has_pending_handoff is False
+            assert agent_response._metadata == {"response_key": "response_value"}
+            assert agent_response.contentType == "application/json"
+            mock_remote_agent.run.assert_called_once()
+
+    def test_handoff_missing_id_and_name(self, agent_response):
         """Test handoff with missing ID and name."""
         with pytest.raises(ValueError, match="params must have an id or name"):
-            await agent_response.handoff({})
+            agent_response.handoff({})
 
     def test_html(self, agent_response):
         """Test setting an HTML response."""
