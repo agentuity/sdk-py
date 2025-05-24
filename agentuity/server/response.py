@@ -3,7 +3,6 @@ import json
 from .agent import resolve_agent
 from asyncio import StreamReader
 from .data import Data, DataLike, dataLikeToData
-import traceback
 
 
 class AgentResponse:
