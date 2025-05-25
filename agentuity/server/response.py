@@ -35,6 +35,7 @@ class AgentResponse:
         self._buffer_read = False
         self._data = data
         self._is_async = False
+        self._handoff_params = None  # Store handoff parameters for deferred execution
 
     @property
     def contentType(self) -> str:
@@ -54,41 +55,99 @@ class AgentResponse:
         """
         return self._metadata if self._metadata else {}
 
-    async def handoff(
+    def handoff(
         self, params: dict, args: "DataLike" = None, metadata: Optional[dict] = None
     ) -> "AgentResponse":
         """
-        Handoff the current request to another agent within the same project.
+        Configure a handoff to another agent. Execution is deferred until response processing.
 
         Args:
-            params: Dictionary containing either 'id' or 'name' to identify the target agent
-            args: Optional arguments to pass to the target agent
-            metadata: Optional metadata to pass to the target agent
+            params: Dictionary with 'id' or 'name' to identify target agent
+            args: Optional data to pass to target agent (defaults to current data)
+            metadata: Optional metadata for target agent
 
         Returns:
-            AgentResponse: The response from the target agent
+            AgentResponse: Self for method chaining
 
         Raises:
-            ValueError: If agent is not found by id or name
+            ValueError: If params missing both 'id' and 'name'
         """
         if "id" not in params and "name" not in params:
             raise ValueError("params must have an id or name")
 
-        found_agent = resolve_agent(self._context, params)
-        if found_agent is None:
-            raise ValueError("agent not found by id or name")
-
-        if not args:
-            agent_response = await found_agent.run(self._data, metadata)
-        else:
-            data = dataLikeToData(args)
-            agent_response = await found_agent.run(data, metadata)
-
-        self._metadata = agent_response.metadata
-        self._contentType = agent_response.data.contentType
-        self._stream = await agent_response.data.stream()
+        # Store handoff parameters for deferred execution
+        self._handoff_params = {"params": params, "args": args, "metadata": metadata}
 
         return self
+
+    async def _execute_handoff(self):
+        """
+        Execute the deferred handoff operation. Called internally by framework.
+
+        Returns:
+            AgentResponse: Current response updated with target agent's response
+
+        Raises:
+            ValueError: If agent not found or not accessible
+            Exception: If agent execution fails
+        """
+        if not self._handoff_params:
+            return self
+
+        params = self._handoff_params["params"]
+        args = self._handoff_params["args"]
+        metadata = self._handoff_params["metadata"]
+        agent_id = params.get("id") or params.get("name")
+
+        # Enhanced error handling for agent resolution
+        try:
+            found_agent = resolve_agent(self._context, params)
+        except ValueError as e:
+            raise ValueError(
+                f"Handoff failed: Agent '{agent_id}' not found or not accessible. {str(e)}"
+            ) from e
+        except Exception as e:
+            raise Exception(
+                f"Handoff failed: Error resolving agent '{agent_id}': {str(e)}"
+            ) from e
+
+        if found_agent is None:
+            raise ValueError(
+                f"Handoff failed: Agent '{agent_id}' could not be resolved"
+            )
+
+        try:
+            # Execute handoff with appropriate data
+            if not args:
+                agent_response = await found_agent.run(self._data, metadata)
+            else:
+                data = dataLikeToData(args)
+                agent_response = await found_agent.run(data, metadata)
+
+            # Update response with target agent's response
+            self._metadata = agent_response.metadata
+            self._contentType = agent_response.data.contentType
+            self._stream = agent_response.data.stream()
+            self._is_async = hasattr(self._stream, "__anext__")
+
+            # Clear handoff params after successful execution
+            self._handoff_params = None
+            return self
+
+        except Exception as e:
+            raise Exception(
+                f"Handoff execution failed for agent '{agent_id}': {str(e)}"
+            ) from e
+
+    @property
+    def has_pending_handoff(self) -> bool:
+        """
+        Check if response has a pending handoff operation.
+
+        Returns:
+            bool: True if handoff configured but not yet executed
+        """
+        return self._handoff_params is not None
 
     def empty(self, metadata: Optional[dict] = None) -> "AgentResponse":
         """

@@ -335,6 +335,10 @@ async def handle_agent_request(request: web.Request):
                     )
 
                 if isinstance(response, AgentResponse):
+                    # Check if there's a pending handoff and execute it
+                    if response.has_pending_handoff:
+                        response = await response._execute_handoff()
+
                     return await stream_response(
                         request, response, response.contentType, response.metadata
                     )
