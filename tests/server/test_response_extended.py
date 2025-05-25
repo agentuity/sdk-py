@@ -144,17 +144,26 @@ class TestAgentResponseExtended:
         """Test handoff execution when agent is not found."""
         with patch("agentuity.server.response.resolve_agent", return_value=None):
             agent_response.handoff({"id": "nonexistent_agent"})
-            
-            with pytest.raises(ValueError, match="Handoff failed: Agent 'nonexistent_agent' could not be resolved"):
+
+            with pytest.raises(
+                ValueError,
+                match="Handoff failed: Agent 'nonexistent_agent' could not be resolved",
+            ):
                 await agent_response._execute_handoff()
 
     @pytest.mark.asyncio
     async def test_execute_handoff_resolve_error(self, agent_response):
         """Test handoff execution when resolve_agent raises error."""
-        with patch("agentuity.server.response.resolve_agent", side_effect=ValueError("access denied")):
+        with patch(
+            "agentuity.server.response.resolve_agent",
+            side_effect=ValueError("access denied"),
+        ):
             agent_response.handoff({"id": "restricted_agent"})
-            
-            with pytest.raises(ValueError, match="Handoff failed: Agent 'restricted_agent' not found or not accessible"):
+
+            with pytest.raises(
+                ValueError,
+                match="Handoff failed: Agent 'restricted_agent' not found or not accessible",
+            ):
                 await agent_response._execute_handoff()
 
     @pytest.mark.asyncio
@@ -162,11 +171,14 @@ class TestAgentResponseExtended:
         """Test handoff execution when target agent fails."""
         mock_agent = AsyncMock()
         mock_agent.run.side_effect = Exception("Agent crashed")
-        
+
         with patch("agentuity.server.response.resolve_agent", return_value=mock_agent):
             agent_response.handoff({"id": "failing_agent"})
-            
-            with pytest.raises(Exception, match="Handoff execution failed for agent 'failing_agent': Agent crashed"):
+
+            with pytest.raises(
+                Exception,
+                match="Handoff execution failed for agent 'failing_agent': Agent crashed",
+            ):
                 await agent_response._execute_handoff()
 
     def test_html(self, agent_response):

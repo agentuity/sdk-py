@@ -97,18 +97,24 @@ class AgentResponse:
         params = self._handoff_params["params"]
         args = self._handoff_params["args"]
         metadata = self._handoff_params["metadata"]
-        agent_id = params.get('id') or params.get('name')
+        agent_id = params.get("id") or params.get("name")
 
         # Enhanced error handling for agent resolution
         try:
             found_agent = resolve_agent(self._context, params)
         except ValueError as e:
-            raise ValueError(f"Handoff failed: Agent '{agent_id}' not found or not accessible. {str(e)}")
+            raise ValueError(
+                f"Handoff failed: Agent '{agent_id}' not found or not accessible. {str(e)}"
+            ) from e
         except Exception as e:
-            raise Exception(f"Handoff failed: Error resolving agent '{agent_id}': {str(e)}")
-        
+            raise Exception(
+                f"Handoff failed: Error resolving agent '{agent_id}': {str(e)}"
+            ) from e
+
         if found_agent is None:
-            raise ValueError(f"Handoff failed: Agent '{agent_id}' could not be resolved")
+            raise ValueError(
+                f"Handoff failed: Agent '{agent_id}' could not be resolved"
+            )
 
         try:
             # Execute handoff with appropriate data
@@ -121,14 +127,17 @@ class AgentResponse:
             # Update response with target agent's response
             self._metadata = agent_response.metadata
             self._contentType = agent_response.data.contentType
-            self._stream = await agent_response.data.stream()
+            self._stream = agent_response.data.stream()
+            self._is_async = hasattr(self._stream, "__anext__")
 
             # Clear handoff params after successful execution
             self._handoff_params = None
             return self
-            
+
         except Exception as e:
-            raise Exception(f"Handoff execution failed for agent '{agent_id}': {str(e)}")
+            raise Exception(
+                f"Handoff execution failed for agent '{agent_id}': {str(e)}"
+            ) from e
 
     @property
     def has_pending_handoff(self) -> bool:
