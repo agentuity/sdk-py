@@ -67,14 +67,8 @@ Clone the repository and install dependencies:
 git clone https://github.com/agenuity/sdk-py.git
 cd sdk-py
 
-# Create a new virtual env
-uv venv
-
-# activate it 
-source .venv/bin/activate
-
-# install dependencies
-uv pip install -e .
+# Install dependencies
+uv sync
 ```
 
 ### Local Development
