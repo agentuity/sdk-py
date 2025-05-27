@@ -194,20 +194,63 @@ async def stream_response(
 ):
     headers = make_response_headers(request, contentType, metadata)
     resp = web.StreamResponse(headers=headers)
-    await resp.prepare(request)
+    
+    try:
+        await resp.prepare(request)
+    except Exception as e:
+        error_msg = str(e)
+        if "closing transport" in error_msg.lower() or "connection reset" in error_msg.lower():
+            # Client has already disconnected, log and return early
+            logger.warning(f"Client disconnected before response could be prepared: {error_msg}")
+            # Return a simple response that won't try to write to the closed connection
+            return web.Response(status=499, text="Client disconnected")
+        else:
+            logger.error(f"Failed to prepare response: {e}")
+            return web.Response(
+                text="Connection error",
+                status=500,
+                headers=make_response_headers(request, "text/plain"),
+            )
 
-    if hasattr(iterable, "__anext__"):
-        # Handle async iterators
-        async for chunk in iterable:
-            if chunk is not None:
-                await resp.write(chunk)
-    else:
-        # Handle regular iterators
-        for chunk in iterable:
-            if chunk is not None:
-                await resp.write(chunk)
+    try:
+        if hasattr(iterable, "__anext__"):
+            # Handle async iterators
+            async for chunk in iterable:
+                if chunk is not None:
+                    # If chunk is a StreamReader, read from it to get bytes
+                    if hasattr(chunk, "read"):
+                        data = await chunk.read()
+                        if data:
+                            await resp.write(data)
+                    else:
+                        await resp.write(chunk)
+        else:
+            # Handle regular iterators
+            for chunk in iterable:
+                if chunk is not None:
+                    # If chunk is a StreamReader, read from it to get bytes
+                    if hasattr(chunk, "read"):
+                        data = await chunk.read()
+                        if data:
+                            await resp.write(data)
+                    else:
+                        await resp.write(chunk)
 
-    await resp.write_eof()
+        await resp.write_eof()
+    except Exception as e:
+        error_msg = str(e)
+        if "closing transport" in error_msg.lower() or "connection reset" in error_msg.lower():
+            # Client disconnected during streaming, log but don't try to write more
+            logger.warning(f"Client disconnected during streaming: {error_msg}")
+        else:
+            logger.error(f"Error during streaming response: {e}")
+            # Don't try to write more if connection is already closed
+            if "closing transport" not in error_msg.lower():
+                try:
+                    await resp.write_eof()
+                except (ConnectionError, OSError, RuntimeError):
+                    pass
+    
     return resp
 
 
@@ -335,6 +378,19 @@ async def handle_agent_request(request: web.Request):
                     )
 
                 if isinstance(response, AgentResponse):
+                    # Check if there's a pending handoff and execute it
+                    if response.has_pending_handoff:
+                        try:
+                            response = await response._execute_handoff()
+                        except Exception as e:
+                            logger.error(f"Handoff execution failed: {e}")
+                            headers = make_response_headers(request, "text/plain")
+                            return web.Response(
+                                text=f"Handoff failed: {str(e)}",
+                                status=500,
+                                headers=headers,
+                            )
+
                     return await stream_response(
                         request, response, response.contentType, response.metadata
                     )
@@ -344,9 +400,8 @@ async def handle_agent_request(request: web.Request):
 
                 if isinstance(response, Data):
                     headers = make_response_headers(request, response.contentType)
-                    return await stream_response(
-                        request, response.stream(), response.contentType
-                    )
+                    stream = await response.stream()
+                    return await stream_response(request, stream, response.contentType)
 
                 if isinstance(response, dict) or isinstance(response, list):
                     headers = make_response_headers(request, "application/json")
@@ -370,12 +425,32 @@ async def handle_agent_request(request: web.Request):
                 logger.error(f"Error loading or running agent: {e}")
                 span.record_exception(e)
                 span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-                headers = make_response_headers(request, "text/plain")
-                return web.Response(
-                    text=str(e),
-                    status=500,
-                    headers=headers,
-                )
+
+                # Handle specific error types more gracefully
+                error_msg = str(e)
+                if (
+                    "closing transport" in error_msg.lower()
+                    or "connection reset" in error_msg.lower()
+                ):
+                    # Client disconnected, don't try to send a response
+                    logger.warning(
+                        f"Client disconnected during request processing: {error_msg}"
+                    )
+                    return web.Response(status=499)  # Client Closed Request
+                elif "timeout" in error_msg.lower():
+                    headers = make_response_headers(request, "text/plain")
+                    return web.Response(
+                        text="Request timed out",
+                        status=504,  # Gateway Timeout
+                        headers=headers,
+                    )
+                else:
+                    headers = make_response_headers(request, "text/plain")
+                    return web.Response(
+                        text=str(e),
+                        status=500,
+                        headers=headers,
+                    )
     else:
         # Agent not found
         return web.Response(

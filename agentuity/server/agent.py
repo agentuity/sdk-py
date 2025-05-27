@@ -1,14 +1,22 @@
 import httpx
 import json
+import os
 from typing import Optional, Union
 from opentelemetry import trace
 from opentelemetry.propagate import inject
 import asyncio
+import logging
 
 from agentuity import __version__
 
 from .config import AgentConfig
 from .data import Data, DataLike, dataLikeToData
+
+# Configurable timeout values
+CONNECT_TIMEOUT = float(os.environ.get("AGENTUITY_CONNECT_TIMEOUT", "30.0"))
+READ_TIMEOUT = float(os.environ.get("AGENTUITY_READ_TIMEOUT", "300.0"))
+WRITE_TIMEOUT = float(os.environ.get("AGENTUITY_WRITE_TIMEOUT", "30.0"))
+POOL_TIMEOUT = float(os.environ.get("AGENTUITY_POOL_TIMEOUT", "10.0"))
 
 
 class RemoteAgentResponse:
@@ -97,25 +105,62 @@ class LocalAgent:
                 async for chunk in await data.stream():
                     yield chunk
 
-            async with httpx.AsyncClient(
-                timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0)
-            ) as client:
-                response = await client.post(
-                    url, content=data_generator(), headers=headers
-                )
-                span.set_attribute("http.status_code", response.status_code)
-                if response.status_code != 200:
-                    body = response.content.decode("utf-8")
-                    span.record_exception(Exception(body))
-                    span.set_status(trace.Status(trace.StatusCode.ERROR, body))
-                    raise Exception(body)
+            try:
+                async with httpx.AsyncClient(
+                    timeout=httpx.Timeout(
+                        connect=CONNECT_TIMEOUT,
+                        read=READ_TIMEOUT,
+                        write=WRITE_TIMEOUT,
+                        pool=POOL_TIMEOUT,
+                    )
+                ) as client:
+                    response = await client.post(
+                        url, content=data_generator(), headers=headers
+                    )
+                    span.set_attribute("http.status_code", response.status_code)
+                    if response.status_code != 200:
+                        body = response.content.decode("utf-8")
+                        exception = Exception(body)
+                        span.record_exception(exception)
+                        span.set_status(trace.Status(trace.StatusCode.ERROR, body))
+                        # Log the error but don't call record_exception again
+                        logger = logging.getLogger(__name__)
+                        logger.error(
+                            f"LocalAgent communication failed for {self.agentconfig.id}: {body}"
+                        )
+                        raise exception
 
-                stream = await create_stream_reader(response)
-                contentType = response.headers.get(
-                    "content-type", "application/octet-stream"
-                )
-                span.set_status(trace.Status(trace.StatusCode.OK))
-                return RemoteAgentResponse(Data(contentType, stream), response.headers)
+                    stream = await create_stream_reader(response)
+                    contentType = response.headers.get(
+                        "content-type", "application/octet-stream"
+                    )
+                    span.set_status(trace.Status(trace.StatusCode.OK))
+                    return RemoteAgentResponse(
+                        Data(contentType, stream), response.headers
+                    )
+            except Exception as e:
+                # Check if this is an HTTP error that was already handled above
+                # We can identify HTTP errors by checking if the exception message matches
+                # what we would have created for HTTP errors
+                if (
+                    hasattr(e, "args")
+                    and len(e.args) > 0
+                    and any(
+                        keyword in str(e).lower()
+                        for keyword in ["server error", "not found", "unauthorized"]
+                    )
+                ):
+                    # This is likely an HTTP error that was already logged and recorded
+                    raise
+                else:
+                    # This is a different kind of error (network, timeout, etc.)
+                    logger = logging.getLogger(__name__)
+                    logger.error(
+                        f"LocalAgent communication failed for {self.agentconfig.id}: {e}"
+                    )
+                    span.record_exception(e)
+                    span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+                    raise
 
     def __str__(self) -> str:
         """
@@ -168,30 +213,63 @@ class RemoteAgent:
                 async for chunk in await data.stream():
                     yield chunk
 
-            async with httpx.AsyncClient(
-                timeout=httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=5.0)
-            ) as client:
-                response = await client.post(
-                    self.agentconfig.get("url"),
-                    content=data_generator(),
-                    headers=headers,
-                )
-                if response.status_code != 200:
-                    span.record_exception(Exception(response.content.decode("utf-8")))
-                    span.set_status(
-                        trace.Status(
-                            trace.StatusCode.ERROR,
-                            response.content.decode("utf-8"),
-                        )
+            try:
+                async with httpx.AsyncClient(
+                    timeout=httpx.Timeout(
+                        connect=CONNECT_TIMEOUT,
+                        read=READ_TIMEOUT,
+                        write=WRITE_TIMEOUT,
+                        pool=POOL_TIMEOUT,
                     )
-                    raise Exception(response.content.decode("utf-8"))
+                ) as client:
+                    response = await client.post(
+                        self.agentconfig.get("url"),
+                        content=data_generator(),
+                        headers=headers,
+                    )
+                    if response.status_code != 200:
+                        error_msg = response.content.decode("utf-8")
+                        exception = Exception(error_msg)
+                        span.record_exception(exception)
+                        span.set_status(
+                            trace.Status(
+                                trace.StatusCode.ERROR,
+                                error_msg,
+                            )
+                        )
+                        # Log the error but don't call record_exception again
+                        logger = logging.getLogger(__name__)
+                        logger.error(
+                            f"RemoteAgent communication failed for {self.agentconfig.get('id')}: {error_msg}"
+                        )
+                        raise exception
 
-                stream = await create_stream_reader(response)
-                contentType = response.headers.get(
-                    "content-type", "application/octet-stream"
-                )
-                span.set_status(trace.Status(trace.StatusCode.OK))
-                return RemoteAgentResponse(Data(contentType, stream), response.headers)
+                    stream = await create_stream_reader(response)
+                    contentType = response.headers.get(
+                        "content-type", "application/octet-stream"
+                    )
+                    span.set_status(trace.Status(trace.StatusCode.OK))
+                    return RemoteAgentResponse(
+                        Data(contentType, stream), response.headers
+                    )
+            except Exception as e:
+                # Check if this is an HTTP error that was already handled above
+                if (
+                    hasattr(e, "args")
+                    and len(e.args) > 0
+                    and "Internal server error" in str(e)
+                ):
+                    # This is an HTTP error that was already logged and recorded
+                    raise
+                else:
+                    # This is a different kind of error (network, timeout, etc.)
+                    logger = logging.getLogger(__name__)
+                    logger.error(
+                        f"RemoteAgent communication failed for {self.agentconfig.get('id')}: {e}"
+                    )
+                    span.record_exception(e)
+                    span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+                    raise
 
     def __str__(self) -> str:
         return f"RemoteAgent(agent={self.agentconfig.get('id')})"
