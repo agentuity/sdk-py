@@ -1,5 +1,6 @@
 from typing import Optional, Iterable, Callable, Any, Union, AsyncIterator
 import json
+import inspect
 from .agent import resolve_agent
 from asyncio import StreamReader
 from .data import Data, DataLike, dataLikeToData
@@ -127,7 +128,8 @@ class AgentResponse:
             # Update response with target agent's response
             self._metadata = agent_response.metadata
             self._contentType = agent_response.data.contentType
-            self._stream = agent_response.data.stream()
+            stream = await agent_response.data.stream()
+            self._stream = stream
             self._is_async = hasattr(self._stream, "__anext__")
 
             # Clear handoff params after successful execution
@@ -135,9 +137,20 @@ class AgentResponse:
             return self
 
         except Exception as e:
-            raise Exception(
-                f"Handoff execution failed for agent '{agent_id}': {str(e)}"
-            ) from e
+            # Handle specific timeout errors more gracefully
+            error_msg = str(e)
+            if "ReadTimeout" in error_msg or "timeout" in error_msg.lower():
+                raise Exception(
+                    f"Handoff to agent '{agent_id}' timed out. The target agent may be taking too long to respond or may be unavailable."
+                ) from e
+            elif "ConnectionError" in error_msg or "connection" in error_msg.lower():
+                raise Exception(
+                    f"Handoff to agent '{agent_id}' failed due to connection issues. The target agent may be unavailable."
+                ) from e
+            else:
+                raise Exception(
+                    f"Handoff execution failed for agent '{agent_id}': {str(e)}"
+                ) from e
 
     @property
     def has_pending_handoff(self) -> bool:
@@ -457,7 +470,12 @@ class AgentResponse:
             self._is_async = True  # AgentResponse is always async
         else:
             self._stream = data
-            self._is_async = hasattr(data, "__anext__")
+            # Check if data is a coroutine, async iterator, or has __anext__ method
+            self._is_async = (
+                inspect.iscoroutine(data)
+                or hasattr(data, "__anext__")
+                or inspect.isasyncgen(data)
+            )
         return self
 
     @property
@@ -494,6 +512,11 @@ class AgentResponse:
                 if isinstance(self._stream, StreamReader):
                     # If stream is an StreamReader, use its __anext__ directly
                     item = await self._stream.__anext__()
+                elif inspect.iscoroutine(self._stream):
+                    # If stream is a coroutine, await it directly
+                    item = await self._stream
+                    # After awaiting a coroutine once, it's exhausted
+                    self._stream = None
                 elif self._is_async:
                     item = await self._stream.__anext__()
                 else:
