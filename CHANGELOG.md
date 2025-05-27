@@ -1,3 +1,10 @@
+## [0.0.87] - 2025-05-27
+
+### Fixed
+- Fixed deferred handoff execution with improved error handling and agent communication ([#50](https://github.com/agentuity/sdk-py/pull/50))
+- Added configurable HTTP timeouts for agent communication ([#50](https://github.com/agentuity/sdk-py/pull/50))
+- Improved connection error handling for client disconnections during streaming ([#50](https://github.com/agentuity/sdk-py/pull/50))
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
