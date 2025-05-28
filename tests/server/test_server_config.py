@@ -51,7 +51,7 @@ class TestServerConfig:
 
             mock_exists.side_effect = exists_side_effect
 
-            result = load_config()
+            result, _ = load_config()
 
             assert result is not None
             assert result["environment"] == "development"
@@ -93,7 +93,7 @@ class TestServerConfig:
         ):
             mock_open.return_value.__enter__.return_value = config_path.open()
 
-            result = load_config()
+            result, _ = load_config()
 
             assert result is not None
             assert result["environment"] == "development"
@@ -222,7 +222,7 @@ class TestServerConfig:
                 "app": {"name": "test_app", "version": "1.0.0"},
                 "agents": [],
             }
-            mock_load_config.return_value = mock_config
+            mock_load_config.return_value = (mock_config, "config.json")
 
             mock_log_handler = MagicMock()
             mock_init.return_value = mock_log_handler

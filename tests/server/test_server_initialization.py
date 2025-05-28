@@ -167,10 +167,18 @@ class TestServerInitialization:
                 "cli_version": "1.0.0",
                 "environment": "test",
                 "app": {"name": "test_app", "version": "1.0.0"},
-                "agents": [],
+                "agents": [
+                    {
+                        "id": "test_agent",
+                        "name": "Test Agent",
+                        "filename": "test_agent_module.py",
+                    }
+                ],
             }
-            mock_load_config.return_value = mock_config_data
-            mock_load_agents.return_value = {}
+            mock_load_config.return_value = (mock_config_data, "config.json")
+            mock_load_agents.return_value = {
+                "test_agent": {"id": "test_agent", "name": "Test Agent"}
+            }
 
             autostart()
 
@@ -204,10 +212,18 @@ class TestServerInitialization:
                 "cli_version": "1.0.0",
                 "environment": "test",
                 "app": {"name": "test_app", "version": "1.0.0"},
-                "agents": [],
+                "agents": [
+                    {
+                        "id": "test_agent",
+                        "name": "Test Agent",
+                        "filename": "test_agent_module.py",
+                    }
+                ],
             }
-            mock_load_config.return_value = mock_config_data
-            mock_load_agents.return_value = {}
+            mock_load_config.return_value = (mock_config_data, "config.json")
+            mock_load_agents.return_value = {
+                "test_agent": {"id": "test_agent", "name": "Test Agent"}
+            }
 
             with patch("agentuity.server.port", 5000):
                 autostart()
