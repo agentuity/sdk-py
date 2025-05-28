@@ -6,8 +6,8 @@ import sys
 import asyncio
 import platform
 import re
+from typing import Callable, Iterable, Any, Union
 from aiohttp import web
-from typing import Callable, Iterable, Any
 import traceback
 
 from opentelemetry import trace
@@ -194,14 +194,19 @@ async def stream_response(
 ):
     headers = make_response_headers(request, contentType, metadata)
     resp = web.StreamResponse(headers=headers)
-    
+
     try:
         await resp.prepare(request)
     except Exception as e:
         error_msg = str(e)
-        if "closing transport" in error_msg.lower() or "connection reset" in error_msg.lower():
+        if (
+            "closing transport" in error_msg.lower()
+            or "connection reset" in error_msg.lower()
+        ):
             # Client has already disconnected, log and return early
-            logger.warning(f"Client disconnected before response could be prepared: {error_msg}")
+            logger.warning(
+                f"Client disconnected before response could be prepared: {error_msg}"
+            )
             # Return a simple response that won't try to write to the closed connection
             return web.Response(status=499, text="Client disconnected")
         else:
@@ -239,7 +244,10 @@ async def stream_response(
         await resp.write_eof()
     except Exception as e:
         error_msg = str(e)
-        if "closing transport" in error_msg.lower() or "connection reset" in error_msg.lower():
+        if (
+            "closing transport" in error_msg.lower()
+            or "connection reset" in error_msg.lower()
+        ):
             # Client disconnected during streaming, log but don't try to write more
             logger.warning(f"Client disconnected during streaming: {error_msg}")
         else:
@@ -250,7 +258,7 @@ async def stream_response(
                     await resp.write_eof()
                 except (ConnectionError, OSError, RuntimeError):
                     pass
-    
+
     return resp
 
 
@@ -446,8 +454,11 @@ async def handle_agent_request(request: web.Request):
                     )
                 else:
                     headers = make_response_headers(request, "text/plain")
+                    body = str(e)
+                    if os.getenv("AGENTUITY_ENV", "development") == "development":
+                        body += "\n\n" + traceback.format_exc()
                     return web.Response(
-                        text=str(e),
+                        text=body,
                         status=500,
                         headers=headers,
                     )
@@ -487,11 +498,14 @@ async def handle_index(request):
     return web.Response(text=buf, content_type="text/plain")
 
 
-def load_config() -> Any:
+def load_config() -> Union[dict, str]:
     # Load agents from config file
-    config_path = os.path.join(os.getcwd(), ".agentuity", "config.json")
     config_data = None
-    if os.path.exists(config_path):
+    config_path = os.path.join(os.getcwd(), ".agentuity", "config.json")
+    if os.getenv("AGENTUITY_ENV", "development") == "development" and os.path.exists(
+        config_path
+    ):
+        logger.info(f"Loading development config from {config_path}")
         with open(config_path, "r") as config_file:
             config_data = json.load(config_file)
             for agent in config_data["agents"]:
@@ -501,6 +515,7 @@ def load_config() -> Any:
     else:
         config_path = os.path.join(os.getcwd(), "agentuity.yaml")
         if os.path.exists(config_path):
+            logger.debug(f"Loading production config from {config_path}")
             with open(config_path, "r") as config_file:
                 from yaml import safe_load
 
@@ -517,7 +532,9 @@ def load_config() -> Any:
                         os.getcwd(), "agents", agent["name"], "agent.py"
                     )
                     config_data["agents"].append(config)
-    return config_data
+        else:
+            raise Exception(f"No config file found at {config_path}")
+    return config_data, config_path
 
 
 def load_agents(config_data):
@@ -563,10 +580,10 @@ def autostart(callback: Callable[[], None] = None):
     asyncio.set_event_loop(loop)
 
     logger.setLevel(logging.INFO)
-    config_data = load_config()
+    config_data, config_file = load_config()
 
     if config_data is None:
-        logger.error("No agentuityconfig file found")
+        logger.error(f"No required config file found: {config_file}")
         sys.exit(1)
 
     loghandler = init(
@@ -583,6 +600,10 @@ def autostart(callback: Callable[[], None] = None):
     callback() if callback else None
 
     agents_by_id = load_agents(config_data)
+
+    if len(agents_by_id) == 0:
+        logger.error(f"No agents found in config file: {config_file}")
+        sys.exit(1)
 
     if loghandler:
         logger.addHandler(loghandler)
