@@ -6,7 +6,7 @@ import sys
 import asyncio
 import platform
 import re
-from typing import Callable, Iterable, Any, Union
+from typing import Callable, Iterable, Any, Tuple
 from aiohttp import web
 import traceback
 
@@ -498,7 +498,7 @@ async def handle_index(request):
     return web.Response(text=buf, content_type="text/plain")
 
 
-def load_config() -> Union[dict, str]:
+def load_config() -> Tuple[dict, str]:
     # Load agents from config file
     config_data = None
     config_path = os.path.join(os.getcwd(), ".agentuity", "config.json")
