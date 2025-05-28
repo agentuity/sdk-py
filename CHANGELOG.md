@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.87] - 2025-05-27
+
+### Fixed
+- Fixed handoff issues by implementing deferred handoff execution with improved error handling and agent communication ([#50](https://github.com/agentuity/sdk-py/pull/50))
+- Added configurable HTTP timeouts for agent communication ([#50](https://github.com/agentuity/sdk-py/pull/50))
+- Improved connection error handling for client disconnections during streaming ([#50](https://github.com/agentuity/sdk-py/pull/50))
+
 ## [0.0.86] - 2025-05-24
 
 ### Added
