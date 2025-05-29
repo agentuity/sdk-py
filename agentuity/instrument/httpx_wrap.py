@@ -2,8 +2,7 @@ import os
 import httpx
 import wrapt
 from agentuity import __version__
-# from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-# from agentuity.otel import trace_provider
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 gateway_urls = [
     "https://api.agentuity.com/sdk/gateway/",
@@ -14,7 +13,8 @@ gateway_urls = [
 
 
 def instrument():
-    # HTTPXClientInstrumentor().instrument(tracer_provider=trace_provider)
+    # Instrument httpx with OpenTelemetry
+    HTTPXClientInstrumentor().instrument()
 
     # Patch the httpx.Client.send method to add the
     # Agentuity API key to the request headers
