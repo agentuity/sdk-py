@@ -281,8 +281,11 @@ async def handle_agent_request(request: web.Request):
         agent = agents_by_id[agentId]
         tracer = trace.get_tracer("http-server")
 
-        # Extract trace context from headers
-        context = extract(carrier=dict(request.headers))
+        # Extract trace context from headers -- these MUST be lowercase for the propagator to work
+        headers = dict()
+        for k, v in request.headers.items():
+            headers[k.lower()] = v
+        context = extract(carrier=headers)
 
         with tracer.start_as_current_span(
             "HTTP POST",
