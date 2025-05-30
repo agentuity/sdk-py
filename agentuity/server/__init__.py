@@ -29,6 +29,22 @@ logger = logging.getLogger(__name__)
 port = int(os.environ.get("AGENTUITY_CLOUD_PORT", os.environ.get("PORT", 3500)))
 
 
+def safe_python_name(name: str) -> str:
+    begins_with_number = re.compile(r"^\d+")
+    safe_python_name_transformer = re.compile(r"[^0-9a-zA-Z_]")
+    remove_starting_dashes = re.compile(r"^-+")
+    remove_ending_dashes = re.compile(r"-+$")
+
+    if begins_with_number.match(name):
+        name = begins_with_number.sub("", name)
+    name = safe_python_name_transformer.sub("_", name)
+    if remove_starting_dashes.match(name):
+        name = remove_starting_dashes.sub("", name)
+    if remove_ending_dashes.search(name):
+        name = remove_ending_dashes.sub("", name)
+    return name
+
+
 # Utility function to inject trace context into response headers
 def inject_trace_context(headers):
     """Inject trace context into response headers using configured propagators."""
@@ -505,10 +521,8 @@ def load_config() -> Tuple[Optional[dict], str]:
     # Load agents from config file
     config_data = None
     config_path = os.path.join(os.getcwd(), ".agentuity", "config.json")
-    if os.getenv("AGENTUITY_ENV", "development") == "development" and os.path.exists(
-        config_path
-    ):
-        logger.info(f"Loading development config from {config_path}")
+    if os.path.exists(config_path):
+        logger.info(f"Loading config from {config_path}")
         with open(config_path, "r") as config_file:
             config_data = json.load(config_file)
             for agent in config_data["agents"]:
@@ -518,7 +532,7 @@ def load_config() -> Tuple[Optional[dict], str]:
     else:
         config_path = os.path.join(os.getcwd(), "agentuity.yaml")
         if os.path.exists(config_path):
-            logger.debug(f"Loading production config from {config_path}")
+            logger.debug(f"Loading config from {config_path}")
             with open(config_path, "r") as config_file:
                 from yaml import safe_load
 
@@ -532,7 +546,10 @@ def load_config() -> Tuple[Optional[dict], str]:
                     config["id"] = agent["id"]
                     config["name"] = agent["name"]
                     config["filename"] = os.path.join(
-                        os.getcwd(), "agents", agent["name"], "agent.py"
+                        os.getcwd(),
+                        "agents",
+                        safe_python_name(agent["name"]),
+                        "agent.py",
                     )
                     config_data["agents"].append(config)
         else:
