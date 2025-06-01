@@ -12,6 +12,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - LlamaIndex now automatically uses Agentuity API key and gateway when no OpenAI API key is provided ([#57](https://github.com/agentuity/sdk-py/pull/57))
 - OpenAI client patching within LlamaIndex for seamless Agentuity integration ([#57](https://github.com/agentuity/sdk-py/pull/57))
 
+## [0.0.90] - 2025-05-30
+
+### Fixed
+- Apply safe filename fix similar to CLI and always prefer to load config but fallback to yaml in dev ([#55](https://github.com/agentuity/sdk-py/pull/55))
+
+## [0.0.89] - 2025-05-29
+
+### Fixed
+- Fix outgoing requests missing traceid in OpenTelemetry instrumentation ([#54](https://github.com/agentuity/sdk-py/pull/54))
+
+## [0.0.88] - 2025-05-28
+
+### Added
+- Agent startup checks with stack trace printing in development mode ([#52](https://github.com/agentuity/sdk-py/pull/52))
+
+### Fixed
+- Fixed issue with OTel trace id not getting propagated correctly and causing it not to be associated with the correct session in production ([#53](https://github.com/agentuity/sdk-py/pull/53))
+
 ## [0.0.87] - 2025-05-27
 
 ### Fixed
@@ -147,3 +165,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.0.69] - 2025-03-10
 
 [0.0.91]: https://github.com/agentuity/sdk-py/compare/v0.0.90...v0.0.91
+[0.0.90]: https://github.com/agentuity/sdk-py/compare/v0.0.89...v0.0.90
+[0.0.89]: https://github.com/agentuity/sdk-py/compare/v0.0.88...v0.0.89
+[0.0.88]: https://github.com/agentuity/sdk-py/compare/v0.0.87...v0.0.88
+[0.0.87]: https://github.com/agentuity/sdk-py/compare/v0.0.86...v0.0.87
+[0.0.86]: https://github.com/agentuity/sdk-py/compare/v0.0.85...v0.0.86
+[0.0.85]: https://github.com/agentuity/sdk-py/compare/v0.0.84...v0.0.85
+[0.0.84]: https://github.com/agentuity/sdk-py/compare/v0.0.83...v0.0.84
+[0.0.83]: https://github.com/agentuity/sdk-py/compare/v0.0.82...v0.0.83
+[0.0.82]: https://github.com/agentuity/sdk-py/compare/v0.0.81...v0.0.82
+[0.0.81]: https://github.com/agentuity/sdk-py/compare/v0.0.80...v0.0.81
+[0.0.80]: https://github.com/agentuity/sdk-py/compare/v0.0.79...v0.0.80
+[0.0.79]: https://github.com/agentuity/sdk-py/compare/v0.0.78...v0.0.79
+[0.0.78]: https://github.com/agentuity/sdk-py/compare/v0.0.77...v0.0.78
+[0.0.77]: https://github.com/agentuity/sdk-py/compare/v0.0.76...v0.0.77
+[0.0.76]: https://github.com/agentuity/sdk-py/compare/v0.0.75...v0.0.76
+[0.0.75]: https://github.com/agentuity/sdk-py/compare/v0.0.74...v0.0.75
+[0.0.74]: https://github.com/agentuity/sdk-py/compare/v0.0.73...v0.0.74
+[0.0.73]: https://github.com/agentuity/sdk-py/compare/v0.0.72...v0.0.73
+[0.0.72]: https://github.com/agentuity/sdk-py/compare/v0.0.71...v0.0.72
+[0.0.71]: https://github.com/agentuity/sdk-py/compare/v0.0.70...v0.0.71
+[0.0.70]: https://github.com/agentuity/sdk-py/compare/v0.0.69...v0.0.70
