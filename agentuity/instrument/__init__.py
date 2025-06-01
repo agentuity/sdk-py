@@ -155,3 +155,9 @@ def instrument():
 
         logger.debug("instrumenting langchain")
         instrument_langchain()
+
+    if is_module_available("llama_index"):
+        from agentuity.instrument.llamaindex import instrument as instrument_llamaindex
+
+        logger.debug("instrumenting llamaindex")
+        instrument_llamaindex()
