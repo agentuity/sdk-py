@@ -285,6 +285,20 @@ async def handle_agent_options_request(request: web.Request):
     )
 
 
+def safe_parse_if_looks_like_json(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    try:
+        if value.startswith("{") and value.endswith("}"):
+            return json.loads(value)
+        elif value.startswith("[") and value.endswith("]"):
+            return json.loads(value)
+        else:
+            return value
+    except json.JSONDecodeError:
+        return value
+
+
 async def handle_agent_request(request: web.Request):
     # Access the agents_by_id from the app state
     agents_by_id = request.app["agents_by_id"]
@@ -334,6 +348,25 @@ async def handle_agent_request(request: web.Request):
                             run_id = value
                         elif key == "x-agentuity-scope":
                             scope = value
+                        elif key == "x-agentuity-headers":
+                            try:
+                                headers = json.loads(value)
+                                kv = {
+                                    "content-type": request.headers.get("content-type")
+                                }
+                                for k, v in headers.items():
+                                    if k.startswith("x-agentuity-"):
+                                        metadata[k[12:]] = (
+                                            safe_parse_if_looks_like_json(v)
+                                        )
+                                    else:
+                                        kv[k] = safe_parse_if_looks_like_json(v)
+                                metadata["headers"] = kv
+                            except json.JSONDecodeError:
+                                logger.error(
+                                    f"Error parsing x-agentuity-headers: {value}"
+                                )
+                                metadata["headers"] = value
                         elif key == "x-agentuity-metadata":
                             try:
                                 metadata = json.loads(value)
@@ -343,12 +376,16 @@ async def handle_agent_request(request: web.Request):
                                 if "scope" in metadata:
                                     scope = metadata["scope"]
                                     del metadata["scope"]
+                                new_metadata = {}
+                                for k, v in metadata.items():
+                                    new_metadata[k] = safe_parse_if_looks_like_json(v)
+                                metadata = new_metadata
                             except json.JSONDecodeError:
                                 logger.error(
                                     f"Error parsing x-agentuity-metadata: {value}"
                                 )
                         else:
-                            metadata[key[12:]] = value
+                            metadata[key[12:]] = safe_parse_if_looks_like_json(value)
 
                 span.set_attribute("@agentuity/scope", scope)
 
