@@ -80,8 +80,7 @@ class IncomingEmailAttachment(EmailAttachmentInterface):
 
         match = re.search(r'url="(.*)"', content_disposition)
         if match:
-            # Remove url= and surrounding quotes
-            url = match.group(0)[4:].strip("\"'")
+            url = match.group(1)
             return url
 
         raise ValueError(
