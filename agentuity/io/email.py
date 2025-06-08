@@ -78,7 +78,7 @@ class IncomingEmailAttachment(EmailAttachmentInterface):
         if not content_disposition:
             raise ValueError("content-disposition is required")
 
-        match = re.search(r'url="(.*)"', content_disposition)
+        match = re.search(r'url="([^"]+)"', content_disposition)
         if match:
             url = match.group(1)
             return url
@@ -138,44 +138,6 @@ class Email(EmailInterface):
         except Exception as e:
             # Initialize with empty email object or re-raise with more context
             raise ValueError(f"Failed to parse email: {str(e)}") from e
-
-    def __iter__(self):
-        """
-        Make the Email object directly JSON serializable.
-        """
-        return iter(self._get_email_dict().items())
-
-    def __getitem__(self, key):
-        """
-        Make the Email object behave like a dictionary.
-        """
-        email_dict = self._get_email_dict()
-        if key not in email_dict:
-            raise KeyError(key)
-        return email_dict[key]
-
-    def keys(self):
-        """
-        Return the keys of the email dictionary.
-        """
-        return [
-            "subject",
-            "from_email",
-            "from_name",
-            "to",
-            "date",
-            "message_id",
-            "headers",
-            "text",
-            "html",
-            "attachments",
-        ]
-
-    def to_dict(self) -> dict:
-        """
-        Convert the Email object to a dictionary.
-        """
-        return self._get_email_dict()
 
     def __str__(self) -> str:
         """
@@ -354,6 +316,9 @@ class Email(EmailInterface):
             }
             inject(headers)
 
+            if not self.to or not self.from_email:
+                raise ValueError("Missing To/From when constructing reply email")
+
             # Outer message for attachments
             outer = MIMEMultipart("mixed")
             outer["In-Reply-To"] = self.message_id
@@ -384,7 +349,7 @@ class Email(EmailInterface):
                     outer.attach(part)
 
             email_body = outer.as_bytes()
-            url = f"{context.base_url}/email/2025-03-17/{context.agent_id}/reply"
+            url = f"{context.base_url}/email/2025-03-17/{context.agentId}/reply"
             async with httpx.AsyncClient() as client:
                 response = await client.post(url, content=email_body, headers=headers)
                 response.raise_for_status()
