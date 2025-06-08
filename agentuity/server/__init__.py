@@ -192,10 +192,10 @@ def make_response_headers(
     headers["Server"] = "Agentuity Python SDK/" + __version__
     if request.headers.get("origin"):
         headers["Access-Control-Allow-Origin"] = request.headers.get("origin")
-    else:
-        headers["Access-Control-Allow-Origin"] = "*"
-    headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-    headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        headers["Access-Control-Allow-Methods"] = (
+            "GET, PUT, DELETE, PATCH, OPTIONS, POST"
+        )
+        headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
     if metadata is not None:
         for key, value in metadata.items():
             headers[f"x-agentuity-{key}"] = str(value)
