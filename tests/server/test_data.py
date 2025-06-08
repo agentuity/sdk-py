@@ -51,7 +51,7 @@ class TestData:
         reader.feed_eof()
 
         data = Data("text/plain", reader)
-        assert data.contentType == "text/plain"
+        assert data.content_type == "text/plain"
         assert await data.base64() == "SGVsbG8sIHdvcmxkIQ=="
 
     @pytest.mark.asyncio
@@ -63,7 +63,7 @@ class TestData:
 
         # Default content type should be "application/octet-stream"
         data = Data("application/octet-stream", reader)
-        assert data.contentType == "application/octet-stream"
+        assert data.content_type == "application/octet-stream"
 
     @pytest.mark.asyncio
     async def test_text_property(self):
@@ -164,7 +164,7 @@ class TestDataLikeToData:
         iterator = iter(chunks)
 
         data = dataLikeToData(iterator)
-        assert data.contentType == "application/octet-stream"
+        assert data.content_type == "application/octet-stream"
         assert await data.binary() == b"Hello, world!"
 
     @pytest.mark.asyncio
@@ -174,7 +174,7 @@ class TestDataLikeToData:
         iterator = iter(chunks)
 
         data = dataLikeToData(iterator, content_type="text/plain")
-        assert data.contentType == "text/plain"
+        assert data.content_type == "text/plain"
         assert await data.binary() == b"Hello, world!"
 
     @pytest.mark.asyncio
@@ -183,7 +183,7 @@ class TestDataLikeToData:
         iterator = iter([])
 
         data = dataLikeToData(iterator)
-        assert data.contentType == "application/octet-stream"
+        assert data.content_type == "application/octet-stream"
         assert await data.binary() == b""
 
     @pytest.mark.asyncio
@@ -193,7 +193,7 @@ class TestDataLikeToData:
         iterator = iter(chunks)
 
         data = dataLikeToData(iterator)
-        assert data.contentType == "application/octet-stream"
+        assert data.content_type == "application/octet-stream"
         result = await data.binary()
         assert len(result) == 10240  # 10KB
         assert result == b"x" * 10240  # Check that all bytes are 'x'
@@ -205,52 +205,52 @@ class TestDataLikeToData:
         iterator = iter(chunks)
 
         data = dataLikeToData(iterator)
-        assert data.contentType == "application/octet-stream"
+        assert data.content_type == "application/octet-stream"
         assert await data.binary() == b"Hello, world!"
 
     @pytest.mark.asyncio
     async def test_str(self):
         data = dataLikeToData("hello world")
-        assert data.contentType == "text/plain"
+        assert data.content_type == "text/plain"
         assert await data.text() == "hello world"
 
     @pytest.mark.asyncio
     async def test_int(self):
         data = dataLikeToData(42)
-        assert data.contentType == "text/plain"
+        assert data.content_type == "text/plain"
         assert await data.text() == "42"
 
     @pytest.mark.asyncio
     async def test_float(self):
         data = dataLikeToData(3.14)
-        assert data.contentType == "text/plain"
+        assert data.content_type == "text/plain"
         assert await data.text() == "3.14"
 
     @pytest.mark.asyncio
     async def test_bool(self):
         data = dataLikeToData(True)
-        assert data.contentType == "text/plain"
+        assert data.content_type == "text/plain"
         assert await data.text() == "True"
 
     @pytest.mark.asyncio
     async def test_list(self):
         value = [1, 2, 3]
         data = dataLikeToData(value)
-        assert data.contentType == "application/json"
+        assert data.content_type == "application/json"
         assert await data.json() == value
 
     @pytest.mark.asyncio
     async def test_dict(self):
         value = {"a": 1, "b": 2}
         data = dataLikeToData(value)
-        assert data.contentType == "application/json"
+        assert data.content_type == "application/json"
         assert await data.json() == value
 
     @pytest.mark.asyncio
     async def test_bytes(self):
         value = b"bytes data"
         data = dataLikeToData(value)
-        assert data.contentType == "application/octet-stream"
+        assert data.content_type == "application/octet-stream"
         assert await data.binary() == value
 
     @pytest.mark.asyncio
@@ -267,56 +267,8 @@ class TestDataLikeToData:
         reader.feed_data(b"streamreader data")
         reader.feed_eof()
         data = dataLikeToData(reader)
-        assert data.contentType == "application/octet-stream"
+        assert data.content_type == "application/octet-stream"
         assert await data.binary() == b"streamreader data"
-
-    def test_str_sync(self):
-        data = dataLikeToData("hello world")
-        assert data.text_sync() == "hello world"
-
-    def test_int_sync(self):
-        data = dataLikeToData(42)
-        assert data.text_sync() == "42"
-
-    def test_float_sync(self):
-        data = dataLikeToData(3.14)
-        assert data.text_sync() == "3.14"
-
-    def test_bool_sync(self):
-        data = dataLikeToData(True)
-        assert data.text_sync() == "True"
-
-    def test_list_sync(self):
-        value = [1, 2, 3]
-        data = dataLikeToData(value)
-        assert data.json_sync() == value
-
-    def test_dict_sync(self):
-        value = {"a": 1, "b": 2}
-        data = dataLikeToData(value)
-        assert data.json_sync() == value
-
-    def test_bytes_sync(self):
-        value = b"bytes data"
-        data = dataLikeToData(value)
-        assert data.binary_sync() == value
-
-    def test_data_sync(self):
-        orig = dataLikeToData("hello")
-        data = dataLikeToData(orig)
-        assert data.text_sync() == "hello"
-
-    def test_streamreader_sync_raises(self):
-        import asyncio
-
-        reader = asyncio.StreamReader()
-        reader.feed_data(b"streamreader data")
-        reader.feed_eof()
-        data = dataLikeToData(reader)
-        import pytest
-
-        with pytest.raises(RuntimeError, match="requires async access"):
-            data.binary_sync()
 
     @pytest.mark.asyncio
     async def test_async_iterator(self):
@@ -329,7 +281,7 @@ class TestDataLikeToData:
             yield b"!"
 
         data = dataLikeToData(gen())
-        assert data.contentType == "application/octet-stream"
+        assert data.content_type == "application/octet-stream"
         assert await data.binary() == b"Hello, world!"
 
     @pytest.mark.asyncio
@@ -343,7 +295,7 @@ class TestDataLikeToData:
             yield b"!"
 
         data = dataLikeToData(gen(), content_type="text/plain")
-        assert data.contentType == "text/plain"
+        assert data.content_type == "text/plain"
         assert await data.binary() == b"Hello, world!"
 
     @pytest.mark.asyncio
@@ -355,7 +307,7 @@ class TestDataLikeToData:
                 yield b""
 
         data = dataLikeToData(gen())
-        assert data.contentType == "application/octet-stream"
+        assert data.content_type == "application/octet-stream"
         assert await data.binary() == b""
 
     @pytest.mark.asyncio
@@ -367,7 +319,7 @@ class TestDataLikeToData:
                 yield b"x" * 1024  # 10KB of data
 
         data = dataLikeToData(gen())
-        assert data.contentType == "application/octet-stream"
+        assert data.content_type == "application/octet-stream"
         result = await data.binary()
         assert len(result) == 10240  # 10KB
         assert result == b"x" * 10240
@@ -385,5 +337,5 @@ class TestDataLikeToData:
             yield b""
 
         data = dataLikeToData(gen())
-        assert data.contentType == "application/octet-stream"
+        assert data.content_type == "application/octet-stream"
         assert await data.binary() == b"Hello, world!"

@@ -2,14 +2,16 @@ import os
 from typing import Union
 from logging import Logger
 from opentelemetry import trace
-from .config import AgentConfig
 from agentuity.otel import create_logger
+from .config import AgentConfig
 from .agent import LocalAgent, RemoteAgent, resolve_agent
 from .vector import VectorStore
 from .keyvalue import KeyValueStore
+from .types import AgentContextInterface
+from .util import deprecated
 
 
-class AgentContext:
+class AgentContext(AgentContextInterface):
     """
     The context of the agent invocation. This class provides access to all the necessary
     services, configuration, and environment information needed during agent execution.
@@ -46,8 +48,8 @@ class AgentContext:
             scope: The scope of the agent invocation
         """
         self.port = port
-        self.base_url = base_url
-        self.api_key = api_key
+        self._base_url = base_url
+        self._api_key = api_key
 
         """
         the key value store
@@ -131,3 +133,20 @@ class AgentContext:
             ValueError: If no agent is found with the given ID or name
         """
         return resolve_agent(self, agent_id_or_name)
+
+    @deprecated("Use agent_id instead")
+    @property
+    def agentId(self) -> str:
+        return self.agent.id
+
+    @property
+    def agent_id(self) -> str:
+        return self.agent.id
+
+    @property
+    def base_url(self) -> str:
+        return self._base_url
+
+    @property
+    def api_key(self) -> str:
+        return self._api_key

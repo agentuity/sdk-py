@@ -99,7 +99,7 @@ class TestRequestHandlers:
             patch("agentuity.server.web.json_response", return_value=mock_response),
         ):
             agent_response = MagicMock(spec=AgentResponse)
-            agent_response.contentType = "text/plain"
+            agent_response.content_type = "text/plain"
             agent_response._payload = "Test response"
             agent_response._metadata = {"key": "value"}
             agent_response.is_stream = False

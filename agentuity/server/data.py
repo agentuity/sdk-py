@@ -5,7 +5,11 @@ from typing import IO
 from aiohttp import StreamReader
 import collections.abc
 import asyncio
-from agentuity.io.email import Email
+from agentuity.server.util import deprecated
+from agentuity.server.types import (
+    DataInterface,
+    EmailInterface,
+)
 
 
 class EmptyDataReader(StreamReader):
@@ -266,7 +270,7 @@ class DataResult:
         return f"DataResult(data={self._data})"
 
 
-class Data:
+class Data(DataInterface):
     """
     A container class for working with agent data payloads. This class provides methods
     to handle different types of data (text, JSON, binary) and supports streaming
@@ -302,8 +306,20 @@ class Data:
             return BytesStreamReader(self._data)
         return self._stream
 
+    @deprecated("Use content_type instead")
     @property
     def contentType(self) -> str:
+        """
+        Get the content type of the data.
+
+        Returns:
+            str: The MIME type of the data. If not provided, it will be inferred from
+                the data. If it cannot be inferred, returns 'application/octet-stream'
+        """
+        return self.content_type
+
+    @property
+    def content_type(self) -> str:
         """
         Get the content type of the data.
 
@@ -323,7 +339,7 @@ class Data:
         data = await self._ensure_stream_loaded()
         return encode_payload(data)
 
-    async def text(self) -> bytes:
+    async def text(self) -> str:
         """
         Get the data as a string.
 
@@ -376,20 +392,14 @@ class Data:
                 raise RuntimeError("This Data instance requires async access")
         return self._data
 
-    def text_sync(self) -> str:
-        data = self._ensure_stream_loaded_sync()
-        return data.decode("utf-8")
-
-    def binary_sync(self) -> bytes:
-        return self._ensure_stream_loaded_sync()
-
-    def json_sync(self) -> dict:
-        return json.loads(self.text_sync())
-
-    async def email(self) -> "Email":
+    async def email(self) -> "EmailInterface":
         if self._contentType != "message/rfc822":
             raise ValueError("The content type is not a valid email")
-        return Email(await self.text())
+
+        from agentuity.io.email import Email
+
+        text = await self.text()
+        return Email(text)
 
 
 def encode_payload(data: Union[str, bytes]) -> str:

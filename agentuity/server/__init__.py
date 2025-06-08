@@ -128,7 +128,7 @@ async def encode_welcome(val):
                             prompt["data"],
                             prompt.get("contentType", "text/plain"),
                         )
-                        ct = data.contentType
+                        ct = data.content_type
                         if (
                             "text/" in ct
                             or "json" in ct
@@ -192,10 +192,10 @@ def make_response_headers(
     headers["Server"] = "Agentuity Python SDK/" + __version__
     if request.headers.get("origin"):
         headers["Access-Control-Allow-Origin"] = request.headers.get("origin")
-    else:
-        headers["Access-Control-Allow-Origin"] = "*"
-    headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
-    headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        headers["Access-Control-Allow-Methods"] = (
+            "GET, PUT, DELETE, PATCH, OPTIONS, POST"
+        )
+        headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
     if metadata is not None:
         for key, value in metadata.items():
             headers[f"x-agentuity-{key}"] = str(value)
@@ -285,6 +285,20 @@ async def handle_agent_options_request(request: web.Request):
     )
 
 
+def safe_parse_if_looks_like_json(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    try:
+        if value.startswith("{") and value.endswith("}"):
+            return json.loads(value)
+        elif value.startswith("[") and value.endswith("]"):
+            return json.loads(value)
+        else:
+            return value
+    except json.JSONDecodeError:
+        return value
+
+
 async def handle_agent_request(request: web.Request):
     # Access the agents_by_id from the app state
     agents_by_id = request.app["agents_by_id"]
@@ -304,11 +318,11 @@ async def handle_agent_request(request: web.Request):
         context = extract(carrier=headers)
 
         with tracer.start_as_current_span(
-            "HTTP POST",
+            f"HTTP {request.method}",
             context=context,
             kind=trace.SpanKind.SERVER,
             attributes={
-                "http.method": "POST",
+                "http.method": request.method,
                 "http.url": str(request.url),
                 "http.host": request.host,
                 "http.user_agent": request.headers.get("user-agent"),
@@ -334,6 +348,25 @@ async def handle_agent_request(request: web.Request):
                             run_id = value
                         elif key == "x-agentuity-scope":
                             scope = value
+                        elif key == "x-agentuity-headers":
+                            try:
+                                headers = json.loads(value)
+                                kv = {
+                                    "content-type": request.headers.get("content-type")
+                                }
+                                for k, v in headers.items():
+                                    if k.startswith("x-agentuity-"):
+                                        metadata[k[12:]] = (
+                                            safe_parse_if_looks_like_json(v)
+                                        )
+                                    else:
+                                        kv[k] = safe_parse_if_looks_like_json(v)
+                                metadata["headers"] = kv
+                            except json.JSONDecodeError:
+                                logger.error(
+                                    f"Error parsing x-agentuity-headers: {value}"
+                                )
+                                metadata["headers"] = value
                         elif key == "x-agentuity-metadata":
                             try:
                                 metadata = json.loads(value)
@@ -343,12 +376,16 @@ async def handle_agent_request(request: web.Request):
                                 if "scope" in metadata:
                                     scope = metadata["scope"]
                                     del metadata["scope"]
+                                new_metadata = {}
+                                for k, v in metadata.items():
+                                    new_metadata[k] = safe_parse_if_looks_like_json(v)
+                                metadata = new_metadata
                             except json.JSONDecodeError:
                                 logger.error(
                                     f"Error parsing x-agentuity-metadata: {value}"
                                 )
                         else:
-                            metadata[key[12:]] = value
+                            metadata[key[12:]] = safe_parse_if_looks_like_json(value)
 
                 span.set_attribute("@agentuity/scope", scope)
 
@@ -419,16 +456,16 @@ async def handle_agent_request(request: web.Request):
                             )
 
                     return await stream_response(
-                        request, response, response.contentType, response.metadata
+                        request, response, response.content_type, response.metadata
                     )
 
                 if isinstance(response, web.Response):
                     return response
 
                 if isinstance(response, Data):
-                    headers = make_response_headers(request, response.contentType)
+                    headers = make_response_headers(request, response.content_type)
                     stream = await response.stream()
-                    return await stream_response(request, stream, response.contentType)
+                    return await stream_response(request, stream, response.content_type)
 
                 if isinstance(response, dict) or isinstance(response, list):
                     headers = make_response_headers(request, "application/json")
@@ -637,7 +674,11 @@ def autostart(callback: Callable[[], None] = None):
     # Add routes
     app.router.add_get("/", handle_index)
     app.router.add_get("/_health", handle_health_check)
+    app.router.add_get("/{agent_id}", handle_agent_request)
     app.router.add_post("/{agent_id}", handle_agent_request)
+    app.router.add_put("/{agent_id}", handle_agent_request)
+    app.router.add_delete("/{agent_id}", handle_agent_request)
+    app.router.add_patch("/{agent_id}", handle_agent_request)
     app.router.add_options("/{agent_id}", handle_agent_options_request)
     app.router.add_get("/welcome", handle_welcome_request)
     app.router.add_get("/welcome/{agent_id}", handle_agent_welcome_request)

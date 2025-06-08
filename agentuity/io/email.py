@@ -1,8 +1,130 @@
+import re
+import os
 import mailparser
+from email.utils import formataddr
+from opentelemetry.propagate import inject
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
 from datetime import datetime
+from typing import List
+from agentuity import __version__
+import httpx
+from opentelemetry import trace
+from agentuity.server.util import deprecated
+from agentuity.server.types import (
+    AgentRequestInterface,
+    AgentContextInterface,
+    EmailInterface,
+    EmailAttachmentInterface,
+    OutgoingEmailAttachmentInterface,
+)
 
 
-class Email(dict):
+class EmailAttachment(OutgoingEmailAttachmentInterface):
+    """
+    Represents an outgoing email attachment with streaming data support.
+    """
+
+    from agentuity.server.data import DataLike
+
+    def __init__(
+        self,
+        filename: str,
+        data: "DataLike",
+        content_type: str | None = None,
+    ):
+        self._filename = filename
+        from agentuity.server.data import dataLikeToData
+
+        self._data = dataLikeToData(data, content_type)
+
+    def data(self):
+        return self._data
+
+    @property
+    def filename(self):
+        return self._filename
+
+    def __repr__(self):
+        return f"EmailAttachment(filename={self.filename})"
+
+
+class IncomingEmailAttachment(EmailAttachmentInterface):
+    """
+    Represents an email attachment with streaming data support.
+    """
+
+    def __init__(self, attachment: dict):
+        self._filename = attachment.get("filename")
+        cd = attachment.get("content-disposition")
+        self._content_disposition = re.split(r";\s*", cd)[0].strip()
+        self._url = self._parse_url_from_content_disposition(cd)
+
+    @property
+    def filename(self) -> str:
+        return self._filename
+
+    @property
+    def content_disposition(self) -> str:
+        return self._content_disposition
+
+    def _parse_url_from_content_disposition(
+        self, content_disposition: str | None
+    ) -> str | None:
+        """
+        Parse the content_disposition header for a url property.
+        """
+        if not content_disposition:
+            raise ValueError("content-disposition is required")
+
+        match = re.search(r'url="([^"]+)"', content_disposition)
+        if match:
+            url = match.group(1)
+            return url
+
+        raise ValueError(
+            f"Failed to parse url from content-disposition: {content_disposition}"
+        )
+
+    async def data(self):
+        """
+        Return a Data object that streams the attachment data asynchronously.
+        """
+        tracer = trace.get_tracer("email")
+        with tracer.start_as_current_span("agentuity.email.attachment"):
+            api_key = os.environ.get("AGENTUITY_SDK_KEY") or os.environ.get(
+                "AGENTUITY_API_KEY"
+            )
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "User-Agent": f"Agentuity Python SDK/{__version__}",
+            }
+            inject(headers)
+            async with httpx.AsyncClient() as client:
+                response = await client.get(self._url, headers=headers)
+                match response.status_code:
+                    case 200:
+                        content_type = response.headers.get(
+                            "Content-Type", "application/octet-stream"
+                        )
+                        import asyncio
+                        from agentuity.server.data import Data
+
+                        reader = asyncio.StreamReader()
+                        reader.feed_data(response.content)
+                        reader.feed_eof()
+                        return Data(content_type, reader)
+                    case 404:
+                        raise ValueError(f"Attachment not found: {self._url}")
+                    case _:
+                        raise ValueError(f"Failed to get attachment: {self._url}")
+
+    def __repr__(self):
+        return f"IncomingEmailAttachment(filename={self.filename})"
+
+
+class Email(EmailInterface):
     """
     A class representing an email.
     """
@@ -13,65 +135,9 @@ class Email(dict):
         """
         try:
             self._email = mailparser.parse_from_string(email)
-            super().__init__(self._get_email_dict())
         except Exception as e:
             # Initialize with empty email object or re-raise with more context
             raise ValueError(f"Failed to parse email: {str(e)}") from e
-
-    def _get_email_dict(self) -> dict:
-        """
-        Get email data as a dictionary.
-        """
-        return {
-            "subject": self.subject,
-            "from_email": self.from_email,
-            "from_name": self.from_name,
-            "to": self.to,
-            "date": self.date.isoformat() if self.date else None,
-            "messageId": self.messageId,
-            "headers": self.headers,
-            "text": self.text,
-            "html": self.html,
-            "attachments": self.attachments,
-        }
-
-    def __iter__(self):
-        """
-        Make the Email object directly JSON serializable.
-        """
-        return iter(self._get_email_dict().items())
-
-    def __getitem__(self, key):
-        """
-        Make the Email object behave like a dictionary.
-        """
-        email_dict = self._get_email_dict()
-        if key not in email_dict:
-            raise KeyError(key)
-        return email_dict[key]
-
-    def keys(self):
-        """
-        Return the keys of the email dictionary.
-        """
-        return [
-            "subject",
-            "from_email",
-            "from_name",
-            "to",
-            "date",
-            "messageId",
-            "headers",
-            "text",
-            "html",
-            "attachments",
-        ]
-
-    def to_dict(self) -> dict:
-        """
-        Convert the Email object to a dictionary.
-        """
-        return self._get_email_dict()
 
     def __str__(self) -> str:
         """
@@ -146,12 +212,26 @@ class Email(dict):
         return None
 
     @property
+    def to_name(self) -> str | None:
+        """
+        Return the to name of the email.
+        """
+        if not hasattr(self._email, "to") or not self._email.to:
+            return None
+        if isinstance(self._email.to, list) and len(self._email.to) > 0:
+            if isinstance(self._email.to[0], tuple):
+                # ('Jeff Haynie', 'jhaynie@agentuity.com')
+                return self._email.to[0][0]
+        return None
+
+    @property
     def date(self) -> datetime | None:
         """
         Return the date of the email.
         """
         return getattr(self._email, "date", None)
 
+    @deprecated("Use message_id instead")
     @property
     def messageId(self) -> str:
         """
@@ -160,7 +240,14 @@ class Email(dict):
         return getattr(self._email, "message_id", "")
 
     @property
-    def headers(self) -> dict:
+    def message_id(self) -> str:
+        """
+        Return the message id of the email.
+        """
+        return getattr(self._email, "message_id", "")
+
+    @property
+    def headers(self) -> dict[str, str]:
         """
         Return the headers of the email.
         """
@@ -181,8 +268,89 @@ class Email(dict):
         return getattr(self._email, "text_html", "")
 
     @property
-    def attachments(self) -> list:
+    def attachments(self) -> List["IncomingEmailAttachment"]:
         """
-        Return the attachments of the email.
+        Return the attachments of the email as EmailAttachment objects.
         """
-        return getattr(self._email, "attachments", [])
+        raw_attachments = getattr(self._email, "attachments", [])
+        return [IncomingEmailAttachment(a) for a in raw_attachments]
+
+    async def sendReply(
+        self,
+        request: "AgentRequestInterface",
+        context: "AgentContextInterface",
+        subject: str = None,
+        text: str = None,
+        html: str = None,
+        attachments: List["OutgoingEmailAttachmentInterface"] = None,
+    ):
+        """
+        Send a reply to this email using the Agentuity email API.
+        Args:
+            request (AgentRequest): The triggering agent request, used to extract metadata such as email-auth-token.
+            context (AgentContext): The agent context, used to get the base_url and agentId.
+            to (str): Recipient email address. Defaults to the original sender if not provided.
+            subject (str): Subject of the reply. Defaults to 'Re: <original subject>'.
+            body (str): Plain text body of the reply.
+            html (str): HTML body of the reply.
+            attachments (list): List of file-like objects or dicts with 'filename' and 'content'.
+        """
+        tracer = trace.get_tracer("email")
+        with tracer.start_as_current_span("agentuity.email.reply") as span:
+            # Extract email-auth-token from AgentRequest metadata
+            email_auth_token = None
+            if hasattr(request, "metadata") and isinstance(request.metadata, dict):
+                email_auth_token = request.metadata.get("email-auth-token")
+            if not email_auth_token:
+                raise ValueError(
+                    "Missing required email-auth-token in AgentRequest metadata for email reply."
+                )
+            span.set_attribute("@agentuity/agentId", context.agent_id)
+            span.set_attribute("@agentuity/emailMessageId", self.message_id)
+
+            headers = {
+                "Authorization": f"Bearer {email_auth_token}",
+                "User-Agent": f"Agentuity Python SDK/{__version__}",
+                "Content-Type": "message/rfc822",
+                "X-Agentuity-Message-Id": self.message_id,
+            }
+            inject(headers)
+
+            if not self.to or not self.from_email:
+                raise ValueError("Missing To/From when constructing reply email")
+
+            # Outer message for attachments
+            outer = MIMEMultipart("mixed")
+            outer["In-Reply-To"] = self.message_id
+            outer["References"] = self.message_id
+            outer["Subject"] = subject or f"Re: {self.subject}"
+            outer["From"] = formataddr((self.to_name or context.agent.name, self.to))
+            outer["To"] = formataddr((self.from_name, self.from_email))
+            outer["Date"] = datetime.now().isoformat()
+
+            # Alternative part for text and html
+            alt = MIMEMultipart("alternative")
+            if text:
+                alt.attach(MIMEText(text, "plain"))
+            if html:
+                alt.attach(MIMEText(html, "html"))
+            outer.attach(alt)
+
+            # Add any attachments
+            if attachments:
+                for a in attachments:
+                    data = a.data()
+                    buffer = await data.binary()
+                    part = MIMEApplication(buffer)
+                    part.add_header("Content-Type", data.content_type)
+                    part.add_header(
+                        "Content-Disposition", "attachment", filename=a.filename
+                    )
+                    outer.attach(part)
+
+            email_body = outer.as_bytes()
+            url = f"{context.base_url}/email/2025-03-17/{context.agentId}/reply"
+            async with httpx.AsyncClient() as client:
+                response = await client.post(url, content=email_body, headers=headers)
+                response.raise_for_status()
+                return None

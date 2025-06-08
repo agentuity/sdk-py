@@ -6,9 +6,7 @@ from opentelemetry import trace
 from opentelemetry.propagate import inject
 import asyncio
 import logging
-
 from agentuity import __version__
-
 from .config import AgentConfig
 from .data import Data, DataLike, dataLikeToData
 
@@ -96,7 +94,7 @@ class LocalAgent:
                 "x-agentuity-trigger": "agent",
             }
             inject(headers)
-            headers["Content-Type"] = data.contentType
+            headers["Content-Type"] = data.content_type
             if metadata is not None:
                 for key, value in metadata.items():
                     headers[f"x-agentuity-{key}"] = str(value)
@@ -205,7 +203,7 @@ class RemoteAgent:
             inject(headers)
             if metadata is not None:
                 headers["x-agentuity-metadata"] = json.dumps(metadata)
-            headers["Content-Type"] = data.contentType
+            headers["Content-Type"] = data.content_type
             headers["Authorization"] = f"Bearer {self.agentconfig.get('authorization')}"
             headers["User-Agent"] = f"Agentuity Python SDK/{__version__}"
 
@@ -310,12 +308,15 @@ def resolve_agent(context: any, req: Union[dict, str]):
         if "id" in req:
             span.set_attribute("remote.agentId", req.get("id"))
 
+        headers = {
+            "Authorization": f"Bearer {context.api_key}",
+            "User-Agent": f"Agentuity Python SDK/{__version__}",
+        }
+        inject(headers)
+
         response = httpx.post(
             f"{context.base_url}/agent/2025-03-17/resolve",
-            headers={
-                "Authorization": f"Bearer {context.api_key}",
-                "User-Agent": f"Agentuity Python SDK/{__version__}",
-            },
+            headers=headers,
             json=req,
         )
         span.set_attribute("http.status_code", response.status_code)

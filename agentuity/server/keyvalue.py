@@ -1,6 +1,7 @@
 import httpx
 from typing import Union, Optional
 from .data import DataResult, Data, dataLikeToData
+from opentelemetry.propagate import inject
 from agentuity import __version__
 from opentelemetry import trace
 
@@ -47,12 +48,14 @@ class KeyValueStore:
         with self.tracer.start_as_current_span("agentuity.keyvalue.get") as span:
             span.set_attribute("name", name)
             span.set_attribute("key", key)
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "User-Agent": f"Agentuity Python SDK/{__version__}",
+            }
+            inject(headers)
             response = httpx.get(
                 f"{self.base_url}/kv/2025-03-17/{name}/{key}",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "User-Agent": f"Agentuity Python SDK/{__version__}",
-                },
+                headers=headers,
             )
             match response.status_code:
                 case 200:
@@ -117,7 +120,7 @@ class KeyValueStore:
 
             try:
                 data = dataLikeToData(value, content_type)
-                content_type = data.contentType
+                content_type = data.content_type
                 payload = await data.binary()
             except Exception as e:
                 span.set_status(trace.StatusCode.ERROR, "Failed to encode value")
@@ -129,14 +132,16 @@ class KeyValueStore:
                 span.set_attribute("ttl", ttlstr)
 
             span.set_attribute("contentType", content_type)
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "User-Agent": f"Agentuity Python SDK/{__version__}",
+                "Content-Type": content_type,
+            }
+            inject(headers)
 
             response = httpx.put(
                 f"{self.base_url}/kv/2025-03-17/{name}/{key}{ttlstr}",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "User-Agent": f"Agentuity Python SDK/{__version__}",
-                    "Content-Type": content_type,
-                },
+                headers=headers,
                 content=payload,
             )
 
@@ -161,12 +166,14 @@ class KeyValueStore:
         with self.tracer.start_as_current_span("agentuity.keyvalue.delete") as span:
             span.set_attribute("name", name)
             span.set_attribute("key", key)
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "User-Agent": f"Agentuity Python SDK/{__version__}",
+            }
+            inject(headers)
             response = httpx.delete(
                 f"{self.base_url}/kv/2025-03-17/{name}/{key}",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "User-Agent": f"Agentuity Python SDK/{__version__}",
-                },
+                headers=headers,
             )
             if response.status_code != 200:
                 span.set_status(trace.StatusCode.ERROR, "Failed to delete key value")

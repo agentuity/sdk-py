@@ -14,6 +14,8 @@ from agentuity.server import (
     autostart,
 )
 
+from agentuity.io.email import EmailAttachment
+
 __all__ = [
     "AgentRequest",
     "AgentResponse",
@@ -21,4 +23,5 @@ __all__ = [
     "KeyValueStore",
     "VectorStore",
     "autostart",
+    "EmailAttachment",
 ]

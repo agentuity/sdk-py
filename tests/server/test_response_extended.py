@@ -99,7 +99,7 @@ class TestAgentResponseExtended:
         """Test actual execution of handoff to another agent using ID."""
         mock_remote_agent = AsyncMock(spec=RemoteAgent)
         mock_response_data = MagicMock()
-        mock_response_data.data.contentType = "application/json"
+        mock_response_data.data.content_type = "application/json"
         mock_response_data.data.base64 = base64.b64encode(
             json.dumps({"result": "success"}).encode()
         ).decode()
@@ -131,7 +131,7 @@ class TestAgentResponseExtended:
             assert result == agent_response
             assert agent_response.has_pending_handoff is False
             assert agent_response._metadata == {"response_key": "response_value"}
-            assert agent_response.contentType == "application/json"
+            assert agent_response.content_type == "application/json"
             mock_remote_agent.run.assert_called_once()
 
     def test_handoff_missing_id_and_name(self, agent_response):
@@ -189,7 +189,7 @@ class TestAgentResponseExtended:
         result = agent_response.html(html_content, metadata)
 
         assert result == agent_response  # Should return self for chaining
-        assert agent_response.contentType == "text/html"
+        assert agent_response.content_type == "text/html"
         assert agent_response._metadata == metadata
 
         assert isinstance(agent_response._payload, str)
@@ -349,7 +349,7 @@ class TestAgentResponseExtended:
         result = agent_response.data(string_data, content_type, metadata)
 
         assert result == agent_response
-        assert agent_response.contentType == content_type
+        assert agent_response.content_type == content_type
         assert agent_response._metadata == metadata
 
         assert agent_response._payload == string_data
@@ -363,7 +363,7 @@ class TestAgentResponseExtended:
         result = agent_response.data(dict_data, content_type, metadata)
 
         assert result == agent_response
-        assert agent_response.contentType == content_type
+        assert agent_response.content_type == content_type
         assert agent_response._metadata == metadata
 
         assert agent_response._payload == json.dumps(dict_data)
@@ -377,7 +377,7 @@ class TestAgentResponseExtended:
         result = agent_response.data(other_data, content_type, metadata)
 
         assert result == agent_response
-        assert agent_response.contentType == content_type
+        assert agent_response.content_type == content_type
         assert agent_response._metadata == metadata
 
         assert agent_response._payload == str(other_data)
@@ -390,7 +390,7 @@ class TestAgentResponseExtended:
         result = agent_response.markdown(markdown_content, metadata)
 
         assert result == agent_response
-        assert agent_response.contentType == "text/markdown"
+        assert agent_response.content_type == "text/markdown"
         assert agent_response._metadata == metadata
 
         assert agent_response._payload == markdown_content
