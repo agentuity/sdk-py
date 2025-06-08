@@ -102,23 +102,24 @@ class IncomingEmailAttachment(EmailAttachmentInterface):
                 "User-Agent": f"Agentuity Python SDK/{__version__}",
             }
             inject(headers)
-            response = httpx.get(self._url, headers=headers)
-            match response.status_code:
-                case 200:
-                    content_type = response.headers.get(
-                        "Content-Type", "application/octet-stream"
-                    )
-                    import asyncio
-                    from agentuity.server.data import Data
+            async with httpx.AsyncClient() as client:
+                response = await client.get(self._url, headers=headers)
+                match response.status_code:
+                    case 200:
+                        content_type = response.headers.get(
+                            "Content-Type", "application/octet-stream"
+                        )
+                        import asyncio
+                        from agentuity.server.data import Data
 
-                    reader = asyncio.StreamReader()
-                    reader.feed_data(response.content)
-                    reader.feed_eof()
-                    return Data(content_type, reader)
-                case 404:
-                    raise ValueError(f"Attachment not found: {self._url}")
-                case _:
-                    raise ValueError(f"Failed to get attachment: {self._url}")
+                        reader = asyncio.StreamReader()
+                        reader.feed_data(response.content)
+                        reader.feed_eof()
+                        return Data(content_type, reader)
+                    case 404:
+                        raise ValueError(f"Attachment not found: {self._url}")
+                    case _:
+                        raise ValueError(f"Failed to get attachment: {self._url}")
 
     def __repr__(self):
         return f"IncomingEmailAttachment(filename={self.filename})"
@@ -386,6 +387,6 @@ class Email(EmailInterface):
             email_body = outer.as_bytes()
             url = f"{context.base_url}/email/2025-03-17/{context.agent_id}/reply"
             async with httpx.AsyncClient() as client:
-                response = await client.post(url, data=email_body, headers=headers)
+                response = await client.post(url, content=email_body, headers=headers)
                 response.raise_for_status()
                 return None

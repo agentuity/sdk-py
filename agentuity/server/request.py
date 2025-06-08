@@ -1,6 +1,7 @@
 from typing import Any
 from aiohttp import StreamReader
 from .types import AgentRequestInterface, DataInterface
+from .data import Data
 
 
 class AgentRequest(AgentRequestInterface):
@@ -22,8 +23,6 @@ class AgentRequest(AgentRequestInterface):
         """
         self._trigger = trigger
         self._metadata = metadata
-
-        from .data import Data
 
         self._data = Data(contentType, stream)
 
