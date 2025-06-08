@@ -12,6 +12,8 @@ import httpx
 from opentelemetry import trace
 from agentuity.server.util import deprecated
 from agentuity.server.types import (
+    AgentRequestInterface,
+    AgentContextInterface,
     EmailInterface,
     EmailAttachmentInterface,
     OutgoingEmailAttachmentInterface,
@@ -297,18 +299,15 @@ class Email(EmailInterface):
         raw_attachments = getattr(self._email, "attachments", [])
         return [IncomingEmailAttachment(a) for a in raw_attachments]
 
-    from agentuity.server.request import AgentRequest
-    from agentuity.server.context import AgentContext
-
     async def sendReply(
         self,
-        request: "AgentRequest",
-        context: "AgentContext",
+        request: "AgentRequestInterface",
+        context: "AgentContextInterface",
         to: str = None,
         subject: str = None,
         text: str = None,
         html: str = None,
-        attachments: List["OutgoingEmailAttachment"] = None,
+        attachments: List["OutgoingEmailAttachmentInterface"] = None,
     ):
         """
         Send a reply to this email using the Agentuity email API.
