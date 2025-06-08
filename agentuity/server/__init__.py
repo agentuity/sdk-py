@@ -318,11 +318,11 @@ async def handle_agent_request(request: web.Request):
         context = extract(carrier=headers)
 
         with tracer.start_as_current_span(
-            "HTTP POST",
+            f"HTTP {request.method}",
             context=context,
             kind=trace.SpanKind.SERVER,
             attributes={
-                "http.method": "POST",
+                "http.method": request.method,
                 "http.url": str(request.url),
                 "http.host": request.host,
                 "http.user_agent": request.headers.get("user-agent"),
@@ -674,7 +674,11 @@ def autostart(callback: Callable[[], None] = None):
     # Add routes
     app.router.add_get("/", handle_index)
     app.router.add_get("/_health", handle_health_check)
+    app.router.add_get("/{agent_id}", handle_agent_request)
     app.router.add_post("/{agent_id}", handle_agent_request)
+    app.router.add_put("/{agent_id}", handle_agent_request)
+    app.router.add_delete("/{agent_id}", handle_agent_request)
+    app.router.add_patch("/{agent_id}", handle_agent_request)
     app.router.add_options("/{agent_id}", handle_agent_options_request)
     app.router.add_get("/welcome", handle_welcome_request)
     app.router.add_get("/welcome/{agent_id}", handle_agent_welcome_request)

@@ -250,7 +250,7 @@ class TestServerConfig:
 
             mock_app.__setitem__.assert_called_once_with("agents_by_id", mock_agents)
 
-            assert mock_app.router.add_get.call_count == 4
+            assert mock_app.router.add_get.call_count == 5
             assert mock_app.router.add_post.call_count >= 1
 
             mock_run_app.assert_called_once()
