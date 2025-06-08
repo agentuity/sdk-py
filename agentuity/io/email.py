@@ -1,6 +1,7 @@
 import re
 import os
 import mailparser
+from email.utils import formataddr
 from opentelemetry.propagate import inject
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -20,7 +21,7 @@ from agentuity.server.types import (
 )
 
 
-class OutgoingEmailAttachment(OutgoingEmailAttachmentInterface):
+class EmailAttachment(OutgoingEmailAttachmentInterface):
     """
     Represents an outgoing email attachment with streaming data support.
     """
@@ -31,7 +32,7 @@ class OutgoingEmailAttachment(OutgoingEmailAttachmentInterface):
         self,
         filename: str,
         data: "DataLike",
-        content_type: str = "application/octet-stream",
+        content_type: str | None = None,
     ):
         self._filename = filename
         from agentuity.server.data import dataLikeToData
@@ -46,7 +47,7 @@ class OutgoingEmailAttachment(OutgoingEmailAttachmentInterface):
         return self._filename
 
     def __repr__(self):
-        return f"OutgoingEmailAttachment(filename={self.filename})"
+        return f"EmailAttachment(filename={self.filename})"
 
 
 class IncomingEmailAttachment(EmailAttachmentInterface):
@@ -249,6 +250,19 @@ class Email(EmailInterface):
         return None
 
     @property
+    def to_name(self) -> str | None:
+        """
+        Return the to name of the email.
+        """
+        if not hasattr(self._email, "to") or not self._email.to:
+            return None
+        if isinstance(self._email.to, list) and len(self._email.to) > 0:
+            if isinstance(self._email.to[0], tuple):
+                # ('Jeff Haynie', 'jhaynie@agentuity.com')
+                return self._email.to[0][0]
+        return None
+
+    @property
     def date(self) -> datetime | None:
         """
         Return the date of the email.
@@ -303,7 +317,6 @@ class Email(EmailInterface):
         self,
         request: "AgentRequestInterface",
         context: "AgentContextInterface",
-        to: str = None,
         subject: str = None,
         text: str = None,
         html: str = None,
@@ -343,12 +356,12 @@ class Email(EmailInterface):
 
             # Outer message for attachments
             outer = MIMEMultipart("mixed")
-            outer.set_param("in-reply-to", self.message_id)
-            outer.set_param("references", self.message_id)
-            outer.set_param("subject", subject or f"Re: {self.subject}")
-            outer.set_param("from", self.to)
-            outer.set_param("to", to or self.from_email)
-            outer.set_param("date", datetime.now().isoformat())
+            outer["In-Reply-To"] = self.message_id
+            outer["References"] = self.message_id
+            outer["Subject"] = subject or f"Re: {self.subject}"
+            outer["From"] = formataddr((self.to_name or context.agent.name, self.to))
+            outer["To"] = formataddr((self.from_name, self.from_email))
+            outer["Date"] = datetime.now().isoformat()
 
             # Alternative part for text and html
             alt = MIMEMultipart("alternative")
@@ -362,18 +375,17 @@ class Email(EmailInterface):
             if attachments:
                 for a in attachments:
                     data = a.data()
-                    contentType = a.content_type
                     buffer = await data.binary()
                     part = MIMEApplication(buffer)
-                    part.add_header("Content-Type", contentType)
+                    part.add_header("Content-Type", data.content_type)
                     part.add_header(
                         "Content-Disposition", "attachment", filename=a.filename
                     )
                     outer.attach(part)
 
-            email_body = outer.as_string()
+            email_body = outer.as_bytes()
             url = f"{context.base_url}/email/2025-03-17/{context.agent_id}/reply"
             async with httpx.AsyncClient() as client:
-                response = await client.post(url, body=email_body, headers=headers)
+                response = await client.post(url, data=email_body, headers=headers)
                 response.raise_for_status()
                 return None

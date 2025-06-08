@@ -165,7 +165,6 @@ class EmailInterface(ABC):
         self,
         request: "AgentRequestInterface",
         context: "AgentContextInterface",
-        to: str = None,
         subject: str = None,
         text: str = None,
         html: str = None,
