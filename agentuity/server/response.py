@@ -4,6 +4,7 @@ import inspect
 from .agent import resolve_agent
 from asyncio import StreamReader
 from .data import Data, DataLike, dataLikeToData
+from .util import deprecated
 
 
 class AgentResponse:
@@ -38,8 +39,20 @@ class AgentResponse:
         self._is_async = False
         self._handoff_params = None  # Store handoff parameters for deferred execution
 
+    @deprecated("Use content_type instead")
     @property
     def contentType(self) -> str:
+        """
+        Get the content type of the data.
+
+        Returns:
+            str: The MIME type of the data. If not provided, it will be inferred from
+                the data. If it cannot be inferred, returns 'application/octet-stream'
+        """
+        return self.content_type
+
+    @property
+    def content_type(self) -> str:
         """
         Get the content type of the data.
 
@@ -127,7 +140,7 @@ class AgentResponse:
 
             # Update response with target agent's response
             self._metadata = agent_response.metadata
-            self._contentType = agent_response.data.contentType
+            self._contentType = agent_response.data.content_type
             stream = await agent_response.data.stream()
             self._stream = stream
             self._is_async = hasattr(self._stream, "__anext__")

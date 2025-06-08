@@ -1,10 +1,9 @@
 from typing import Any
 from aiohttp import StreamReader
+from .types import AgentRequestInterface, DataInterface
 
-from .data import Data
 
-
-class AgentRequest:
+class AgentRequest(AgentRequestInterface):
     """
     The request that triggered the agent invocation.
     """
@@ -23,10 +22,16 @@ class AgentRequest:
         """
         self._trigger = trigger
         self._metadata = metadata
+
+        from .data import Data
+
         self._data = Data(contentType, stream)
 
+    def _get_data(self) -> "DataInterface":
+        return self._data
+
     @property
-    def data(self) -> "Data":
+    def data(self) -> "DataInterface":
         """
         Get the data object associated with the request.
 
@@ -78,4 +83,4 @@ class AgentRequest:
             str: A formatted string containing the request's trigger, content type,
                 and metadata
         """
-        return f"AgentRequest(trigger={self.trigger},contentType={self._data.contentType},metadata={self.metadata})"
+        return f"AgentRequest(trigger={self.trigger},contentType={self._data.content_type},metadata={self.metadata})"

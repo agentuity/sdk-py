@@ -22,7 +22,7 @@ class TestAgentRequest:
 
         assert isinstance(request, AgentRequest)
         assert isinstance(request.data, Data)
-        assert request.data.contentType == "text/plain"
+        assert request.data.content_type == "text/plain"
         assert request.trigger == "manual"
 
     @pytest.mark.asyncio

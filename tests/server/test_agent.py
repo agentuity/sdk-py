@@ -128,7 +128,7 @@ class TestRemoteAgent:
         result = await remote_agent.run(data)
 
         assert isinstance(result, RemoteAgentResponse)
-        assert result.data.contentType == "text/plain"
+        assert result.data.content_type == "text/plain"
         text = await result.data.text()
         assert text == "Response from agent"
         assert result.metadata == {"key": "value"}
@@ -193,7 +193,7 @@ class TestRemoteAgent:
         result = await remote_agent.run(data)
 
         assert isinstance(result, RemoteAgentResponse)
-        assert result.data.contentType == "application/json"
+        assert result.data.content_type == "application/json"
         json_data = await result.data.json()
         assert json_data == {"result": "success"}
 
@@ -245,7 +245,7 @@ class TestRemoteAgent:
         result = await remote_agent.run(data)
 
         assert isinstance(result, RemoteAgentResponse)
-        assert result.data.contentType == "application/octet-stream"
+        assert result.data.content_type == "application/octet-stream"
         binary_data = await result.data.binary()
         assert binary_data == b"Binary response"
 

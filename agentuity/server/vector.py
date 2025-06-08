@@ -2,6 +2,7 @@ import httpx
 from typing import Optional
 from agentuity import __version__
 from opentelemetry import trace
+from opentelemetry.propagate import inject
 
 
 class VectorSearchResult:
@@ -71,12 +72,14 @@ class VectorStore:
                     raise ValueError("document must have a key")
             if "document" not in document and "embeddings" not in document:
                 raise ValueError("document must have either a document or embeddings")
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "User-Agent": f"Agentuity Python SDK/{__version__}",
+            }
+            inject(headers)
             response = httpx.put(
                 f"{self.base_url}/vector/2025-03-17/{name}",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "User-Agent": f"Agentuity Python SDK/{__version__}",
-                },
+                headers=headers,
                 json=documents,
             )
             if response.status_code == 200:
@@ -116,12 +119,14 @@ class VectorStore:
         with self.tracer.start_as_current_span("agentuity.vector.get") as span:
             span.set_attribute("name", name)
             span.set_attribute("key", key)
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "User-Agent": f"Agentuity Python SDK/{__version__}",
+            }
+            inject(headers)
             response = httpx.get(
                 f"{self.base_url}/vector/2025-03-17/{name}/{key}",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "User-Agent": f"Agentuity Python SDK/{__version__}",
-                },
+                headers=headers,
             )
             match response.status_code:
                 case 200:
@@ -177,12 +182,14 @@ class VectorStore:
             span.set_attribute("query", query)
             span.set_attribute("limit", limit)
             span.set_attribute("similarity", similarity)
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "User-Agent": f"Agentuity Python SDK/{__version__}",
+            }
+            inject(headers)
             response = httpx.post(
                 f"{self.base_url}/vector/2025-03-17/search/{name}",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "User-Agent": f"Agentuity Python SDK/{__version__}",
-                },
+                headers=headers,
                 json={
                     "query": query,
                     "limit": limit,
@@ -241,12 +248,14 @@ class VectorStore:
         with self.tracer.start_as_current_span("agentuity.vector.delete") as span:
             span.set_attribute("name", name)
             span.set_attribute("key", key)
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "User-Agent": f"Agentuity Python SDK/{__version__}",
+            }
+            inject(headers)
             response = httpx.delete(
                 f"{self.base_url}/vector/2025-03-17/{name}/{key}",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "User-Agent": f"Agentuity Python SDK/{__version__}",
-                },
+                headers=headers,
             )
             if response.status_code == 200:
                 result = response.json()

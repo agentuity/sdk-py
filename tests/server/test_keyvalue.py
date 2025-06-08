@@ -46,7 +46,7 @@ class TestKeyValueStore:
         assert isinstance(result, DataResult)
         assert result.exists is True
         assert isinstance(result.data, Data)
-        assert result.data.contentType == "text/plain"
+        assert result.data.content_type == "text/plain"
         text = await result.data.text()
         assert text == "Hello, world!"
 

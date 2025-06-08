@@ -128,7 +128,7 @@ async def encode_welcome(val):
                             prompt["data"],
                             prompt.get("contentType", "text/plain"),
                         )
-                        ct = data.contentType
+                        ct = data.content_type
                         if (
                             "text/" in ct
                             or "json" in ct
@@ -419,16 +419,16 @@ async def handle_agent_request(request: web.Request):
                             )
 
                     return await stream_response(
-                        request, response, response.contentType, response.metadata
+                        request, response, response.content_type, response.metadata
                     )
 
                 if isinstance(response, web.Response):
                     return response
 
                 if isinstance(response, Data):
-                    headers = make_response_headers(request, response.contentType)
+                    headers = make_response_headers(request, response.content_type)
                     stream = await response.stream()
-                    return await stream_response(request, stream, response.contentType)
+                    return await stream_response(request, stream, response.content_type)
 
                 if isinstance(response, dict) or isinstance(response, list):
                     headers = make_response_headers(request, "application/json")

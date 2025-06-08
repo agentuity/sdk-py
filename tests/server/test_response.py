@@ -52,7 +52,7 @@ class TestAgentResponse:
 
     def test_init(self, agent_response, mock_context):
         """Test initialization of AgentResponse."""
-        assert agent_response.contentType == "application/octet-stream"
+        assert agent_response.content_type == "application/octet-stream"
         assert agent_response._payload is None
         assert agent_response.metadata == {}
         assert agent_response._tracer == mock_context.tracer
@@ -63,7 +63,7 @@ class TestAgentResponse:
         """Test setting a text response."""
         result = agent_response.text("Hello, world!")
         assert result == agent_response  # Should return self for chaining
-        assert agent_response.contentType == "text/plain"
+        assert agent_response.content_type == "text/plain"
         assert agent_response._payload == "Hello, world!"
         assert agent_response._metadata is None
 
@@ -75,7 +75,7 @@ class TestAgentResponse:
         json_data = {"message": "Hello, world!"}
         result = agent_response.json(json_data)
         assert result == agent_response  # Should return self for chaining
-        assert agent_response.contentType == "application/json"
+        assert agent_response.content_type == "application/json"
         assert agent_response._payload == json.dumps(json_data)
 
     def test_binary(self, agent_response):
@@ -83,7 +83,7 @@ class TestAgentResponse:
         binary_data = b"Hello, world!"
         result = agent_response.binary(binary_data)
         assert result == agent_response  # Should return self for chaining
-        assert agent_response.contentType == "application/octet-stream"
+        assert agent_response.content_type == "application/octet-stream"
         assert agent_response._payload == binary_data
 
     def test_empty(self, agent_response):
@@ -108,7 +108,7 @@ class TestAgentResponse:
         data = ["chunk1", "chunk2"]
         result = agent_response.stream(data)
         assert result == agent_response  # Should return self for chaining
-        assert agent_response.contentType == "application/octet-stream"
+        assert agent_response.content_type == "application/octet-stream"
         assert agent_response._payload is None
         assert agent_response._metadata is None
         assert agent_response._stream == data

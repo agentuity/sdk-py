@@ -2,6 +2,7 @@ import logging
 import io
 from unittest.mock import MagicMock, patch
 from opentelemetry import trace
+import pytest
 
 logger = logging.getLogger("test_logger")
 
@@ -36,16 +37,9 @@ def test_instrument():
     import importlib.util
 
     if importlib.util.find_spec("langchain_community") is None:
-        test_module.logger.error(
-            "Could not instrument Langchain: No module named 'langchain_community'"
-        )
-        return False
-
+        pytest.skip("langchain_community is not installed")
     if importlib.util.find_spec("langchain_core") is None:
-        test_module.logger.error(
-            "Could not instrument Langchain: No module named 'langchain_core'"
-        )
-        return False
+        pytest.skip("langchain_core is not installed")
 
     try:
         BaseCallbackHandler = test_module.BaseCallbackHandler
