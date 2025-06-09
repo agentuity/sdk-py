@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.92] - 2025-06-09
+
+### Added
+- Email class support for large attachments and send reply functionality ([#59](https://github.com/agentuity/sdk-py/pull/59))
+- Structured interfaces for agent requests, context, data, and email processing with streaming and async capabilities ([#59](https://github.com/agentuity/sdk-py/pull/59))
+- Ability to send reply emails with attachments and telemetry support ([#59](https://github.com/agentuity/sdk-py/pull/59))
+
+### Changed
+- Standardized naming conventions for content type attributes across the application ([#59](https://github.com/agentuity/sdk-py/pull/59))
+- Enhanced encapsulation and interface compliance for agent context, data, and request objects ([#59](https://github.com/agentuity/sdk-py/pull/59))
+- Deprecated legacy property names in favor of new, consistent ones, with warnings for backward compatibility ([#59](https://github.com/agentuity/sdk-py/pull/59))
+
+### Fixed
+- Added OpenTelemetry tracing headers to HTTP requests for improved observability ([#59](https://github.com/agentuity/sdk-py/pull/59))
+- Corrected attribute names in tests and code to ensure consistent access to content type properties ([#59](https://github.com/agentuity/sdk-py/pull/59))
+
 ## [0.0.91] - 2025-05-31
 
 ### Added
@@ -164,6 +180,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.69] - 2025-03-10
 
+[0.0.92]: https://github.com/agentuity/sdk-py/compare/v0.0.91...v0.0.92
 [0.0.91]: https://github.com/agentuity/sdk-py/compare/v0.0.90...v0.0.91
 [0.0.90]: https://github.com/agentuity/sdk-py/compare/v0.0.89...v0.0.90
 [0.0.89]: https://github.com/agentuity/sdk-py/compare/v0.0.88...v0.0.89
