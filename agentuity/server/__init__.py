@@ -304,7 +304,7 @@ async def handle_agent_request(request: web.Request):
     agents_by_id = request.app["agents_by_id"]
 
     agentId = request.match_info["agent_id"]
-    logger.debug(f"request: POST /{agentId}")
+    logger.debug(f"request: {request.method} {request.path}")
 
     # Check if the agent exists in our map
     if agentId in agents_by_id:
@@ -519,9 +519,10 @@ async def handle_agent_request(request: web.Request):
                         headers=headers,
                     )
     else:
+        message = f"Agent {agentId} not found" if "agent_" in agentId else "Not found"
         # Agent not found
         return web.Response(
-            text=f"Agent {agentId} not found",
+            text=message,
             status=404,
             headers=make_response_headers(request, "text/plain"),
         )
@@ -534,7 +535,7 @@ async def handle_health_check(request):
             request,
             "text/plain",
             None,
-            dict({"x-agentuity-binary": "true", "x-agentuity-version": __version__}),
+            dict({"x-agentuity-version": __version__}),
         ),
     )
 
@@ -674,12 +675,8 @@ def autostart(callback: Callable[[], None] = None):
     # Add routes
     app.router.add_get("/", handle_index)
     app.router.add_get("/_health", handle_health_check)
-    app.router.add_get("/{agent_id}", handle_agent_request)
-    app.router.add_post("/{agent_id}", handle_agent_request)
-    app.router.add_put("/{agent_id}", handle_agent_request)
-    app.router.add_delete("/{agent_id}", handle_agent_request)
-    app.router.add_patch("/{agent_id}", handle_agent_request)
-    app.router.add_options("/{agent_id}", handle_agent_options_request)
+    for method in ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]:
+        app.router.add_route(method, "/{agent_id}{tail:.*}", handle_agent_request)
     app.router.add_get("/welcome", handle_welcome_request)
     app.router.add_get("/welcome/{agent_id}", handle_agent_welcome_request)
 
