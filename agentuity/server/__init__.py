@@ -564,8 +564,11 @@ def load_config() -> Tuple[Optional[dict], str]:
         with open(config_path, "r") as config_file:
             config_data = json.load(config_file)
             for agent in config_data["agents"]:
-                config_data["filename"] = os.path.join(
-                    os.getcwd(), "agentuity_agents", agent["name"], "agent.py"
+                agent["filename"] = os.path.join(
+                    os.getcwd(),
+                    "agentuity-agents",
+                    safe_python_name(agent["name"]),
+                    "agent.py",
                 )
     else:
         config_path = os.path.join(os.getcwd(), "agentuity.yaml")
@@ -585,7 +588,7 @@ def load_config() -> Tuple[Optional[dict], str]:
                     config["name"] = agent["name"]
                     config["filename"] = os.path.join(
                         os.getcwd(),
-                        "agentuity_agents",
+                        "agentuity-agents",
                         safe_python_name(agent["name"]),
                         "agent.py",
                     )

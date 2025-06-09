@@ -11,7 +11,7 @@ wheels/
 
 # agentuity testing
 /.agentuity/
-/agentuity_agents/
+/agentuity-agents/
 /agentuity.yaml
 .DS_Store
 .env
