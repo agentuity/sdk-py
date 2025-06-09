@@ -675,8 +675,9 @@ def autostart(callback: Callable[[], None] = None):
     # Add routes
     app.router.add_get("/", handle_index)
     app.router.add_get("/_health", handle_health_check)
-    for method in ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]:
+    for method in ["GET", "POST", "PUT", "DELETE", "PATCH"]:
         app.router.add_route(method, "/{agent_id}{tail:.*}", handle_agent_request)
+    app.router.add_options("/{agent_id}{tail:.*}", handle_agent_options_request)
     app.router.add_get("/welcome", handle_welcome_request)
     app.router.add_get("/welcome/{agent_id}", handle_agent_welcome_request)
 
