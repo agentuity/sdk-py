@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.94] - 2025-06-11
+
+### Fixed
+- Fixed naming conflict with openAI Agents SDK by renaming agents directory to agentuity-agents with backward compatibility ([#63](https://github.com/agentuity/sdk-py/pull/63))
+- Removed ruff from runtime dependencies as it's only needed for development ([#63](https://github.com/agentuity/sdk-py/pull/63))
+
 ## [0.0.93] - 2025-06-09
 
 ### Fixed
@@ -187,6 +193,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.69] - 2025-03-10
 
+[0.0.94]: https://github.com/agentuity/sdk-py/compare/v0.0.93...v0.0.94
 [0.0.93]: https://github.com/agentuity/sdk-py/compare/v0.0.92...v0.0.93
 [0.0.92]: https://github.com/agentuity/sdk-py/compare/v0.0.91...v0.0.92
 [0.0.91]: https://github.com/agentuity/sdk-py/compare/v0.0.90...v0.0.91
