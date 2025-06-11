@@ -6,7 +6,7 @@ import yaml
 
 sys.modules["openlit"] = MagicMock()
 
-from agentuity.server import load_config, load_agents, autostart  # noqa: E402
+from agentuity.server import load_config, load_agents, autostart, get_agent_filepath  # noqa: E402
 
 
 class TestServerConfig:
@@ -256,3 +256,77 @@ class TestServerConfig:
 
             mock_run_app.assert_called_once()
             mock_logger_info.assert_called()
+
+    def test_get_agent_filepath_prefers_new_structure(self, tmp_path):
+        """Test that get_agent_filepath prefers the new agentuity-agents structure."""
+        # Create both old and new directory structures
+        legacy_dir = tmp_path / "agents" / "test_agent"
+        legacy_dir.mkdir(parents=True)
+        legacy_file = legacy_dir / "agent.py"
+        legacy_file.write_text("# legacy agent")
+
+        new_dir = tmp_path / "agentuity-agents" / "test_agent"
+        new_dir.mkdir(parents=True)
+        new_file = new_dir / "agent.py"
+        new_file.write_text("# new agent")
+
+        with patch("os.getcwd", return_value=str(tmp_path)):
+            result = get_agent_filepath("test_agent")
+
+            # Should prefer new structure
+            assert "agentuity-agents" in result
+            assert result == str(new_file)
+
+    def test_get_agent_filepath_falls_back_to_legacy(self, tmp_path):
+        """Test that get_agent_filepath falls back to legacy agents structure."""
+        # Create only legacy directory structure
+        legacy_dir = tmp_path / "agents" / "test_agent"
+        legacy_dir.mkdir(parents=True)
+        legacy_file = legacy_dir / "agent.py"
+        legacy_file.write_text("# legacy agent")
+
+        with (
+            patch("os.getcwd", return_value=str(tmp_path)),
+            patch("agentuity.server.logger.warning") as mock_warning,
+        ):
+            result = get_agent_filepath("test_agent")
+
+            # Should use legacy structure
+            assert "agents" in result
+            assert result == str(legacy_file)
+
+            # Should log a warning about using legacy structure
+            mock_warning.assert_called_once_with(
+                "Using legacy agents directory structure for test_agent. Consider migrating to 'agentuity-agents' directory."
+            )
+
+    def test_get_agent_filepath_defaults_to_new_when_neither_exists(self, tmp_path):
+        """Test that get_agent_filepath defaults to new structure when neither exists."""
+        with patch("os.getcwd", return_value=str(tmp_path)):
+            result = get_agent_filepath("test_agent")
+
+            # Should return new structure path as default
+            assert "agentuity-agents" in result
+            expected_path = str(
+                tmp_path / "agentuity-agents" / "test_agent" / "agent.py"
+            )
+            assert result == expected_path
+
+    def test_get_agent_filepath_handles_special_characters(self, tmp_path):
+        """Test that get_agent_filepath properly handles agent names with special characters."""
+        # Test with agent name that needs safe_python_name transformation
+        agent_name = "My Test-Agent 123!"
+
+        # Create new directory structure with safe name
+        safe_name = "My_Test_Agent_123_"  # Expected safe name transformation
+        new_dir = tmp_path / "agentuity-agents" / safe_name
+        new_dir.mkdir(parents=True)
+        new_file = new_dir / "agent.py"
+        new_file.write_text("# safe name agent")
+
+        with patch("os.getcwd", return_value=str(tmp_path)):
+            result = get_agent_filepath(agent_name)
+
+            # Should use the safely transformed name
+            assert safe_name in result
+            assert result == str(new_file)

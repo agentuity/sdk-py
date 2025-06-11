@@ -21,6 +21,7 @@ dependencies = [
     "openlit>=1.33.19",
     "openai-agents>=0.0.3",
     "mail-parser>=4.1.2",
+    "ruff>=0.11.11",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",

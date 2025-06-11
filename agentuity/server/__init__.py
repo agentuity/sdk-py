@@ -555,6 +555,30 @@ async def handle_index(request):
     return web.Response(text=buf, content_type="text/plain")
 
 
+def get_agent_filepath(agent_name: str) -> str:
+    """
+    Get the filepath for an agent, checking both new and legacy directory structures.
+    First tries the new 'agentuity-agents' directory, then falls back to the legacy 'agents' directory.
+    """
+    safe_name = safe_python_name(agent_name)
+
+    # Try new structure first
+    new_path = os.path.join(os.getcwd(), "agentuity-agents", safe_name, "agent.py")
+    if os.path.exists(new_path):
+        return new_path
+
+    # Fall back to legacy structure for backwards compatibility
+    legacy_path = os.path.join(os.getcwd(), "agents", safe_name, "agent.py")
+    if os.path.exists(legacy_path):
+        logger.warning(
+            f"Using legacy agents directory structure for {agent_name}. Consider migrating to 'agentuity-agents' directory."
+        )
+        return legacy_path
+
+    # Return new path as default (for error reporting)
+    return new_path
+
+
 def load_config() -> Tuple[Optional[dict], str]:
     # Load agents from config file
     config_data = None
@@ -564,12 +588,7 @@ def load_config() -> Tuple[Optional[dict], str]:
         with open(config_path, "r") as config_file:
             config_data = json.load(config_file)
             for agent in config_data["agents"]:
-                agent["filename"] = os.path.join(
-                    os.getcwd(),
-                    "agentuity-agents",
-                    safe_python_name(agent["name"]),
-                    "agent.py",
-                )
+                agent["filename"] = get_agent_filepath(agent["name"])
     else:
         config_path = os.path.join(os.getcwd(), "agentuity.yaml")
         if os.path.exists(config_path):
@@ -586,12 +605,7 @@ def load_config() -> Tuple[Optional[dict], str]:
                     config = {}
                     config["id"] = agent["id"]
                     config["name"] = agent["name"]
-                    config["filename"] = os.path.join(
-                        os.getcwd(),
-                        "agentuity-agents",
-                        safe_python_name(agent["name"]),
-                        "agent.py",
-                    )
+                    config["filename"] = get_agent_filepath(agent["name"])
                     config_data["agents"].append(config)
         else:
             raise Exception(f"No config file found at {config_path}")
