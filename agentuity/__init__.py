@@ -11,6 +11,7 @@ from agentuity.server import (
     AgentContext,
     KeyValueStore,
     VectorStore,
+    ObjectStore,
     autostart,
 )
 
@@ -22,6 +23,7 @@ __all__ = [
     "AgentContext",
     "KeyValueStore",
     "VectorStore",
+    "ObjectStore",
     "autostart",
     "EmailAttachment",
 ]
