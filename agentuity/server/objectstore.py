@@ -1,6 +1,6 @@
 import httpx
 import json
-from typing import Optional, Union, Dict, Any
+from typing import Optional, Dict, Any
 from urllib.parse import quote
 from .data import DataResult, Data, dataLikeToData
 from opentelemetry.propagate import inject
@@ -11,8 +11,10 @@ from .types import DataLike
 
 class ObjectStorePutParams:
     """Parameters for object store put operations."""
-    
-    def __init__(self, content_type: Optional[str] = None, content_encoding: Optional[str] = None):
+
+    def __init__(
+        self, content_type: Optional[str] = None, content_encoding: Optional[str] = None
+    ):
         self.content_type = content_type
         self.content_encoding = content_encoding
 
@@ -59,18 +61,18 @@ class ObjectStore:
         with self.tracer.start_as_current_span("agentuity.objectstore.get") as span:
             span.set_attribute("bucket", bucket)
             span.set_attribute("key", key)
-            
+
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "User-Agent": f"Agentuity Python SDK/{__version__}",
             }
             inject(headers)
-            
+
             response = httpx.get(
                 f"{self.base_url}/object/2025-03-17/{quote(bucket, safe='')}/{quote(key, safe='')}",
                 headers=headers,
             )
-            
+
             if response.status_code == 200:
                 span.add_event("hit")
                 span.set_status(trace.StatusCode.OK)
@@ -93,8 +95,8 @@ class ObjectStore:
                 span.set_status(trace.StatusCode.ERROR, "Failed to get object")
                 span.record_exception(Exception(error_message))
                 raise Exception(
-                    error_message or 
-                    f"error getting object: {response.reason_phrase} ({response.status_code})"
+                    error_message
+                    or f"error getting object: {response.reason_phrase} ({response.status_code})"
                 )
 
     async def put(
@@ -119,7 +121,7 @@ class ObjectStore:
         with self.tracer.start_as_current_span("agentuity.objectstore.put") as span:
             span.set_attribute("bucket", bucket)
             span.set_attribute("key", key)
-            
+
             if params:
                 if params.content_type:
                     span.set_attribute("contentType", params.content_type)
@@ -139,7 +141,7 @@ class ObjectStore:
                 "User-Agent": f"Agentuity Python SDK/{__version__}",
                 "Content-Type": content_type,
             }
-            
+
             if params and params.content_encoding:
                 headers["Content-Encoding"] = params.content_encoding
 
@@ -157,14 +159,14 @@ class ObjectStore:
                 error_message = ""
                 try:
                     error_message = response.text
-                except:
+                except Exception:
                     error_message = response.reason_phrase
-                    
+
                 span.set_status(trace.StatusCode.ERROR, "Failed to put object")
                 span.record_exception(Exception(error_message))
                 raise Exception(
-                    error_message or 
-                    f"error putting object: {response.reason_phrase} ({response.status_code})"
+                    error_message
+                    or f"error putting object: {response.reason_phrase} ({response.status_code})"
                 )
 
     async def delete(self, bucket: str, key: str) -> bool:
@@ -184,18 +186,18 @@ class ObjectStore:
         with self.tracer.start_as_current_span("agentuity.objectstore.delete") as span:
             span.set_attribute("bucket", bucket)
             span.set_attribute("key", key)
-            
+
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "User-Agent": f"Agentuity Python SDK/{__version__}",
             }
             inject(headers)
-            
+
             response = httpx.delete(
                 f"{self.base_url}/object/2025-03-17/{quote(bucket, safe='')}/{quote(key, safe='')}",
                 headers=headers,
             )
-            
+
             if response.status_code == 200:
                 span.add_event("deleted", {"deleted": True})
                 span.set_status(trace.StatusCode.OK)
@@ -209,15 +211,12 @@ class ObjectStore:
                 span.set_status(trace.StatusCode.ERROR, "Failed to delete object")
                 span.record_exception(Exception(error_message))
                 raise Exception(
-                    error_message or 
-                    f"error deleting object: {response.reason_phrase} ({response.status_code})"
+                    error_message
+                    or f"error deleting object: {response.reason_phrase} ({response.status_code})"
                 )
 
     async def create_public_url(
-        self, 
-        bucket: str, 
-        key: str, 
-        expires_duration: Optional[int] = None
+        self, bucket: str, key: str, expires_duration: Optional[int] = None
     ) -> str:
         """
         Create a public URL for an object.
@@ -233,14 +232,16 @@ class ObjectStore:
         Raises:
             Exception: If creating the public URL fails
         """
-        with self.tracer.start_as_current_span("agentuity.objectstore.createPublicURL") as span:
+        with self.tracer.start_as_current_span(
+            "agentuity.objectstore.createPublicURL"
+        ) as span:
             span.set_attribute("bucket", bucket)
             span.set_attribute("key", key)
             if expires_duration:
                 span.set_attribute("expiresDuration", expires_duration)
 
             path = f"/object/2025-03-17/presigned/{quote(bucket, safe='')}/{quote(key, safe='')}"
-            
+
             request_body: Dict[str, Any] = {}
             if expires_duration:
                 request_body["expires"] = expires_duration
@@ -268,8 +269,8 @@ class ObjectStore:
                         raise Exception(response_data["message"])
                 except (json.JSONDecodeError, KeyError):
                     pass
-            
+
             span.set_status(trace.StatusCode.ERROR, "Failed to create public URL")
             raise Exception(
                 f"error creating public URL: {response.reason_phrase} ({response.status_code})"
-            ) 
+            )

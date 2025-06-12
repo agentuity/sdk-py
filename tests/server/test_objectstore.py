@@ -106,7 +106,7 @@ class TestObjectStore:
 
         mock_get.assert_called_once()
         args, kwargs = mock_get.call_args
-        
+
         # Check that the URL contains properly encoded bucket and key names
         # With safe='', both spaces and forward slashes should be encoded
         assert "test%20bucket%2Fwith%20spaces" in args[0]
@@ -150,10 +150,9 @@ class TestObjectStore:
         monkeypatch.setattr(httpx, "put", mock_put)
 
         params = ObjectStorePutParams(
-            content_type="application/json",
-            content_encoding="gzip"
+            content_type="application/json", content_encoding="gzip"
         )
-        
+
         await object_store.put("test-bucket", "test-key", '{"test": "data"}', params)
 
         mock_put.assert_called_once()
@@ -289,13 +288,15 @@ class TestObjectStore:
         )
 
     @pytest.mark.asyncio
-    async def test_create_public_url_success(self, object_store, mock_tracer, monkeypatch):
+    async def test_create_public_url_success(
+        self, object_store, mock_tracer, monkeypatch
+    ):
         """Test successful creation of a public URL."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "success": True,
-            "url": "https://example.com/signed-url"
+            "url": "https://example.com/signed-url",
         }
 
         mock_post = MagicMock(return_value=mock_response)
@@ -320,13 +321,15 @@ class TestObjectStore:
         span.set_status.assert_called_once_with(trace.StatusCode.OK)
 
     @pytest.mark.asyncio
-    async def test_create_public_url_with_expiry(self, object_store, mock_tracer, monkeypatch):
+    async def test_create_public_url_with_expiry(
+        self, object_store, mock_tracer, monkeypatch
+    ):
         """Test creation of a public URL with expiry duration."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "success": True,
-            "url": "https://example.com/signed-url-with-expiry"
+            "url": "https://example.com/signed-url-with-expiry",
         }
 
         mock_post = MagicMock(return_value=mock_response)
@@ -350,13 +353,15 @@ class TestObjectStore:
         span.set_attribute.assert_any_call("expiresDuration", expires_duration)
 
     @pytest.mark.asyncio
-    async def test_create_public_url_api_error(self, object_store, mock_tracer, monkeypatch):
+    async def test_create_public_url_api_error(
+        self, object_store, mock_tracer, monkeypatch
+    ):
         """Test API error response for public URL creation."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "success": False,
-            "message": "Object not found"
+            "message": "Object not found",
         }
 
         mock_post = MagicMock(return_value=mock_response)
@@ -366,7 +371,9 @@ class TestObjectStore:
             await object_store.create_public_url("test-bucket", "test-key")
 
     @pytest.mark.asyncio
-    async def test_create_public_url_http_error(self, object_store, mock_tracer, monkeypatch):
+    async def test_create_public_url_http_error(
+        self, object_store, mock_tracer, monkeypatch
+    ):
         """Test HTTP error handling for public URL creation."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 500
@@ -384,7 +391,9 @@ class TestObjectStore:
         )
 
     @pytest.mark.asyncio
-    async def test_create_public_url_json_parse_error(self, object_store, mock_tracer, monkeypatch):
+    async def test_create_public_url_json_parse_error(
+        self, object_store, mock_tracer, monkeypatch
+    ):
         """Test JSON parse error handling for public URL creation."""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
@@ -410,8 +419,7 @@ class TestObjectStorePutParams:
     def test_custom_params(self):
         """Test custom parameter values."""
         params = ObjectStorePutParams(
-            content_type="application/json",
-            content_encoding="gzip"
+            content_type="application/json", content_encoding="gzip"
         )
         assert params.content_type == "application/json"
         assert params.content_encoding == "gzip"
@@ -420,4 +428,4 @@ class TestObjectStorePutParams:
         """Test partial parameter specification."""
         params = ObjectStorePutParams(content_type="text/plain")
         assert params.content_type == "text/plain"
-        assert params.content_encoding is None 
+        assert params.content_encoding is None

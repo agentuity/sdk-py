@@ -103,7 +103,11 @@ class TestAgentContext:
                 clear=True,
             ),
         ):
-            mock_services = {"kv": MagicMock(), "vector": MagicMock(), "objectstore": MagicMock()}
+            mock_services = {
+                "kv": MagicMock(),
+                "vector": MagicMock(),
+                "objectstore": MagicMock(),
+            }
             mock_logger = MagicMock()
             mock_tracer = MagicMock(spec=trace.Tracer)
             mock_agent = {"id": "test_agent", "name": "Test Agent"}
