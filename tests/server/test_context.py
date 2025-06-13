@@ -25,7 +25,7 @@ class TestAgentContext:
     @pytest.fixture
     def mock_services(self):
         """Create mock services for testing."""
-        return {"kv": MagicMock(), "vector": MagicMock()}
+        return {"kv": MagicMock(), "vector": MagicMock(), "objectstore": MagicMock()}
 
     @pytest.fixture
     def mock_agent(self):
@@ -77,6 +77,7 @@ class TestAgentContext:
         """Test initialization of AgentContext."""
         assert agent_context.kv == mock_services["kv"]
         assert agent_context.vector == mock_services["vector"]
+        assert agent_context.objectstore == mock_services["objectstore"]
         assert agent_context.logger == mock_logger
         assert agent_context.tracer == mock_tracer
         assert isinstance(agent_context.agent, AgentConfig)
@@ -102,7 +103,11 @@ class TestAgentContext:
                 clear=True,
             ),
         ):
-            mock_services = {"kv": MagicMock(), "vector": MagicMock()}
+            mock_services = {
+                "kv": MagicMock(),
+                "vector": MagicMock(),
+                "objectstore": MagicMock(),
+            }
             mock_logger = MagicMock()
             mock_tracer = MagicMock(spec=trace.Tracer)
             mock_agent = {"id": "test_agent", "name": "Test Agent"}

@@ -23,6 +23,7 @@ from .request import AgentRequest
 from .response import AgentResponse
 from .keyvalue import KeyValueStore
 from .vector import VectorStore
+from .objectstore import ObjectStore
 from .data import dataLikeToData
 
 logger = logging.getLogger(__name__)
@@ -408,6 +409,14 @@ async def handle_agent_request(request: web.Request):
                             tracer=tracer,
                         ),
                         "vector": VectorStore(
+                            base_url=os.environ.get(
+                                "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
+                            ),
+                            api_key=os.environ.get("AGENTUITY_API_KEY")
+                            or os.environ.get("AGENTUITY_SDK_KEY"),
+                            tracer=tracer,
+                        ),
+                        "objectstore": ObjectStore(
                             base_url=os.environ.get(
                                 "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
                             ),

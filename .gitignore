@@ -16,3 +16,4 @@ wheels/
 /agentuity.yaml
 .DS_Store
 .env
+.opencode
