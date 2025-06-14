@@ -138,14 +138,6 @@ class ObjectStore:
                     span.set_attribute("contentType", params.content_type)
                 if params.content_encoding:
                     span.set_attribute("contentEncoding", params.content_encoding)
-                if params.cache_control:
-                    span.set_attribute("cacheControl", params.cache_control)
-                if params.content_disposition:
-                    span.set_attribute("contentDisposition", params.content_disposition)
-                if params.content_language:
-                    span.set_attribute("contentLanguage", params.content_language)
-                if params.metadata:
-                    span.set_attribute("metadataKeys", list(params.metadata.keys()))
 
             try:
                 data_obj = dataLikeToData(data, params.content_type if params else None)
