@@ -166,6 +166,77 @@ class TestObjectStore:
         span.set_attribute.assert_any_call("contentEncoding", "gzip")
 
     @pytest.mark.asyncio
+    async def test_put_with_all_params(self, object_store, mock_tracer, monkeypatch):
+        """Test putting data with all custom parameters."""
+        mock_response = MagicMock(spec=httpx.Response)
+        mock_response.status_code = 201
+
+        mock_put = MagicMock(return_value=mock_response)
+        monkeypatch.setattr(httpx, "put", mock_put)
+
+        metadata = {"author": "test-user", "version": "1.0", "category": "documents"}
+        params = ObjectStorePutParams(
+            content_type="application/json",
+            content_encoding="gzip",
+            cache_control="max-age=3600",
+            content_disposition="attachment; filename=test.json",
+            content_language="en-US",
+            metadata=metadata,
+        )
+
+        await object_store.put("test-bucket", "test-key", '{"test": "data"}', params)
+
+        mock_put.assert_called_once()
+        args, kwargs = mock_put.call_args
+
+        headers = kwargs["headers"]
+        assert headers["Content-Type"] == "application/json"
+        assert headers["Content-Encoding"] == "gzip"
+        assert headers["Cache-Control"] == "max-age=3600"
+        assert headers["Content-Disposition"] == "attachment; filename=test.json"
+        assert headers["Content-Language"] == "en-US"
+
+        assert headers["x-metadata-author"] == "test-user"
+        assert headers["x-metadata-version"] == "1.0"
+        assert headers["x-metadata-category"] == "documents"
+
+        span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
+        span.set_attribute.assert_any_call("contentType", "application/json")
+        span.set_attribute.assert_any_call("contentEncoding", "gzip")
+        span.set_attribute.assert_any_call("cacheControl", "max-age=3600")
+        span.set_attribute.assert_any_call(
+            "contentDisposition", "attachment; filename=test.json"
+        )
+        span.set_attribute.assert_any_call("contentLanguage", "en-US")
+
+    @pytest.mark.asyncio
+    async def test_put_with_metadata_only(self, object_store, mock_tracer, monkeypatch):
+        """Test putting data with only metadata parameters."""
+        mock_response = MagicMock(spec=httpx.Response)
+        mock_response.status_code = 200
+
+        mock_put = MagicMock(return_value=mock_response)
+        monkeypatch.setattr(httpx, "put", mock_put)
+
+        metadata = {"project": "test-project", "environment": "staging"}
+        params = ObjectStorePutParams(metadata=metadata)
+
+        await object_store.put("test-bucket", "test-key", "Hello, world!", params)
+
+        mock_put.assert_called_once()
+        args, kwargs = mock_put.call_args
+
+        headers = kwargs["headers"]
+        assert headers["x-metadata-project"] == "test-project"
+        assert headers["x-metadata-environment"] == "staging"
+
+        # Check that other headers are not set (except defaults)
+        assert "Cache-Control" not in headers
+        assert "Content-Disposition" not in headers
+        assert "Content-Language" not in headers
+        assert "Content-Encoding" not in headers
+
+    @pytest.mark.asyncio
     async def test_put_json_data(self, object_store, mock_tracer, monkeypatch):
         """Test putting JSON data to object store."""
         mock_response = MagicMock(spec=httpx.Response)
@@ -429,3 +500,31 @@ class TestObjectStorePutParams:
         params = ObjectStorePutParams(content_type="text/plain")
         assert params.content_type == "text/plain"
         assert params.content_encoding is None
+
+    def test_all_params(self):
+        """Test all parameter values."""
+        metadata = {"author": "test", "version": "1.0"}
+        params = ObjectStorePutParams(
+            content_type="application/json",
+            content_encoding="gzip",
+            cache_control="max-age=3600",
+            content_disposition="attachment; filename=test.json",
+            content_language="en-US",
+            metadata=metadata,
+        )
+        assert params.content_type == "application/json"
+        assert params.content_encoding == "gzip"
+        assert params.cache_control == "max-age=3600"
+        assert params.content_disposition == "attachment; filename=test.json"
+        assert params.content_language == "en-US"
+        assert params.metadata == metadata
+
+    def test_metadata_default(self):
+        """Test metadata defaults to empty dict."""
+        params = ObjectStorePutParams()
+        assert params.metadata == {}
+
+    def test_metadata_none(self):
+        """Test metadata None converts to empty dict."""
+        params = ObjectStorePutParams(metadata=None)
+        assert params.metadata == {}

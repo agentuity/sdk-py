@@ -13,10 +13,20 @@ class ObjectStorePutParams:
     """Parameters for object store put operations."""
 
     def __init__(
-        self, content_type: Optional[str] = None, content_encoding: Optional[str] = None
+        self,
+        content_type: Optional[str] = None,
+        content_encoding: Optional[str] = None,
+        cache_control: Optional[str] = None,
+        content_disposition: Optional[str] = None,
+        content_language: Optional[str] = None,
+        metadata: Optional[Dict[str, str]] = None,
     ):
         self.content_type = content_type
         self.content_encoding = content_encoding
+        self.cache_control = cache_control
+        self.content_disposition = content_disposition
+        self.content_language = content_language
+        self.metadata = metadata or {}
 
 
 class ObjectStore:
@@ -113,7 +123,8 @@ class ObjectStore:
             bucket: The bucket to put the object into
             key: The key of the object to put
             data: The data to put
-            params: Optional parameters including content_type and content_encoding
+            params: Optional parameters including content_type, content_encoding,
+                   cache_control, content_disposition, content_language, and metadata
 
         Raises:
             Exception: If the storage operation fails
@@ -127,6 +138,12 @@ class ObjectStore:
                     span.set_attribute("contentType", params.content_type)
                 if params.content_encoding:
                     span.set_attribute("contentEncoding", params.content_encoding)
+                if params.cache_control:
+                    span.set_attribute("cacheControl", params.cache_control)
+                if params.content_disposition:
+                    span.set_attribute("contentDisposition", params.content_disposition)
+                if params.content_language:
+                    span.set_attribute("contentLanguage", params.content_language)
 
             try:
                 data_obj = dataLikeToData(data, params.content_type if params else None)
@@ -142,8 +159,18 @@ class ObjectStore:
                 "Content-Type": content_type,
             }
 
-            if params and params.content_encoding:
-                headers["Content-Encoding"] = params.content_encoding
+            if params:
+                if params.content_encoding:
+                    headers["Content-Encoding"] = params.content_encoding
+                if params.cache_control:
+                    headers["Cache-Control"] = params.cache_control
+                if params.content_disposition:
+                    headers["Content-Disposition"] = params.content_disposition
+                if params.content_language:
+                    headers["Content-Language"] = params.content_language
+
+                for key, value in params.metadata.items():
+                    headers[f"x-metadata-{key}"] = value
 
             inject(headers)
 
