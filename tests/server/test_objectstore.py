@@ -203,6 +203,11 @@ class TestObjectStore:
         span = mock_tracer.start_as_current_span.return_value.__enter__.return_value
         span.set_attribute.assert_any_call("contentType", "application/json")
         span.set_attribute.assert_any_call("contentEncoding", "gzip")
+        span.set_attribute.assert_any_call("cacheControl", "max-age=3600")
+        span.set_attribute.assert_any_call(
+            "contentDisposition", "attachment; filename=test.json"
+        )
+        span.set_attribute.assert_any_call("contentLanguage", "en-US")
 
     @pytest.mark.asyncio
     async def test_put_with_metadata_only(self, object_store, mock_tracer, monkeypatch):
