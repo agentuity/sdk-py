@@ -86,6 +86,10 @@ class DataInterface(ABC):
     async def email(self) -> "EmailInterface":
         pass
 
+    @abstractmethod
+    async def discord_message(self) -> "DiscordMessageInterface":
+        pass
+
 
 class OutgoingEmailAttachmentInterface(ABC):
     @property
@@ -170,4 +174,57 @@ class EmailInterface(ABC):
         html: str = None,
         attachments: List["OutgoingEmailAttachmentInterface"] = None,
     ):
+        pass
+
+
+class DiscordMessageInterface(ABC):
+    @property
+    @abstractmethod
+    def guild_id(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def channel_id(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def message_id(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def user_id(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def username(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def content(self) -> str:
+        pass
+
+    @abstractmethod
+    async def send_reply(
+        self,
+        request: "AgentRequestInterface",
+        context: "AgentContextInterface",
+        content: str
+    ) -> None:
+        pass
+
+
+class DiscordServiceInterface(ABC):
+    @abstractmethod
+    async def send_reply(
+        self,
+        agent_id: str,
+        message_id: str,
+        channel_id: str,
+        content: str
+    ) -> None:
         pass

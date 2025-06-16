@@ -16,6 +16,8 @@ from agentuity.server import (
 )
 
 from agentuity.io.email import EmailAttachment
+from agentuity.io.discord import DiscordMessage
+from agentuity.apis.discord import DiscordApi
 
 __all__ = [
     "AgentRequest",
@@ -26,4 +28,6 @@ __all__ = [
     "ObjectStore",
     "autostart",
     "EmailAttachment",
+    "DiscordMessage",
+    "DiscordApi",
 ]
