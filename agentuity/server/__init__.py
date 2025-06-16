@@ -436,7 +436,7 @@ async def handle_agent_request(request: web.Request):
                     run_id=run_id,
                     scope=scope,
                 )
-                agent_data = await agent_request.data
+                agent_data = agent_request.data
                 try:
                     if isinstance(agent_data, (str, bytes)):
                         data_obj = dataLikeToData(agent_data)

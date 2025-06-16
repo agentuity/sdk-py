@@ -21,7 +21,7 @@ DataLike = Union[
 class AgentRequestInterface(ABC):
     @property
     @abstractmethod
-    async def data(self) -> "DataInterface":
+    def data(self) -> "DataInterface":
         pass
 
     @property

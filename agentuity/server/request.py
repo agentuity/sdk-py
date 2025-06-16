@@ -30,7 +30,7 @@ class AgentRequest(AgentRequestInterface):
         return self._data
 
     @property
-    async def data(self) -> "DataInterface":
+    def data(self) -> "DataInterface":
         """
         Get the data object associated with the request.
 
