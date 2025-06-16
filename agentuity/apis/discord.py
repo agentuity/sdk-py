@@ -1,5 +1,4 @@
 import os
-import json
 import httpx
 from opentelemetry import trace
 from opentelemetry.propagate import inject

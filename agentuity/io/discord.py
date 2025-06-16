@@ -1,9 +1,4 @@
 import json
-import os
-import httpx
-from opentelemetry import trace
-from opentelemetry.propagate import inject
-from agentuity import __version__
 from agentuity.server.types import (
     AgentRequestInterface,
     AgentContextInterface,
