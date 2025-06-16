@@ -1,6 +1,7 @@
 import importlib.util
 import logging
 import os
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +129,7 @@ def _setup_instrumentation():
                     self.spans = {}
 
                 def on_event_start(
-                    self, event_type: str, payload: dict = None, **kwargs
+                    self, event_type: str, payload: Optional[dict] = None, **kwargs
                 ) -> str:
                     try:
                         span = self.tracer.start_span(
@@ -144,8 +145,8 @@ def _setup_instrumentation():
                 def on_event_end(
                     self,
                     event_type: str,
-                    payload: dict = None,
-                    event_id: str = None,
+                    payload: Optional[dict] = None,
+                    event_id: Optional[str] = None,
                     **kwargs,
                 ) -> None:
                     try:

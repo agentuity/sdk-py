@@ -1,3 +1,5 @@
+from typing import Optional
+
 class AgentConfig:
     """
     Configuration class for an agent. This class provides a structured way to access
@@ -18,82 +20,82 @@ class AgentConfig:
         self._config = config
 
     @property
-    def id(self) -> str:
+    def id(self) -> Optional[str]:
         """
         Get the unique identifier of the agent.
 
         Returns:
-            str: The unique identifier of the agent, or None if not set
+            Optional[str]: The unique identifier of the agent, or None if not set
         """
         return self._config.get("id")
 
     @property
-    def name(self) -> str:
+    def name(self) -> Optional[str]:
         """
         Get the display name of the agent.
 
         Returns:
-            str: The display name of the agent, or None if not set
+            Optional[str]: The display name of the agent, or None if not set
         """
         return self._config.get("name")
 
     @property
-    def description(self) -> str:
+    def description(self) -> Optional[str]:
         """
         Get the description of the agent.
 
         Returns:
-            str: The description of the agent's purpose, or None if not set
+            Optional[str]: The description of the agent's purpose, or None if not set
         """
         return self._config.get("description")
 
     @property
-    def filename(self) -> str:
+    def filename(self) -> Optional[str]:
         """
         Get the filename of the agent relative to the dist directory.
 
         Returns:
-            str: The path to the agent's file relative to the dist directory, or None if not set
+            Optional[str]: The path to the agent's file relative to the dist directory, or None if not set
         """
         return self._config.get("filename")
 
     @property
-    def orgId(self) -> str:
+    def orgId(self) -> Optional[str]:
         """
         Get the organization ID of the agent.
 
         Returns:
-            str: The organization ID of the agent, or None if not set
+            Optional[str]: The organization ID of the agent, or None if not set
         """
         return self._config.get("orgId")
 
     @property
-    def projectId(self) -> str:
+    def projectId(self) -> Optional[str]:
         """
         Get the project ID of the agent.
 
         Returns:
-            str: The project ID of the agent, or None if not set
+            Optional[str]: The project ID of the agent, or None if not set
         """
         return self._config.get("projectId")
 
     @property
-    def transactionId(self) -> str:
+    def transactionId(self) -> Optional[str]:
         """
         Get the transaction ID of the agent.
 
         Returns:
-            str: The transaction ID of the agent, or None if not set
+            Optional[str]: The transaction ID of the agent, or None if not set
         """
         return self._config.get("transactionId")
 
     @property
-    def authorization(self) -> str:
+    def authorization(self) -> Optional[str]:
         """
         Get the authorization token for the agent.
 
         Returns:
-            str: The authorization token for the agent, or None if not set
+            Optional[str]: The authorization token for the agent, or None if not set
         """
         return self._config.get("authorization")
 

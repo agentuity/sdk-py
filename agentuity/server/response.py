@@ -1,4 +1,4 @@
-from typing import Optional, Iterable, Callable, Any, Union, AsyncIterator
+from typing import Optional, Iterable, Callable, Any, Union, AsyncIterator, cast, Iterator
 import json
 import inspect
 from .agent import resolve_agent
@@ -70,7 +70,7 @@ class AgentResponse:
         return self._metadata if self._metadata else {}
 
     def handoff(
-        self, params: dict, args: "DataLike" = None, metadata: Optional[dict] = None
+        self, params: dict, args: Optional["DataLike"] = None, metadata: Optional[dict] = None
     ) -> "AgentResponse":
         """
         Configure a handoff to another agent. Execution is deferred until response processing.
@@ -141,7 +141,7 @@ class AgentResponse:
             # Update response with target agent's response
             self._metadata = agent_response.metadata
             self._contentType = agent_response.data.content_type
-            stream = await agent_response.data.stream()
+            stream = agent_response.data.stream()
             self._stream = stream
             self._is_async = hasattr(self._stream, "__anext__")
 
@@ -533,13 +533,18 @@ class AgentResponse:
                     item = await self._stream.__anext__()
                 elif inspect.iscoroutine(self._stream):
                     # If stream is a coroutine, await it directly
-                    item = await self._stream
-                    # After awaiting a coroutine once, it's exhausted
-                    self._stream = None
-                elif self._is_async:
-                    item = await self._stream.__anext__()
+                    try:
+                        item = await self._stream
+                        # After awaiting a coroutine once, it's exhausted
+                        self._stream = None
+                    except Exception:
+                        raise StopAsyncIteration
+                elif self._is_async and hasattr(self._stream, '__anext__'):
+                    item = await cast(AsyncIterator, self._stream).__anext__()
+                elif hasattr(self._stream, '__next__'):
+                    item = next(cast(Iterator, self._stream))
                 else:
-                    item = next(self._stream)
+                    raise StopAsyncIteration
 
                 if self._transform:
                     item = self._transform(item)
