@@ -1,14 +1,14 @@
 import httpx
 import json
 import os
-from typing import Optional, Union
+from typing import Optional, Union, Any
 from opentelemetry import trace
 from opentelemetry.propagate import inject
 import asyncio
 import logging
 from agentuity import __version__
 from .config import AgentConfig
-from .data import Data, DataLike, dataLikeToData
+from .data import Data, DataLike, dataLikeToData, BytesStreamReader
 
 # Configurable timeout values
 CONNECT_TIMEOUT = float(os.environ.get("AGENTUITY_CONNECT_TIMEOUT", "30.0"))
@@ -23,7 +23,7 @@ class RemoteAgentResponse:
     structured access to the response data, content type, and metadata.
     """
 
-    def __init__(self, data: Data, headers: dict = None):
+    def __init__(self, data: Data, headers: Optional[dict] = None):
         """
         Initialize a RemoteAgentResponse with response data.
 
@@ -100,7 +100,8 @@ class LocalAgent:
                     headers[f"x-agentuity-{key}"] = str(value)
 
             async def data_generator():
-                async for chunk in await data.stream():
+                stream = data.stream()
+                async for chunk in stream:
                     yield chunk
 
             try:
@@ -208,7 +209,8 @@ class RemoteAgent:
             headers["User-Agent"] = f"Agentuity Python SDK/{__version__}"
 
             async def data_generator():
-                async for chunk in await data.stream():
+                stream = data.stream()
+                async for chunk in stream:
                     yield chunk
 
             try:
@@ -273,7 +275,7 @@ class RemoteAgent:
         return f"RemoteAgent(agent={self.agentconfig.get('id')})"
 
 
-def resolve_agent(context: any, req: Union[dict, str]):
+def resolve_agent(context: Any, req: Union[dict, str]):
     if isinstance(req, str):
         if req in context.agents_by_id:
             req = {"id": req}
@@ -357,16 +359,5 @@ def resolve_agent(context: any, req: Union[dict, str]):
 
 
 async def create_stream_reader(response):
-    reader = asyncio.StreamReader()
-
-    async def feed_reader():
-        try:
-            async for chunk in response.aiter_bytes():
-                reader.feed_data(chunk)
-        finally:
-            reader.feed_eof()
-
-    # Start feeding the reader in the background
-    asyncio.create_task(feed_reader())
-
-    return reader
+    content = await response.aread()
+    return BytesStreamReader(content)

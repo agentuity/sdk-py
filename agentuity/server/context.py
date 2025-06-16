@@ -1,5 +1,5 @@
 import os
-from typing import Union
+from typing import Union, Optional
 from logging import Logger
 from opentelemetry import trace
 from agentuity.otel import create_logger
@@ -28,7 +28,7 @@ class AgentContext(AgentContextInterface):
         agent: dict,
         agents_by_id: dict,
         port: int,
-        run_id: str,
+        run_id: Union[str, None],
         scope: str,
     ):
         """
@@ -55,15 +55,15 @@ class AgentContext(AgentContextInterface):
         """
         the key value store
         """
-        self.kv: KeyValueStore = services.get("kv")
+        self._kv = services.get("kv")
         """
         the vector store
         """
-        self.vector: VectorStore = services.get("vector")
+        self._vector = services.get("vector")
         """
         the object store
         """
-        self.objectstore: ObjectStore = services.get("objectstore")
+        self._objectstore = services.get("objectstore")
         """
         the version of the Agentuity SDK
         """
@@ -115,7 +115,7 @@ class AgentContext(AgentContextInterface):
         """
         the agent configuration
         """
-        self.agent = AgentConfig(agent)
+        self._agent = AgentConfig(agent)
         """
         return a list of all the agents in the project
         """
@@ -141,12 +141,28 @@ class AgentContext(AgentContextInterface):
 
     @deprecated("Use agent_id instead")
     @property
-    def agentId(self) -> str:
-        return self.agent.id
+    def agentId(self) -> Optional[str]:
+        return self._agent.id
 
     @property
-    def agent_id(self) -> str:
-        return self.agent.id
+    def agent_id(self) -> Optional[str]:
+        return self._agent.id
+    
+    @property
+    def agent(self):
+        return self._agent
+
+    @property
+    def kv(self):
+        return self._kv
+
+    @property
+    def vector(self):
+        return self._vector
+
+    @property
+    def objectstore(self):
+        return self._objectstore
 
     @property
     def base_url(self) -> str:

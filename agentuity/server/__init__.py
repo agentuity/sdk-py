@@ -6,7 +6,7 @@ import sys
 import asyncio
 import platform
 import re
-from typing import Callable, Iterable, Any, Tuple, Optional
+from typing import Callable, Iterable, Any, Tuple, Optional, Union, AsyncIterator
 from aiohttp import web
 import traceback
 
@@ -24,7 +24,7 @@ from .response import AgentResponse
 from .keyvalue import KeyValueStore
 from .vector import VectorStore
 from .objectstore import ObjectStore
-from .data import dataLikeToData
+from .data import dataLikeToData, BytesStreamReader
 
 logger = logging.getLogger(__name__)
 port = int(os.environ.get("AGENTUITY_CLOUD_PORT", os.environ.get("PORT", 3500)))
@@ -64,7 +64,10 @@ def load_agent_module(agent_id: str, name: str, filename: str):
         raise ImportError(f"Could not load module for {filename}")
 
     agent_module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(agent_module)
+    if spec.loader is not None:
+        spec.loader.exec_module(agent_module)
+    else:
+        raise ImportError(f"Could not load module for {filename}: no loader available")
 
     # Check if the module has a run function
     if not hasattr(agent_module, "run"):
@@ -184,8 +187,8 @@ async def handle_agent_welcome_request(request: web.Request):
 def make_response_headers(
     request: web.Request,
     contentType: str,
-    metadata: dict = None,
-    additional: dict = None,
+    metadata: Optional[dict] = None,
+    additional: Optional[dict] = None,
 ):
     headers = {}
     inject_trace_context(headers)
@@ -207,7 +210,7 @@ def make_response_headers(
 
 
 async def stream_response(
-    request: web.Request, iterable: Iterable[Any], contentType: str, metadata: dict = {}
+    request: web.Request, iterable: Any, contentType: str, metadata: dict = {}
 ):
     headers = make_response_headers(request, contentType, metadata)
     resp = web.StreamResponse(headers=headers)
@@ -398,14 +401,14 @@ async def handle_agent_request(request: web.Request):
                         "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
                     ),
                     api_key=os.environ.get("AGENTUITY_API_KEY")
-                    or os.environ.get("AGENTUITY_SDK_KEY"),
+                    or os.environ.get("AGENTUITY_SDK_KEY") or "",
                     services={
                         "kv": KeyValueStore(
                             base_url=os.environ.get(
                                 "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
                             ),
                             api_key=os.environ.get("AGENTUITY_API_KEY")
-                            or os.environ.get("AGENTUITY_SDK_KEY"),
+                            or os.environ.get("AGENTUITY_SDK_KEY") or "",
                             tracer=tracer,
                         ),
                         "vector": VectorStore(
@@ -413,7 +416,7 @@ async def handle_agent_request(request: web.Request):
                                 "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
                             ),
                             api_key=os.environ.get("AGENTUITY_API_KEY")
-                            or os.environ.get("AGENTUITY_SDK_KEY"),
+                            or os.environ.get("AGENTUITY_SDK_KEY") or "",
                             tracer=tracer,
                         ),
                         "objectstore": ObjectStore(
@@ -421,7 +424,7 @@ async def handle_agent_request(request: web.Request):
                                 "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
                             ),
                             api_key=os.environ.get("AGENTUITY_API_KEY")
-                            or os.environ.get("AGENTUITY_SDK_KEY"),
+                            or os.environ.get("AGENTUITY_SDK_KEY") or "",
                             tracer=tracer,
                         ),
                     },
@@ -433,9 +436,17 @@ async def handle_agent_request(request: web.Request):
                     run_id=run_id,
                     scope=scope,
                 )
+                agent_data = await agent_request.data
+                try:
+                    if isinstance(agent_data, (str, bytes)):
+                        data_obj = dataLikeToData(agent_data)
+                    else:
+                        data_obj = Data("application/octet-stream", BytesStreamReader(b""))
+                except Exception:
+                    data_obj = Data("application/octet-stream", BytesStreamReader(b""))
                 agent_response = AgentResponse(
                     context=agent_context,
-                    data=agent_request.data,
+                    data=data_obj,
                 )
 
                 # Call the run function and get the response
@@ -473,7 +484,7 @@ async def handle_agent_request(request: web.Request):
 
                 if isinstance(response, Data):
                     headers = make_response_headers(request, response.content_type)
-                    stream = await response.stream()
+                    stream = response.stream()
                     return await stream_response(request, stream, response.content_type)
 
                 if isinstance(response, dict) or isinstance(response, list):
@@ -606,10 +617,12 @@ def load_config() -> Tuple[Optional[dict], str]:
                 from yaml import safe_load
 
                 agent_config = safe_load(config_file)
-                config_data = {"agents": []}
-                config_data["environment"] = "development"
-                config_data["cli_version"] = "unknown"
-                config_data["app"] = {"name": agent_config["name"], "version": "dev"}
+                config_data = {
+                    "agents": [],
+                    "environment": "development",
+                    "cli_version": "unknown",
+                    "app": {"name": agent_config["name"], "version": "dev"}
+                }
                 for agent in agent_config["agents"]:
                     config = {}
                     config["id"] = agent["id"]
@@ -658,7 +671,7 @@ def load_agents(config_data):
         sys.exit(1)
 
 
-def autostart(callback: Callable[[], None] = None):
+def autostart(callback: Optional[Callable[[], None]] = None):
     # Create an event loop and run the async initialization
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)

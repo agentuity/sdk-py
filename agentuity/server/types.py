@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import IO, List, Any, Union, Iterator, AsyncIterator
+from typing import IO, List, Any, Union, Iterator, AsyncIterator, Optional
 from aiohttp import StreamReader
 
 DataLike = Union[
@@ -21,7 +21,7 @@ DataLike = Union[
 class AgentRequestInterface(ABC):
     @property
     @abstractmethod
-    def data(self) -> "DataInterface":
+    async def data(self) -> "DataInterface":
         pass
 
     @property
@@ -42,7 +42,7 @@ class AgentRequestInterface(ABC):
 class AgentContextInterface(ABC):
     @property
     @abstractmethod
-    def agentId(self) -> str:
+    def agentId(self) -> Optional[str]:
         pass
 
     @property
@@ -53,6 +53,36 @@ class AgentContextInterface(ABC):
     @property
     @abstractmethod
     def api_key(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def kv(self) -> Any:
+        """Get the key-value store service."""
+        pass
+
+    @property
+    @abstractmethod
+    def vector(self) -> Any:
+        """Get the vector store service."""
+        pass
+
+    @property
+    @abstractmethod
+    def objectstore(self) -> Any:
+        """Get the object store service."""
+        pass
+
+    @property
+    @abstractmethod
+    def agent_id(self) -> Optional[str]:
+        """Get the agent ID."""
+        pass
+
+    @property
+    @abstractmethod
+    def agent(self) -> Any:
+        """Get the agent configuration."""
         pass
 
 
@@ -105,7 +135,7 @@ class EmailAttachmentInterface(ABC):
         pass
 
     @abstractmethod
-    def data(self) -> "DataInterface":
+    async def data(self) -> "DataInterface":
         pass
 
 
@@ -161,13 +191,13 @@ class EmailInterface(ABC):
         pass
 
     @abstractmethod
-    def sendReply(
+    async def sendReply(
         self,
         request: "AgentRequestInterface",
         context: "AgentContextInterface",
-        subject: str = None,
-        text: str = None,
-        html: str = None,
-        attachments: List["OutgoingEmailAttachmentInterface"] = None,
+        subject: Optional[str] = None,
+        text: Optional[str] = None,
+        html: Optional[str] = None,
+        attachments: Optional[List["OutgoingEmailAttachmentInterface"]] = None,
     ):
         pass

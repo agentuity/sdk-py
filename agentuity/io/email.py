@@ -1,13 +1,13 @@
 import re
 import os
-import mailparser
+import asyncio
 from email.utils import formataddr
 from opentelemetry.propagate import inject
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from agentuity import __version__
 import httpx
 from opentelemetry import trace
@@ -19,6 +19,11 @@ from agentuity.server.types import (
     EmailAttachmentInterface,
     OutgoingEmailAttachmentInterface,
 )
+
+try:
+    import mailparser
+except ImportError:
+    mailparser = None
 
 
 class EmailAttachment(OutgoingEmailAttachmentInterface):
@@ -56,22 +61,22 @@ class IncomingEmailAttachment(EmailAttachmentInterface):
     """
 
     def __init__(self, attachment: dict):
-        self._filename = attachment.get("filename")
-        cd = attachment.get("content-disposition")
-        self._content_disposition = re.split(r";\s*", cd)[0].strip()
+        self._filename = attachment.get("filename") or ""
+        cd = attachment.get("content-disposition") or ""
+        self._content_disposition = re.split(r";\s*", cd)[0].strip() if cd else ""
         self._url = self._parse_url_from_content_disposition(cd)
 
     @property
     def filename(self) -> str:
-        return self._filename
+        return self._filename or ""
 
     @property
     def content_disposition(self) -> str:
         return self._content_disposition
 
     def _parse_url_from_content_disposition(
-        self, content_disposition: str | None
-    ) -> str | None:
+        self, content_disposition: Optional[str]
+    ) -> Optional[str]:
         """
         Parse the content_disposition header for a url property.
         """
@@ -108,13 +113,9 @@ class IncomingEmailAttachment(EmailAttachmentInterface):
                         content_type = response.headers.get(
                             "Content-Type", "application/octet-stream"
                         )
-                        import asyncio
-                        from agentuity.server.data import Data
+                        from agentuity.server.data import Data, BytesStreamReader
 
-                        reader = asyncio.StreamReader()
-                        reader.feed_data(response.content)
-                        reader.feed_eof()
-                        return Data(content_type, reader)
+                        return Data(content_type, BytesStreamReader(response.content))
                     case 404:
                         raise ValueError(f"Attachment not found: {self._url}")
                     case _:
@@ -133,6 +134,8 @@ class Email(EmailInterface):
         """
         Initialize an Email object.
         """
+        if mailparser is None:
+            raise ImportError("mailparser is required for email parsing")
         try:
             self._email = mailparser.parse_from_string(email)
         except Exception as e:
@@ -268,7 +271,7 @@ class Email(EmailInterface):
         return getattr(self._email, "text_html", "")
 
     @property
-    def attachments(self) -> List["IncomingEmailAttachment"]:
+    def attachments(self) -> list["EmailAttachmentInterface"]:
         """
         Return the attachments of the email as EmailAttachment objects.
         """
@@ -279,10 +282,10 @@ class Email(EmailInterface):
         self,
         request: "AgentRequestInterface",
         context: "AgentContextInterface",
-        subject: str = None,
-        text: str = None,
-        html: str = None,
-        attachments: List["OutgoingEmailAttachmentInterface"] = None,
+        subject: Optional[str] = None,
+        text: Optional[str] = None,
+        html: Optional[str] = None,
+        attachments: Optional[List["OutgoingEmailAttachmentInterface"]] = None,
     ):
         """
         Send a reply to this email using the Agentuity email API.
@@ -339,10 +342,19 @@ class Email(EmailInterface):
             # Add any attachments
             if attachments:
                 for a in attachments:
-                    data = a.data()
-                    buffer = await data.binary()
+                    from agentuity.server.data import dataLikeToData, Data, DataLike
+                    from typing import cast
+                    attachment_data = a.data()
+                    if isinstance(attachment_data, Data):
+                        data_obj = attachment_data
+                    else:
+                        data_obj = dataLikeToData(cast(DataLike, attachment_data))
+                    if hasattr(data_obj, 'binary'):
+                        buffer = await data_obj.binary()
+                    else:
+                        buffer = b""
                     part = MIMEApplication(buffer)
-                    part.add_header("Content-Type", data.content_type)
+                    part.add_header("Content-Type", data_obj.content_type)
                     part.add_header(
                         "Content-Disposition", "attachment", filename=a.filename
                     )

@@ -1,5 +1,5 @@
 import httpx
-from typing import Optional
+from typing import Optional, Union
 from agentuity import __version__
 from opentelemetry import trace
 from opentelemetry.propagate import inject
@@ -70,8 +70,8 @@ class VectorStore:
             for document in documents:
                 if "key" not in document:
                     raise ValueError("document must have a key")
-            if "document" not in document and "embeddings" not in document:
-                raise ValueError("document must have either a document or embeddings")
+                if "document" not in document and "embeddings" not in document:
+                    raise ValueError("document must have either a document or embeddings")
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "User-Agent": f"Agentuity Python SDK/{__version__}",
@@ -101,7 +101,7 @@ class VectorStore:
                 span.record_exception(Exception(response.content.decode("utf-8")))
                 raise Exception(f"Failed to upsert documents: {response.status_code}")
 
-    async def get(self, name: str, key: str) -> VectorSearchResult:
+    async def get(self, name: str, key: str) -> Optional[VectorSearchResult]:
         """
         Retrieve vectors from the vector storage by key.
 
@@ -158,7 +158,7 @@ class VectorStore:
         query: str,
         limit: int = 10,
         similarity: float = 0.5,
-        metadata: Optional[dict] = {},
+        metadata: Optional[dict] = None,
     ) -> list[VectorSearchResult]:
         """
         Search for vectors in the vector storage using semantic similarity.
@@ -194,7 +194,7 @@ class VectorStore:
                     "query": query,
                     "limit": limit,
                     "similarity": similarity,
-                    "metadata": metadata,
+                    "metadata": metadata or {},
                 },
             )
             match response.status_code:

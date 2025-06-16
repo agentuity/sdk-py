@@ -4,6 +4,8 @@ import os
 import openlit
 from agentuity import __version__
 from typing import Optional, Dict
+
+logger: logging.Logger = logging.getLogger(__name__)
 from opentelemetry import trace
 from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION, Resource
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -24,50 +26,48 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 from .logger import create_logger
 from .span_patch import patch_span
 
-logger = logging.getLogger(__name__)
-
 patch_span()
 
 
-def init(config: Optional[Dict[str, str]] = {}):
+def init(config: Optional[Dict[str, str]] = None):
     if os.environ.get("AGENTUITY_OTLP_DISABLED", "false") == "true":
         logger.warning("OTLP disabled, skipping initialization")
         return None
 
-    endpoint = config.get("endpoint", os.environ.get("AGENTUITY_OTLP_URL"))
+    endpoint = (config or {}).get("endpoint", os.environ.get("AGENTUITY_OTLP_URL"))
     if endpoint is None:
         logger.warning("No endpoint found, skipping OTLP initialization")
         return None
 
-    bearer_token = config.get(
+    bearer_token = (config or {}).get(
         "bearer_token", os.environ.get("AGENTUITY_OTLP_BEARER_TOKEN")
     )
     if bearer_token is None:
         logger.warning("No bearer token found, skipping OTLP initialization")
         return None
 
-    orgId = config.get("orgId", os.environ.get("AGENTUITY_CLOUD_ORG_ID", "unknown"))
-    projectId = config.get(
+    orgId = (config or {}).get("orgId", os.environ.get("AGENTUITY_CLOUD_ORG_ID", "unknown"))
+    projectId = (config or {}).get(
         "projectId", os.environ.get("AGENTUITY_CLOUD_PROJECT_ID", "unknown")
     )
-    deploymentId = config.get(
+    deploymentId = (config or {}).get(
         "deploymentId", os.environ.get("AGENTUITY_CLOUD_DEPLOYMENT_ID", "unknown")
     )
-    cliVersion = config.get(
+    cliVersion = (config or {}).get(
         "cliVersion", os.environ.get("AGENTUITY_CLI_VERSION", "unknown")
     )
     sdkVersion = __version__
-    environment = config.get(
+    environment = (config or {}).get(
         "environment", os.environ.get("AGENTUITY_ENVIRONMENT", "development")
     )
     devmode = (
-        config.get("devmode", os.environ.get("AGENTUITY_SDK_DEV_MODE", "false"))
+        (config or {}).get("devmode", os.environ.get("AGENTUITY_SDK_DEV_MODE", "false"))
         == "true"
     )
-    app_name = config.get(
+    app_name = (config or {}).get(
         "app_name", os.environ.get("AGENTUITY_SDK_APP_NAME", "unknown")
     )
-    app_version = config.get(
+    app_version = (config or {}).get(
         "app_version", os.environ.get("AGENTUITY_SDK_APP_VERSION", "unknown")
     )
     export_internal_ms = 500 if devmode else 60000
@@ -76,11 +76,11 @@ def init(config: Optional[Dict[str, str]] = {}):
 
     resource = Resource(
         attributes={
-            SERVICE_NAME: config.get(
+            SERVICE_NAME: (config or {}).get(
                 "service_name",
                 app_name,
             ),
-            SERVICE_VERSION: config.get(
+            SERVICE_VERSION: (config or {}).get(
                 "service_version",
                 app_version,
             ),
