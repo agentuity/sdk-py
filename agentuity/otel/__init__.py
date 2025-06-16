@@ -4,8 +4,6 @@ import os
 import openlit
 from agentuity import __version__
 from typing import Optional, Dict
-
-logger: logging.Logger = logging.getLogger(__name__)
 from opentelemetry import trace
 from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION, Resource
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -25,6 +23,8 @@ from .logfilter import ModuleFilter
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from .logger import create_logger
 from .span_patch import patch_span
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 patch_span()
 

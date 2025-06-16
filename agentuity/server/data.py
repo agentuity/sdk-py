@@ -1,4 +1,4 @@
-from typing import Optional, Union, Iterator, AsyncIterator, IO, TYPE_CHECKING, Any
+from typing import Optional, Union, Iterator, AsyncIterator, TYPE_CHECKING, Any
 import base64
 import json
 from aiohttp import StreamReader
@@ -6,7 +6,7 @@ import collections.abc
 import asyncio
 
 if TYPE_CHECKING:
-    from asyncio import BaseProtocol
+    pass
 from agentuity.server.util import deprecated
 from agentuity.server.types import (
     DataInterface,

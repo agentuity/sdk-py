@@ -5,9 +5,6 @@ from opentelemetry import trace
 from agentuity.otel import create_logger
 from .config import AgentConfig
 from .agent import LocalAgent, RemoteAgent, resolve_agent
-from .vector import VectorStore
-from .keyvalue import KeyValueStore
-from .objectstore import ObjectStore
 from .types import AgentContextInterface
 from .util import deprecated
 

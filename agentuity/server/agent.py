@@ -4,7 +4,6 @@ import os
 from typing import Optional, Union, Any
 from opentelemetry import trace
 from opentelemetry.propagate import inject
-import asyncio
 import logging
 from agentuity import __version__
 from .config import AgentConfig

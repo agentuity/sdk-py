@@ -1,5 +1,5 @@
 import httpx
-from typing import Optional, Union
+from typing import Optional
 from agentuity import __version__
 from opentelemetry import trace
 from opentelemetry.propagate import inject

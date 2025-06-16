@@ -1,6 +1,5 @@
 import re
 import os
-import asyncio
 from email.utils import formataddr
 from opentelemetry.propagate import inject
 from email.mime.multipart import MIMEMultipart

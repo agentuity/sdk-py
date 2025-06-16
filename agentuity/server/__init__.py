@@ -6,7 +6,7 @@ import sys
 import asyncio
 import platform
 import re
-from typing import Callable, Iterable, Any, Tuple, Optional, Union, AsyncIterator
+from typing import Callable, Any, Tuple, Optional
 from aiohttp import web
 import traceback
 
