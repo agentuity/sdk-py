@@ -9,6 +9,7 @@ from agentuity.server.util import deprecated
 from agentuity.server.types import (
     DataInterface,
     EmailInterface,
+    DiscordMessageInterface,
 )
 
 
@@ -400,6 +401,12 @@ class Data(DataInterface):
 
         text = await self.text()
         return Email(text)
+
+    async def discord_message(self) -> "DiscordMessageInterface":
+        from agentuity.io.discord import DiscordMessage
+
+        text = await self.text()
+        return DiscordMessage(text)
 
 
 def encode_payload(data: Union[str, bytes]) -> str:
