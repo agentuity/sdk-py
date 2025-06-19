@@ -355,7 +355,12 @@ async def handle_agent_request(request: web.Request):
                         elif key == "x-agentuity-headers":
                             try:
                                 headers = json.loads(value)
-                                kv = {"content-type": headers.get("content-type")}
+                                kv = {}
+                                if (
+                                    "content-type" in headers
+                                    and headers["content-type"] is not None
+                                ):
+                                    kv["content-type"] = headers["content-type"]
                                 for k, v in headers.items():
                                     if k == "x-agentuity-metadata":
                                         try:
