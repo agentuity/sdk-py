@@ -191,8 +191,9 @@ def make_response_headers(
     inject_trace_context(headers)
     headers["Content-Type"] = contentType
     headers["Server"] = "Agentuity Python SDK/" + __version__
-    if request.headers.get("origin"):
-        headers["Access-Control-Allow-Origin"] = request.headers.get("origin")
+    origin = request.headers.get("origin") or request.headers.get("Origin")
+    if origin:
+        headers["Access-Control-Allow-Origin"] = origin
         headers["Access-Control-Allow-Methods"] = (
             "GET, PUT, DELETE, PATCH, OPTIONS, POST"
         )
@@ -300,6 +301,10 @@ def safe_parse_if_looks_like_json(value: Any) -> Any:
         return value
 
 
+base_url = os.environ.get("AGENTUITY_TRANSPORT_URL", "https://agentuity.ai")
+api_key = os.environ.get("AGENTUITY_SDK_KEY") or os.environ.get("AGENTUITY_API_KEY")
+
+
 async def handle_agent_request(request: web.Request):
     # Access the agents_by_id from the app state
     agents_by_id = request.app["agents_by_id"]
@@ -326,24 +331,22 @@ async def handle_agent_request(request: web.Request):
                 "http.method": request.method,
                 "http.url": str(request.url),
                 "http.host": request.host,
-                "http.user_agent": request.headers.get("user-agent"),
+                "http.user_agent": headers.get("user-agent"),
                 "http.path": request.path,
                 "@agentuity/agentId": agentId,
                 "@agentuity/agentName": agent["name"],
             },
         ) as span:
             try:
-                trigger = request.headers.get("x-agentuity-trigger", "manual")
-                contentType = request.headers.get(
-                    "content-type", "application/octet-stream"
-                )
+                trigger = headers.get("x-agentuity-trigger", "manual")
+                contentType = headers.get("content-type", "application/octet-stream")
                 metadata = {}
                 scope = "local"
                 if span.is_recording():
                     run_id = span.get_span_context().trace_id
                 else:
                     run_id = None
-                for key, value in request.headers.items():
+                for key, value in headers.items():
                     if key.startswith("x-agentuity-") and key != "x-agentuity-trigger":
                         if key == "x-agentuity-run-id":
                             run_id = value
@@ -352,10 +355,23 @@ async def handle_agent_request(request: web.Request):
                         elif key == "x-agentuity-headers":
                             try:
                                 headers = json.loads(value)
-                                kv = {
-                                    "content-type": request.headers.get("content-type")
-                                }
+                                kv = {"content-type": headers.get("content-type")}
                                 for k, v in headers.items():
+                                    if k == "x-agentuity-metadata":
+                                        try:
+                                            md = json.loads(v)
+                                            if "scope" in metadata:
+                                                scope = md["scope"]
+                                                del md["scope"]
+                                            for k, v in md.items():
+                                                metadata[k] = (
+                                                    safe_parse_if_looks_like_json(v)
+                                                )
+                                        except json.JSONDecodeError:
+                                            logger.error(
+                                                f"Error parsing x-agentuity-metadata: {v}"
+                                            )
+                                        continue
                                     if k.startswith("x-agentuity-"):
                                         metadata[k[12:]] = (
                                             safe_parse_if_looks_like_json(v)
@@ -370,17 +386,12 @@ async def handle_agent_request(request: web.Request):
                                 metadata["headers"] = value
                         elif key == "x-agentuity-metadata":
                             try:
-                                metadata = json.loads(value)
-                                if "runid" in metadata:
-                                    run_id = metadata["runid"]
-                                    del metadata["runid"]
+                                md = json.loads(value)
                                 if "scope" in metadata:
-                                    scope = metadata["scope"]
-                                    del metadata["scope"]
-                                new_metadata = {}
-                                for k, v in metadata.items():
-                                    new_metadata[k] = safe_parse_if_looks_like_json(v)
-                                metadata = new_metadata
+                                    scope = md["scope"]
+                                    del md["scope"]
+                                for k, v in md.items():
+                                    metadata[k] = safe_parse_if_looks_like_json(v)
                             except json.JSONDecodeError:
                                 logger.error(
                                     f"Error parsing x-agentuity-metadata: {value}"
@@ -394,34 +405,22 @@ async def handle_agent_request(request: web.Request):
                     trigger, metadata, contentType, request.content
                 )
                 agent_context = AgentContext(
-                    base_url=os.environ.get(
-                        "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
-                    ),
-                    api_key=os.environ.get("AGENTUITY_API_KEY")
-                    or os.environ.get("AGENTUITY_SDK_KEY"),
+                    base_url=base_url,
+                    api_key=api_key,
                     services={
                         "kv": KeyValueStore(
-                            base_url=os.environ.get(
-                                "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
-                            ),
-                            api_key=os.environ.get("AGENTUITY_API_KEY")
-                            or os.environ.get("AGENTUITY_SDK_KEY"),
+                            base_url=base_url,
+                            api_key=api_key,
                             tracer=tracer,
                         ),
                         "vector": VectorStore(
-                            base_url=os.environ.get(
-                                "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
-                            ),
-                            api_key=os.environ.get("AGENTUITY_API_KEY")
-                            or os.environ.get("AGENTUITY_SDK_KEY"),
+                            base_url=base_url,
+                            api_key=api_key,
                             tracer=tracer,
                         ),
                         "objectstore": ObjectStore(
-                            base_url=os.environ.get(
-                                "AGENTUITY_TRANSPORT_URL", "https://agentuity.ai"
-                            ),
-                            api_key=os.environ.get("AGENTUITY_API_KEY")
-                            or os.environ.get("AGENTUITY_SDK_KEY"),
+                            base_url=base_url,
+                            api_key=api_key,
                             tracer=tracer,
                         ),
                     },
@@ -520,7 +519,10 @@ async def handle_agent_request(request: web.Request):
                 else:
                     headers = make_response_headers(request, "text/plain")
                     body = str(e)
-                    if os.getenv("AGENTUITY_ENV", "development") == "development":
+                    if (
+                        os.getenv("AGENTUITY_ENVIRONMENT", "development")
+                        == "development"
+                    ):
                         body += "\n\n" + traceback.format_exc()
                     return web.Response(
                         text=body,
@@ -711,7 +713,9 @@ def autostart(callback: Callable[[], None] = None):
     logger.info(f"Starting server on port {port}")
 
     host = (
-        "127.0.0.1" if os.environ.get("AGENTUITY_ENV") == "development" else "0.0.0.0"
+        "127.0.0.1"
+        if os.environ.get("AGENTUITY_ENVIRONMENT") == "development"
+        else "0.0.0.0"
     )
 
     # Run the application
