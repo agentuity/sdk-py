@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.98] - 2025-06-19
+
+### Fixed
+- Email: text and html should return a str not a list of str to match JS behavior ([#73](https://github.com/agentuity/sdk-py/pull/73))
+
 ## [0.0.97] - 2025-06-19
 
 ### Fixed
@@ -211,6 +216,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.69] - 2025-03-10
 
+[0.0.98]: https://github.com/agentuity/sdk-py/compare/v0.0.97...v0.0.98
 [0.0.97]: https://github.com/agentuity/sdk-py/compare/v0.0.96...v0.0.97
 [0.0.96]: https://github.com/agentuity/sdk-py/compare/v0.0.95...v0.0.96
 [0.0.95]: https://github.com/agentuity/sdk-py/compare/v0.0.94...v0.0.95
