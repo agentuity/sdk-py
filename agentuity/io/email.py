@@ -258,14 +258,14 @@ class Email(EmailInterface):
         """
         Return the text of the email.
         """
-        return getattr(self._email, "text_plain", "")
+        return "\n".join(getattr(self._email, "text_plain", ""))
 
     @property
     def html(self) -> str:
         """
         Return the html of the email.
         """
-        return getattr(self._email, "text_html", "")
+        return "\n".join(getattr(self._email, "text_html", ""))
 
     @property
     def attachments(self) -> List["IncomingEmailAttachment"]:
