@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fixed difference in HTTP header casing and other cleanup items ([#69](https://github.com/agentuity/sdk-py/pull/69))
 
+## [0.0.95] - 2025-06-13
+
+### Added
+- ObjectStore service with comprehensive object storage capabilities including get, put, delete, and public URL generation ([#65](https://github.com/agentuity/sdk-py/pull/65))
+
 ## [0.0.94] - 2025-06-11
 
 ### Fixed
@@ -202,6 +207,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.0.69] - 2025-03-10
 
 [0.0.96]: https://github.com/agentuity/sdk-py/compare/v0.0.95...v0.0.96
+[0.0.95]: https://github.com/agentuity/sdk-py/compare/v0.0.94...v0.0.95
 [0.0.94]: https://github.com/agentuity/sdk-py/compare/v0.0.93...v0.0.94
 [0.0.93]: https://github.com/agentuity/sdk-py/compare/v0.0.92...v0.0.93
 [0.0.92]: https://github.com/agentuity/sdk-py/compare/v0.0.91...v0.0.92
