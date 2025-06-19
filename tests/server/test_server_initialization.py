@@ -184,7 +184,7 @@ class TestServerInitialization:
 
             host = (
                 "127.0.0.1"
-                if os.environ.get("AGENTUITY_ENV") == "development"
+                if os.environ.get("AGENTUITY_ENVIRONMENT") == "development"
                 else "0.0.0.0"
             )
 
@@ -230,7 +230,7 @@ class TestServerInitialization:
 
             host = (
                 "127.0.0.1"
-                if os.environ.get("AGENTUITY_ENV") == "development"
+                if os.environ.get("AGENTUITY_ENVIRONMENT") == "development"
                 else "0.0.0.0"
             )
 

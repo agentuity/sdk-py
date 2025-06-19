@@ -161,7 +161,7 @@ class EmailInterface(ABC):
         pass
 
     @abstractmethod
-    def sendReply(
+    async def sendReply(
         self,
         request: "AgentRequestInterface",
         context: "AgentContextInterface",
