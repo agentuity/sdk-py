@@ -15,6 +15,14 @@ from agentuity.server import (
     autostart,
 )
 
+from agentuity.server.prompts import (
+    PromptLibrary,
+    InvalidPromptNameError,
+    MissingVariableError,
+    PromptNotFoundError,
+    PromptExistsError,
+)
+
 from agentuity.io.email import EmailAttachment
 
 __all__ = [
@@ -26,4 +34,9 @@ __all__ = [
     "ObjectStore",
     "autostart",
     "EmailAttachment",
+    "PromptLibrary",
+    "InvalidPromptNameError",
+    "MissingVariableError",
+    "PromptNotFoundError",
+    "PromptExistsError",
 ]
