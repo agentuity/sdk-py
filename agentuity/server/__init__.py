@@ -24,6 +24,7 @@ from .response import AgentResponse
 from .keyvalue import KeyValueStore
 from .vector import VectorStore
 from .objectstore import ObjectStore
+from .prompts import PromptLibrary
 from .data import dataLikeToData
 
 logger = logging.getLogger(__name__)
@@ -409,15 +410,17 @@ async def handle_agent_request(request: web.Request):
                 agent_request = AgentRequest(
                     trigger, metadata, contentType, request.content
                 )
+                kv_store = KeyValueStore(
+                    base_url=base_url,
+                    api_key=api_key,
+                    tracer=tracer,
+                )
+
                 agent_context = AgentContext(
                     base_url=base_url,
                     api_key=api_key,
                     services={
-                        "kv": KeyValueStore(
-                            base_url=base_url,
-                            api_key=api_key,
-                            tracer=tracer,
-                        ),
+                        "kv": kv_store,
                         "vector": VectorStore(
                             base_url=base_url,
                             api_key=api_key,
@@ -426,6 +429,10 @@ async def handle_agent_request(request: web.Request):
                         "objectstore": ObjectStore(
                             base_url=base_url,
                             api_key=api_key,
+                            tracer=tracer,
+                        ),
+                        "prompts": PromptLibrary(
+                            kv=kv_store,
                             tracer=tracer,
                         ),
                     },
