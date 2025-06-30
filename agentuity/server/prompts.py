@@ -149,7 +149,7 @@ class PromptLibrary:
             InvalidPromptNameError: If the prompt name is invalid.
             PromptExistsError: If the prompt already exists and force=False.
         """
-        with self.tracer.start_as_current_span("prompts.create") as span:
+        with self.tracer.start_as_current_span("agentuity.prompt.create") as span:
             span.set_attribute("prompt.name", name)
 
             self._validate_prompt_name(name)
@@ -220,7 +220,7 @@ class PromptLibrary:
         Raises:
             PromptNotFoundError: If the prompt or version doesn't exist.
         """
-        with self.tracer.start_as_current_span("prompts.get") as span:
+        with self.tracer.start_as_current_span("agentuity.prompt.get") as span:
             span.set_attribute("prompt.name", name)
 
             self._validate_prompt_name(name)
@@ -266,7 +266,7 @@ class PromptLibrary:
             PromptNotFoundError: If the prompt doesn't exist.
             MissingVariableError: If required variables are missing.
         """
-        with self.tracer.start_as_current_span("prompts.compile") as span:
+        with self.tracer.start_as_current_span("agentuity.prompt.compile") as span:
             span.set_attribute("prompt.name", name)
 
             prompt_data = await self.get(name, version)
@@ -304,7 +304,7 @@ class PromptLibrary:
         Raises:
             PromptNotFoundError: If the prompt doesn't exist.
         """
-        with self.tracer.start_as_current_span("prompts.versions") as span:
+        with self.tracer.start_as_current_span("agentuity.prompt.versions") as span:
             span.set_attribute("prompt.name", name)
 
             self._validate_prompt_name(name)
@@ -336,7 +336,7 @@ class PromptLibrary:
         Raises:
             PromptNotFoundError: If the prompt doesn't exist.
         """
-        with self.tracer.start_as_current_span("prompts.delete") as span:
+        with self.tracer.start_as_current_span("agentuity.prompt.delete") as span:
             span.set_attribute("prompt.name", name)
 
             self._validate_prompt_name(name)
@@ -402,7 +402,7 @@ class PromptLibrary:
         Raises:
             PromptNotFoundError: If the prompt doesn't exist.
         """
-        with self.tracer.start_as_current_span("prompts.update_config") as span:
+        with self.tracer.start_as_current_span("agentuity.prompt.update_config") as span:
             span.set_attribute("prompt.name", name)
 
             prompt_data = await self.get(name, version)
@@ -440,7 +440,7 @@ class PromptLibrary:
             PromptNotFoundError: If the source prompt doesn't exist.
             InvalidPromptNameError: If the target name is invalid.
         """
-        with self.tracer.start_as_current_span("prompts.copy") as span:
+        with self.tracer.start_as_current_span("agentuity.prompt.copy") as span:
             span.set_attribute("prompt.source_name", source_name)
             span.set_attribute("prompt.target_name", target_name)
 
