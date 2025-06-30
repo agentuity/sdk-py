@@ -405,7 +405,7 @@ class Data(DataInterface):
         text = await self.text()
         return Email(text)
 
-    async def discord_message(self) -> "DiscordMessageInterface":
+    async def discord(self) -> "DiscordMessageInterface":
         from agentuity.io.discord import DiscordMessage
 
         text = await self.text()
