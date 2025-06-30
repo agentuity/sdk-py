@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.99] - 2025-06-30
+
+### Added
+- Discord IO support for Python SDK with comprehensive Discord integration capabilities ([#67](https://github.com/agentuity/sdk-py/pull/67))
+- New Discord API module for Discord-specific operations and utilities ([#67](https://github.com/agentuity/sdk-py/pull/67))
+- Discord data processing support in the data layer for handling Discord-specific content types ([#67](https://github.com/agentuity/sdk-py/pull/67))
+
 ## [0.0.98] - 2025-06-19
 
 ### Fixed
@@ -216,6 +223,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.69] - 2025-03-10
 
+[0.0.99]: https://github.com/agentuity/sdk-py/compare/v0.0.98...v0.0.99
 [0.0.98]: https://github.com/agentuity/sdk-py/compare/v0.0.97...v0.0.98
 [0.0.97]: https://github.com/agentuity/sdk-py/compare/v0.0.96...v0.0.97
 [0.0.96]: https://github.com/agentuity/sdk-py/compare/v0.0.95...v0.0.96
