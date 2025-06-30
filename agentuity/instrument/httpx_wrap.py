@@ -1,5 +1,8 @@
+import logging
 import os
 from agentuity import __version__
+
+logger = logging.getLogger(__name__)
 
 try:
     import httpx
@@ -25,13 +28,24 @@ gateway_urls = [
 
 
 def instrument():
-    # Instrument httpx with OpenTelemetry
-    if HTTPXClientInstrumentor is not None:
+    """Instrument httpx to work with Agentuity."""
+    if httpx is None:
+        logger.error("Could not instrument httpx: No module named 'httpx'")
+        return False
+
+    if wrapt is None:
+        logger.error("Could not instrument httpx: No module named 'wrapt'")
+        return False
+
+    if HTTPXClientInstrumentor is None:
+        logger.error(
+            "Could not instrument httpx: No module named 'opentelemetry.instrumentation.httpx'"
+        )
+        return False
+
+    try:
         HTTPXClientInstrumentor().instrument()
 
-    # Patch the httpx.Client.send method to add the
-    # Agentuity API key to the request headers
-    if httpx is not None and wrapt is not None:
         @wrapt.patch_function_wrapper(httpx.Client, "send")
         def wrapped_request(wrapped, instance, args, kwargs):
             request = args[0] if args else kwargs.get("request")
@@ -43,3 +57,10 @@ def instrument():
                 request.headers["Authorization"] = f"Bearer {agentuity_api_key}"
                 request.headers["User-Agent"] = f"Agentuity Python SDK/{__version__}"
             return wrapped(*args, **kwargs)
+
+        logger.info("Configured httpx to work with Agentuity")
+        return True
+
+    except Exception as e:
+        logger.error(f"Error instrumenting httpx: {str(e)}")
+        return False

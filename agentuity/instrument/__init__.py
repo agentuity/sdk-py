@@ -142,7 +142,8 @@ def instrument():
         from agentuity.instrument.httpx_wrap import instrument as instrument_httpx
 
         logger.debug("instrumenting httpx")
-        instrument_httpx()
+        if instrument_httpx():
+            logger.debug("httpx instrumentation successful")
 
     if is_module_available("agents"):
         from agentuity.instrument.openai import instrument as instrument_openai

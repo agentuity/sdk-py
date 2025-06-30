@@ -54,3 +54,46 @@ class TestHttpxWrap:
         result = test_wrapped_request(non_gateway_request, "test_api_key")
         assert "Authorization" not in result.headers
         assert "User-Agent" not in result.headers
+
+    def test_instrument_returns_true_on_success(self):
+        """Test that instrument returns True when all dependencies are available."""
+        from agentuity.instrument.httpx_wrap import instrument
+
+        result = instrument()
+        assert result is True
+
+    def test_instrument_returns_false_on_missing_httpx(self):
+        """Test that instrument returns False and logs error when httpx is missing."""
+        with patch("agentuity.instrument.httpx_wrap.httpx", None):
+            with patch("agentuity.instrument.httpx_wrap.logger") as mock_logger:
+                from agentuity.instrument.httpx_wrap import instrument
+
+                result = instrument()
+                assert result is False
+                mock_logger.error.assert_called_with(
+                    "Could not instrument httpx: No module named 'httpx'"
+                )
+
+    def test_instrument_returns_false_on_missing_wrapt(self):
+        """Test that instrument returns False and logs error when wrapt is missing."""
+        with patch("agentuity.instrument.httpx_wrap.wrapt", None):
+            with patch("agentuity.instrument.httpx_wrap.logger") as mock_logger:
+                from agentuity.instrument.httpx_wrap import instrument
+
+                result = instrument()
+                assert result is False
+                mock_logger.error.assert_called_with(
+                    "Could not instrument httpx: No module named 'wrapt'"
+                )
+
+    def test_instrument_returns_false_on_missing_opentelemetry(self):
+        """Test that instrument returns False and logs error when OpenTelemetry is missing."""
+        with patch("agentuity.instrument.httpx_wrap.HTTPXClientInstrumentor", None):
+            with patch("agentuity.instrument.httpx_wrap.logger") as mock_logger:
+                from agentuity.instrument.httpx_wrap import instrument
+
+                result = instrument()
+                assert result is False
+                mock_logger.error.assert_called_with(
+                    "Could not instrument httpx: No module named 'opentelemetry.instrumentation.httpx'"
+                )
