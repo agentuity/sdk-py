@@ -87,7 +87,7 @@ class DataInterface(ABC):
         pass
 
     @abstractmethod
-    async def discord_message(self) -> "DiscordMessageInterface":
+    async def discord(self) -> "DiscordMessageInterface":
         pass
 
 
