@@ -10,15 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - DevMode: make sure certain props are set on metadata for improved development mode debugging ([#79](https://github.com/agentuity/sdk-py/pull/79))
 
-### ⚠️ Breaking Changes
-
-The Discord interface method has been renamed from `discord_message()` to `discord()`. Update your code to use the new method name:
-
-```diff
-- message = await req.data.discord_message()
-+ message = await req.data.discord()
-```
-
 ## [0.0.100] - 2025-06-30
 
 ### Changed
