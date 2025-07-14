@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.101] - 2025-07-14
+
+### Fixed
+- DevMode: make sure certain props are set on metadata for improved development mode debugging ([#79](https://github.com/agentuity/sdk-py/pull/79))
+
 ## [0.0.100] - 2025-06-30
 
 ### Changed
@@ -237,6 +242,7 @@ The Discord interface method has been renamed from `discord_message()` to `disco
 
 ## [0.0.69] - 2025-03-10
 
+[0.0.101]: https://github.com/agentuity/sdk-py/compare/v0.0.100...v0.0.101
 [0.0.100]: https://github.com/agentuity/sdk-py/compare/v0.0.99...v0.0.100
 [0.0.99]: https://github.com/agentuity/sdk-py/compare/v0.0.98...v0.0.99
 [0.0.98]: https://github.com/agentuity/sdk-py/compare/v0.0.97...v0.0.98
