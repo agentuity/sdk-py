@@ -406,6 +406,18 @@ async def handle_agent_request(request: web.Request):
 
                 span.set_attribute("@agentuity/scope", scope)
 
+                # Devmode: make sure to data in metadata since its not coming through catalyst
+                if metadata is None:
+                    metadata = {}
+                if "headers" not in metadata:
+                    metadata["headers"] = {}
+                    for k, v in request.headers.items():
+                        metadata["headers"][k] = v
+                if "method" not in metadata:
+                    metadata["method"] = request.method
+                if "url" not in metadata:
+                    metadata["url"] = str(request.url)
+
                 agent_request = AgentRequest(
                     trigger, metadata, contentType, request.content
                 )
