@@ -12,7 +12,7 @@ class DiscordMessage(DiscordMessageInterface):
             data = json.loads(message)
             if not self._is_valid_discord_message(data):
                 raise ValueError("Invalid discord message format")
-            
+
             self._guild_id = data.get("guildId", "")
             self._channel_id = data["channelId"]
             self._message_id = data["messageId"]
@@ -54,15 +54,13 @@ class DiscordMessage(DiscordMessageInterface):
         self,
         request: AgentRequestInterface,
         context: AgentContextInterface,
-        content: str
+        content: str,
     ) -> None:
         from agentuity.apis.discord import DiscordApi
+
         discord_api = DiscordApi()
         await discord_api.send_reply(
-            context.agentId,
-            self._message_id,
-            self._channel_id,
-            content
+            context.agentId, self._message_id, self._channel_id, content
         )
 
     def __repr__(self) -> str:
@@ -71,6 +69,6 @@ class DiscordMessage(DiscordMessageInterface):
 
 async def parse_discord_message(data: bytes) -> DiscordMessage:
     try:
-        return DiscordMessage(data.decode('utf-8'))
+        return DiscordMessage(data.decode("utf-8"))
     except Exception as error:
         raise ValueError(f"Failed to parse discord: {str(error)}") from error

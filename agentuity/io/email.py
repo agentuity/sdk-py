@@ -283,6 +283,8 @@ class Email(EmailInterface):
         text: str = None,
         html: str = None,
         attachments: List["OutgoingEmailAttachmentInterface"] = None,
+        from_email: str = None,
+        from_name: str = None,
     ):
         """
         Send a reply to this email using the Agentuity email API.
@@ -294,6 +296,8 @@ class Email(EmailInterface):
             body (str): Plain text body of the reply.
             html (str): HTML body of the reply.
             attachments (list): List of file-like objects or dicts with 'filename' and 'content'.
+            from_email (str): Email address of the sender. Defaults to the original sender if not provided. Can only be overridden if custom email sending is enabled.
+            from_name (str): Name of the sender. Defaults to the original sender if not provided.
         """
         tracer = trace.get_tracer("email")
         with tracer.start_as_current_span("agentuity.email.reply") as span:
@@ -324,7 +328,9 @@ class Email(EmailInterface):
             outer["In-Reply-To"] = self.message_id
             outer["References"] = self.message_id
             outer["Subject"] = subject or f"Re: {self.subject}"
-            outer["From"] = formataddr((self.to_name or context.agent.name, self.to))
+            outer["From"] = formataddr(
+                (from_name or self.to_name or context.agent.name, from_email or self.to)
+            )
             outer["To"] = formataddr((self.from_name, self.from_email))
             outer["Date"] = datetime.now().isoformat()
 
