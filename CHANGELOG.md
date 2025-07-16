@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.102] - 2025-07-16
+
+### Added
+- Enable the ability to use custom email domains for email replies ([#81](https://github.com/agentuity/sdk-py/pull/81))
+
+Contact us if you would like to enable custom email addresses to your organization.
+
 ## [0.0.101] - 2025-07-14
 
 ### Fixed
