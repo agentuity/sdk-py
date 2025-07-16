@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Enable the ability to use custom email domains for email replies ([#81](https://github.com/agentuity/sdk-py/pull/81))
 
+Contact us if you would like to enable custom email addresses to your organization.
+
 ## [0.0.101] - 2025-07-14
 
 ### Fixed
