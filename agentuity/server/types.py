@@ -213,7 +213,7 @@ class DiscordMessageInterface(ABC):
         self,
         request: "AgentRequestInterface",
         context: "AgentContextInterface",
-        content: str
+        content: str,
     ) -> None:
         pass
 
@@ -221,10 +221,6 @@ class DiscordMessageInterface(ABC):
 class DiscordServiceInterface(ABC):
     @abstractmethod
     async def send_reply(
-        self,
-        agent_id: str,
-        message_id: str,
-        channel_id: str,
-        content: str
+        self, agent_id: str, message_id: str, channel_id: str, content: str
     ) -> None:
         pass

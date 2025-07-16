@@ -69,7 +69,7 @@ class StringStreamReader(StreamReader):
     def read_sync(self) -> bytes:
         if self._eof:
             return b""
-        data = self._data[self._pos:]
+        data = self._data[self._pos :]
         self._pos = len(self._data)
         self._eof = True
         return data
@@ -90,7 +90,7 @@ class StringStreamReader(StreamReader):
         remaining = len(self._data) - self._pos
         if n > remaining:
             raise ValueError("Not enough data to read")
-        data = self._data[self._pos: self._pos + n]
+        data = self._data[self._pos : self._pos + n]
         self._pos += n
         if self._pos >= len(self._data):
             self._eof = True
@@ -99,7 +99,7 @@ class StringStreamReader(StreamReader):
     async def readline(self) -> bytes:
         if self._eof:
             return b""
-        data = self._data[self._pos:]
+        data = self._data[self._pos :]
         self._pos = len(self._data)
         self._eof = True
         return data
@@ -107,7 +107,7 @@ class StringStreamReader(StreamReader):
     async def readchunk(self) -> tuple[bytes, bool]:
         if self._eof:
             return b"", True
-        data = self._data[self._pos:]
+        data = self._data[self._pos :]
         self._pos = len(self._data)
         self._eof = True
         return data, True
@@ -131,8 +131,7 @@ class StringStreamReader(StreamReader):
         self._eof = True
 
     def feed_data(self, data: bytes) -> None:
-        raise NotImplementedError(
-            "StringStreamReader does not support feeding data")
+        raise NotImplementedError("StringStreamReader does not support feeding data")
 
     def begin_http_chunk_receiving(self) -> None:
         pass
@@ -151,7 +150,7 @@ class BytesStreamReader(StreamReader):
     def read_sync(self) -> bytes:
         if self._eof:
             return b""
-        data = self._data[self._pos:]
+        data = self._data[self._pos :]
         self._pos = len(self._data)
         self._eof = True
         return data
@@ -172,7 +171,7 @@ class BytesStreamReader(StreamReader):
         remaining = len(self._data) - self._pos
         if n > remaining:
             raise ValueError("Not enough data to read")
-        data = self._data[self._pos: self._pos + n]
+        data = self._data[self._pos : self._pos + n]
         self._pos += n
         if self._pos >= len(self._data):
             self._eof = True
@@ -181,7 +180,7 @@ class BytesStreamReader(StreamReader):
     async def readline(self) -> bytes:
         if self._eof:
             return b""
-        data = self._data[self._pos:]
+        data = self._data[self._pos :]
         self._pos = len(self._data)
         self._eof = True
         return data
@@ -189,7 +188,7 @@ class BytesStreamReader(StreamReader):
     async def readchunk(self) -> tuple[bytes, bool]:
         if self._eof:
             return b"", True
-        data = self._data[self._pos:]
+        data = self._data[self._pos :]
         self._pos = len(self._data)
         self._eof = True
         return data, True
@@ -213,8 +212,7 @@ class BytesStreamReader(StreamReader):
         self._eof = True
 
     def feed_data(self, data: bytes) -> None:
-        raise NotImplementedError(
-            "BytesStreamReader does not support feeding data")
+        raise NotImplementedError("BytesStreamReader does not support feeding data")
 
     def begin_http_chunk_receiving(self) -> None:
         pass
@@ -387,8 +385,7 @@ class Data(DataInterface):
             elif hasattr(self._stream, "read"):
                 # Avoid instantiating a coroutine – check the *function* first
                 if asyncio.iscoroutinefunction(self._stream.read):
-                    raise RuntimeError(
-                        "This Data instance requires async access")
+                    raise RuntimeError("This Data instance requires async access")
                 data = self._stream.read()  # guaranteed to be bytes now
                 self._data = data
                 self._loaded = True
@@ -507,8 +504,7 @@ class IteratorStreamReader(StreamReader):
         self._eof = True
 
     def feed_data(self, data: bytes) -> None:
-        raise NotImplementedError(
-            "IteratorStreamReader does not support feeding data")
+        raise NotImplementedError("IteratorStreamReader does not support feeding data")
 
     def begin_http_chunk_receiving(self) -> None:
         pass
@@ -750,8 +746,7 @@ def dataLikeToData(value: DataLike, content_type: str = None) -> Data:
     elif isinstance(value, collections.abc.AsyncIterator):
         content_type = content_type or "application/octet-stream"
         return Data(
-            content_type, AsyncIteratorStreamReader(
-                ValidatedAsyncIterator(value))
+            content_type, AsyncIteratorStreamReader(ValidatedAsyncIterator(value))
         )
     else:
         raise ValueError(f"Unsupported value type: {type(value)}")
