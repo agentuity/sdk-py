@@ -17,7 +17,9 @@ from agentuity.server import (
 
 from agentuity.io.email import EmailAttachment
 from agentuity.io.discord import DiscordMessage
+from agentuity.io.telegram import Telegram, TelegramReply, parse_telegram
 from agentuity.apis.discord import DiscordApi
+from agentuity.apis.telegram import TelegramApi
 
 __all__ = [
     "AgentRequest",
@@ -29,5 +31,9 @@ __all__ = [
     "autostart",
     "EmailAttachment",
     "DiscordMessage",
+    "Telegram",
+    "TelegramReply",
+    "parse_telegram",
     "DiscordApi",
+    "TelegramApi",
 ]
