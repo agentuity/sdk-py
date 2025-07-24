@@ -1,6 +1,5 @@
 import os
 import httpx
-from typing import Optional
 from opentelemetry import trace
 from opentelemetry.propagate import inject
 from agentuity import __version__
@@ -23,6 +22,10 @@ class TelegramApi(TelegramServiceInterface):
             api_key = os.environ.get("AGENTUITY_SDK_KEY") or os.environ.get(
                 "AGENTUITY_API_KEY"
             )
+            if not api_key:
+                raise ValueError(
+                    "API key is required but not found. Set AGENTUITY_SDK_KEY or AGENTUITY_API_KEY environment variable."
+                )
             base_url = os.environ.get(
                 "AGENTUITY_TRANSPORT_URL", "https://api.agentuity.com"
             )

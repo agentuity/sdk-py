@@ -410,10 +410,10 @@ class Data(DataInterface):
         return DiscordMessage(text)
     
     async def telegram(self) -> "TelegramMessageInterface":
-        from agentuity.io.telegram import Telegram
+        from agentuity.io.telegram import parse_telegram
 
-        text = await self.text()
-        return Telegram(text)
+        data_bytes = await self.binary()
+        return await parse_telegram(data_bytes)
 
 
 def encode_payload(data: Union[str, bytes]) -> str:

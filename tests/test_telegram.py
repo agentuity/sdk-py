@@ -1,6 +1,6 @@
 import pytest
 import json
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import Mock, patch
 from agentuity.io.telegram import Telegram, TelegramReply, parse_telegram, TelegramResponse
 
 
@@ -156,8 +156,7 @@ class TestParseTelegram:
         
         data_bytes = json.dumps(telegram_data).encode('utf-8')
         
-        with patch('builtins.print'):  # Suppress the debug print
-            result = await parse_telegram(data_bytes)
+        result = await parse_telegram(data_bytes)
         
         assert isinstance(result, Telegram)
         assert result.message_id == 123
