@@ -98,7 +98,8 @@ class TestTelegram:
         mock_context = Mock()
         mock_context.agent_id = "test_agent"
         
-        with patch('agentuity.io.telegram.httpx.AsyncClient') as mock_client:
+        with patch('agentuity.io.telegram.httpx.AsyncClient') as mock_client, \
+             patch.dict('os.environ', {'AGENTUITY_API_KEY': 'test_api_key'}):
             mock_response = Mock()
             mock_response.status_code = 200
             mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
@@ -117,7 +118,8 @@ class TestTelegram:
         mock_context = Mock()
         mock_context.agent_id = "test_agent"
         
-        with patch('agentuity.io.telegram.httpx.AsyncClient') as mock_client:
+        with patch('agentuity.io.telegram.httpx.AsyncClient') as mock_client, \
+             patch.dict('os.environ', {'AGENTUITY_API_KEY': 'test_api_key'}):
             mock_response = Mock()
             mock_response.status_code = 200
             mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
