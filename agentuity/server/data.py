@@ -10,6 +10,7 @@ from agentuity.server.types import (
     DataInterface,
     EmailInterface,
     DiscordMessageInterface,
+    TelegramMessageInterface,
 )
 
 
@@ -407,6 +408,12 @@ class Data(DataInterface):
 
         text = await self.text()
         return DiscordMessage(text)
+    
+    async def telegram(self) -> "TelegramMessageInterface":
+        from agentuity.io.telegram import parse_telegram
+
+        data_bytes = await self.binary()
+        return await parse_telegram(data_bytes)
 
 
 def encode_payload(data: Union[str, bytes]) -> str:

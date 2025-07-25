@@ -90,6 +90,10 @@ class DataInterface(ABC):
     async def discord(self) -> "DiscordMessageInterface":
         pass
 
+    @abstractmethod
+    async def telegram(self) -> "TelegramMessageInterface":
+        pass
+
 
 class OutgoingEmailAttachmentInterface(ABC):
     @property
@@ -222,5 +226,78 @@ class DiscordServiceInterface(ABC):
     @abstractmethod
     async def send_reply(
         self, agent_id: str, message_id: str, channel_id: str, content: str
+    ) -> None:
+        pass
+
+
+class TelegramMessageInterface(ABC):
+    @property
+    @abstractmethod
+    def message_id(self) -> int:
+        pass
+
+    @property
+    @abstractmethod
+    def chat_id(self) -> int:
+        pass
+
+    @property
+    @abstractmethod
+    def chat_type(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def from_id(self) -> int:
+        pass
+
+    @property
+    @abstractmethod
+    def from_username(self) -> str | None:
+        pass
+
+    @property
+    @abstractmethod
+    def from_first_name(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def from_last_name(self) -> str | None:
+        pass
+
+    @property
+    @abstractmethod
+    def text(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def date(self) -> int:
+        pass
+
+    @abstractmethod
+    async def send_reply(
+        self,
+        request: "AgentRequestInterface",
+        context: "AgentContextInterface",
+        reply: str,
+        options: dict = None,
+    ) -> None:
+        pass
+
+    @abstractmethod
+    async def send_typing(
+        self,
+        request: "AgentRequestInterface",
+        context: "AgentContextInterface",
+    ) -> None:
+        pass
+
+
+class TelegramServiceInterface(ABC):
+    @abstractmethod
+    async def send_reply(
+        self, agent_id: str, chat_id: int, message_id: int, reply: str, options: dict = None
     ) -> None:
         pass

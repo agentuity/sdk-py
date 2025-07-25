@@ -34,6 +34,38 @@ The Agentuity Python SDK is a powerful toolkit for building, deploying, and mana
 - Implementing intelligent data processing systems
 - Building AI-powered APIs and services
 
+## IO Modules
+
+The SDK provides several IO modules for handling different types of input and output:
+
+### Email
+Process and reply to emails with support for attachments, HTML content, and rich formatting.
+
+### Discord
+Handle Discord messages and send replies with full integration to Discord's API.
+
+### Telegram
+Process Telegram messages and send replies with support for typing indicators and message formatting.
+
+```python
+from agentuity.io.telegram import Telegram, parse_telegram
+
+# Parse a Telegram message from raw data
+telegram_message = await parse_telegram(raw_data)
+
+# Access message properties
+print(f"From: {telegram_message.from_first_name}")
+print(f"Message: {telegram_message.text}")
+
+# Send a reply
+await telegram_message.send_reply(request, context, "Hello! I received your message.")
+
+# Send typing indicator
+await telegram_message.send_typing(request, context)
+```
+
+See the [examples/telegram_example.py](examples/telegram_example.py) for a complete usage example.
+
 ## Getting Started
 
 To use this SDK in a real project, you should install the Agentuity CLI.
