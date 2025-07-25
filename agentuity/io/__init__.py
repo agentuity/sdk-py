@@ -1,3 +1,3 @@
-from .telegram import Telegram, TelegramReply, parse_telegram
+from .telegram import Telegram, parse_telegram
 
-__all__ = ["Telegram", "TelegramReply", "parse_telegram"]
+__all__ = ["Telegram", "parse_telegram"]

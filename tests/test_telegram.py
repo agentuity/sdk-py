@@ -1,7 +1,7 @@
 import pytest
 import json
 from unittest.mock import Mock, patch
-from agentuity.io.telegram import Telegram, TelegramReply, parse_telegram, TelegramResponse
+from agentuity.io.telegram import Telegram, parse_telegram, TelegramResponse
 
 
 class TestTelegramResponse:
@@ -24,15 +24,6 @@ class TestTelegramResponse:
         assert response.from_user == {"id": 789, "first_name": "John", "username": "john_doe"}
         assert response.text == "Hello, world!"
         assert response.date == 1640995200
-
-
-class TestTelegramReply:
-    """Test suite for TelegramReply class."""
-
-    def test_telegram_reply_initialization(self):
-        """Test initialization of TelegramReply."""
-        reply = TelegramReply("Test reply")
-        assert reply.text == "Test reply"
 
 
 class TestTelegram:
