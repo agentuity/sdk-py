@@ -138,24 +138,14 @@ class Telegram:
         
         return api_key, base_url
 
-    def _setup_tracing(self, ctx: AgentContextInterface) -> tuple:
+    def _get_tracer(self) -> object:
         """
-        Set up OpenTelemetry tracing for the telegram reply operation.
+        Get the OpenTelemetry tracer for telegram operations.
         
-        Args:
-            ctx: The agent context.
-            
         Returns:
-            Tuple of (tracer, span) for tracing.
+            The tracer instance.
         """
-        tracer = trace.get_tracer("telegram")
-        span = tracer.start_as_current_span("agentuity.telegram.reply")
-        
-        span.set_attribute("@agentuity/agentId", ctx.agent_id)
-        span.set_attribute("@agentuity/telegramMessageId", self.message_id)
-        span.set_attribute("@agentuity/telegramChatId", self.chat_id)
-        
-        return tracer, span
+        return trace.get_tracer("telegram")
 
     def _build_request_headers(self, api_key: str, auth_token: str) -> dict:
         """
@@ -245,25 +235,28 @@ class Telegram:
         api_key, base_url = self._get_api_configuration()
         
         # Set up tracing
-        tracer, span = self._setup_tracing(ctx)
+        tracer = self._get_tracer()
         
-        try:
-            # Build request components
-            headers = self._build_request_headers(api_key, auth_token)
-            payload = self._build_payload(ctx, options)
+        with tracer.start_as_current_span("agentuity.telegram.reply") as span:
+            span.set_attribute("@agentuity/agentId", ctx.agent_id)
+            span.set_attribute("@agentuity/telegramMessageId", self.message_id)
+            span.set_attribute("@agentuity/telegramChatId", self.chat_id)
             
-            # Make the API request
-            await self._make_api_request(base_url, headers, payload)
-            
-            # Set successful status
-            span.set_status(trace.Status(trace.StatusCode.OK))
-            
-        except Exception as e:
-            # Set error status
-            span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
-            raise
-        finally:
-            span.end()
+            try:
+                # Build request components
+                headers = self._build_request_headers(api_key, auth_token)
+                payload = self._build_payload(ctx, options)
+                
+                # Make the API request
+                await self._make_api_request(base_url, headers, payload)
+                
+                # Set successful status
+                span.set_status(trace.Status(trace.StatusCode.OK))
+                
+            except Exception as e:
+                # Set error status
+                span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+                raise
 
     async def send_reply(
         self,
