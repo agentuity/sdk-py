@@ -157,18 +157,20 @@ class Telegram:
         
         return tracer, span
 
-    def _build_request_headers(self, api_key: str) -> dict:
+    def _build_request_headers(self, api_key: str, auth_token: str) -> dict:
         """
         Build HTTP headers for the telegram reply request.
         
         Args:
             api_key: The API key for authorization.
+            auth_token: The telegram authorization token.
             
         Returns:
             Dictionary containing the request headers.
         """
         headers = {
             "Authorization": f"Bearer {api_key}",
+            "X-Telegram-Auth-Token": auth_token,
             "User-Agent": f"Agentuity Python SDK/{__version__}",
             "Content-Type": "application/json",
             "X-Agentuity-Message-Id": str(self.message_id),
@@ -247,7 +249,7 @@ class Telegram:
         
         try:
             # Build request components
-            headers = self._build_request_headers(api_key)
+            headers = self._build_request_headers(api_key, auth_token)
             payload = self._build_payload(ctx, options)
             
             # Make the API request
