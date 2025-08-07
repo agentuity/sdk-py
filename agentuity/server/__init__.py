@@ -585,26 +585,38 @@ async def handle_index(request):
 
 def get_agent_filepath(agent_name: str) -> str:
     """
-    Get the filepath for an agent, checking both new and legacy directory structures.
-    First tries the new 'agentuity-agents' directory, then falls back to the legacy 'agents' directory.
+    Get the filepath for an agent, checking directory structures in order of preference:
+    1. agentuity_agents (new underscore format)
+    2. agentuity-agents (legacy hyphen format)
+    3. agents (legacy format)
     """
     safe_name = safe_python_name(agent_name)
 
-    # Try new structure first
-    new_path = os.path.join(os.getcwd(), "agentuity-agents", safe_name, "agent.py")
-    if os.path.exists(new_path):
-        return new_path
+    # Try new underscore structure first
+    underscore_path = os.path.join(
+        os.getcwd(), "agentuity_agents", safe_name, "agent.py"
+    )
+    if os.path.exists(underscore_path):
+        return underscore_path
+
+    # Try hyphen structure second
+    hyphen_path = os.path.join(os.getcwd(), "agentuity-agents", safe_name, "agent.py")
+    if os.path.exists(hyphen_path):
+        logger.warning(
+            f"Using hyphenated agents directory structure for {agent_name}. Consider migrating to 'agentuity_agents' directory."
+        )
+        return hyphen_path
 
     # Fall back to legacy structure for backwards compatibility
     legacy_path = os.path.join(os.getcwd(), "agents", safe_name, "agent.py")
     if os.path.exists(legacy_path):
         logger.warning(
-            f"Using legacy agents directory structure for {agent_name}. Consider migrating to 'agentuity-agents' directory."
+            f"Using legacy agents directory structure for {agent_name}. Consider migrating to 'agentuity_agents' directory."
         )
         return legacy_path
 
-    # Return new path as default (for error reporting)
-    return new_path
+    # Return underscore path as default (for error reporting)
+    return underscore_path
 
 
 def load_config() -> Tuple[Optional[dict], str]:
