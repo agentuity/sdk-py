@@ -257,25 +257,58 @@ class TestServerConfig:
             mock_run_app.assert_called_once()
             mock_logger_info.assert_called()
 
-    def test_get_agent_filepath_prefers_new_structure(self, tmp_path):
-        """Test that get_agent_filepath prefers the new agentuity-agents structure."""
-        # Create both old and new directory structures
+    def test_get_agent_filepath_prefers_underscore_structure(self, tmp_path):
+        """Test that get_agent_filepath prefers the new agentuity_agents structure."""
+        # Create all three directory structures
         legacy_dir = tmp_path / "agents" / "test_agent"
         legacy_dir.mkdir(parents=True)
         legacy_file = legacy_dir / "agent.py"
         legacy_file.write_text("# legacy agent")
 
-        new_dir = tmp_path / "agentuity-agents" / "test_agent"
-        new_dir.mkdir(parents=True)
-        new_file = new_dir / "agent.py"
-        new_file.write_text("# new agent")
+        hyphen_dir = tmp_path / "agentuity-agents" / "test_agent"
+        hyphen_dir.mkdir(parents=True)
+        hyphen_file = hyphen_dir / "agent.py"
+        hyphen_file.write_text("# hyphen agent")
+
+        underscore_dir = tmp_path / "agentuity_agents" / "test_agent"
+        underscore_dir.mkdir(parents=True)
+        underscore_file = underscore_dir / "agent.py"
+        underscore_file.write_text("# underscore agent")
 
         with patch("os.getcwd", return_value=str(tmp_path)):
             result = get_agent_filepath("test_agent")
 
-            # Should prefer new structure
+            # Should prefer underscore structure
+            assert "agentuity_agents" in result
+            assert result == str(underscore_file)
+
+    def test_get_agent_filepath_falls_back_to_hyphen_structure(self, tmp_path):
+        """Test that get_agent_filepath falls back to hyphen structure when underscore doesn't exist."""
+        # Create hyphen and legacy directory structures (no underscore)
+        legacy_dir = tmp_path / "agents" / "test_agent"
+        legacy_dir.mkdir(parents=True)
+        legacy_file = legacy_dir / "agent.py"
+        legacy_file.write_text("# legacy agent")
+
+        hyphen_dir = tmp_path / "agentuity-agents" / "test_agent"
+        hyphen_dir.mkdir(parents=True)
+        hyphen_file = hyphen_dir / "agent.py"
+        hyphen_file.write_text("# hyphen agent")
+
+        with (
+            patch("os.getcwd", return_value=str(tmp_path)),
+            patch("agentuity.server.logger.warning") as mock_warning,
+        ):
+            result = get_agent_filepath("test_agent")
+
+            # Should use hyphen structure
             assert "agentuity-agents" in result
-            assert result == str(new_file)
+            assert result == str(hyphen_file)
+
+            # Should log a warning about using hyphen structure
+            mock_warning.assert_called_once_with(
+                "Using hyphenated agents directory structure for test_agent. Consider migrating to 'agentuity_agents' directory."
+            )
 
     def test_get_agent_filepath_falls_back_to_legacy(self, tmp_path):
         """Test that get_agent_filepath falls back to legacy agents structure."""
@@ -297,18 +330,20 @@ class TestServerConfig:
 
             # Should log a warning about using legacy structure
             mock_warning.assert_called_once_with(
-                "Using legacy agents directory structure for test_agent. Consider migrating to 'agentuity-agents' directory."
+                "Using legacy agents directory structure for test_agent. Consider migrating to 'agentuity_agents' directory."
             )
 
-    def test_get_agent_filepath_defaults_to_new_when_neither_exists(self, tmp_path):
-        """Test that get_agent_filepath defaults to new structure when neither exists."""
+    def test_get_agent_filepath_defaults_to_underscore_when_neither_exists(
+        self, tmp_path
+    ):
+        """Test that get_agent_filepath defaults to underscore structure when none exist."""
         with patch("os.getcwd", return_value=str(tmp_path)):
             result = get_agent_filepath("test_agent")
 
-            # Should return new structure path as default
-            assert "agentuity-agents" in result
+            # Should return underscore structure path as default
+            assert "agentuity_agents" in result
             expected_path = str(
-                tmp_path / "agentuity-agents" / "test_agent" / "agent.py"
+                tmp_path / "agentuity_agents" / "test_agent" / "agent.py"
             )
             assert result == expected_path
 
@@ -317,16 +352,16 @@ class TestServerConfig:
         # Test with agent name that needs safe_python_name transformation
         agent_name = "My Test-Agent 123!"
 
-        # Create new directory structure with safe name
+        # Create underscore directory structure with safe name
         safe_name = "My_Test_Agent_123_"  # Expected safe name transformation
-        new_dir = tmp_path / "agentuity-agents" / safe_name
-        new_dir.mkdir(parents=True)
-        new_file = new_dir / "agent.py"
-        new_file.write_text("# safe name agent")
+        underscore_dir = tmp_path / "agentuity_agents" / safe_name
+        underscore_dir.mkdir(parents=True)
+        underscore_file = underscore_dir / "agent.py"
+        underscore_file.write_text("# safe name agent")
 
         with patch("os.getcwd", return_value=str(tmp_path)):
             result = get_agent_filepath(agent_name)
 
             # Should use the safely transformed name
             assert safe_name in result
-            assert result == str(new_file)
+            assert result == str(underscore_file)
