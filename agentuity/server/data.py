@@ -11,6 +11,7 @@ from agentuity.server.types import (
     EmailInterface,
     DiscordMessageInterface,
     TelegramMessageInterface,
+    SlackMessageInterface,
 )
 
 
