@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.103] - 2025-08-08
+
+### Added
+- Telegram IO support with comprehensive Telegram integration capabilities ([#83](https://github.com/agentuity/sdk-py/pull/83))
+- New Telegram API module for Telegram-specific operations and utilities ([#83](https://github.com/agentuity/sdk-py/pull/83))
+- Telegram data processing support in the data layer for handling Telegram-specific content types ([#83](https://github.com/agentuity/sdk-py/pull/83))
+
+### Changed
+- Updated agent directory structure to prefer `agentuity_agents` over `agentuity-agents` for improved Python compatibility ([#85](https://github.com/agentuity/sdk-py/pull/85))
+
 ## [0.0.102] - 2025-07-16
 
 ### Added
@@ -249,6 +259,8 @@ The Discord interface method has been renamed from `discord_message()` to `disco
 
 ## [0.0.69] - 2025-03-10
 
+[0.0.103]: https://github.com/agentuity/sdk-py/compare/v0.0.102...v0.0.103
+[0.0.102]: https://github.com/agentuity/sdk-py/compare/v0.0.101...v0.0.102
 [0.0.101]: https://github.com/agentuity/sdk-py/compare/v0.0.100...v0.0.101
 [0.0.100]: https://github.com/agentuity/sdk-py/compare/v0.0.99...v0.0.100
 [0.0.99]: https://github.com/agentuity/sdk-py/compare/v0.0.98...v0.0.99
