@@ -93,6 +93,10 @@ class DataInterface(ABC):
     @abstractmethod
     async def telegram(self) -> "TelegramMessageInterface":
         pass
+        
+    @abstractmethod
+    async def slack(self) -> "SlackMessageInterface":
+        pass
 
 
 class OutgoingEmailAttachmentInterface(ABC):
@@ -299,5 +303,55 @@ class TelegramServiceInterface(ABC):
     @abstractmethod
     async def send_reply(
         self, agent_id: str, chat_id: int, message_id: int, reply: str, options: dict = None
+    ) -> None:
+        pass
+
+
+class SlackMessageInterface(ABC):
+    @property
+    @abstractmethod
+    def message_type(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def token(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def team_id(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def text(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def user(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def channel(self) -> str:
+        pass
+
+    @abstractmethod
+    async def send_reply(
+        self,
+        request: "AgentRequestInterface",
+        context: "AgentContextInterface",
+        reply: str,
+        options: dict = None,
+    ) -> None:
+        pass
+
+
+class SlackServiceInterface(ABC):
+    @abstractmethod
+    async def send_reply(
+        self, agent_id: str, channel: str, text: str, options: dict = None
     ) -> None:
         pass
