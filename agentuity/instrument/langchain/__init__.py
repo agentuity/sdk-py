@@ -5,6 +5,16 @@ def instrument():
 
     logger = logging.getLogger(__name__)
 
+    # Check if already instrumented by looking for our callback handler
+    try:
+        from langchain_core.callbacks import BaseCallbackHandler
+
+        if hasattr(BaseCallbackHandler, "_agentuity_handler_registered"):
+            logger.debug("Langchain already instrumented")
+            return True
+    except ImportError:
+        pass
+
     if importlib.util.find_spec("langchain_community") is None:
         logger.error(
             "Could not instrument Langchain: No module named 'langchain_community'"
@@ -18,6 +28,7 @@ def instrument():
     try:
         from langchain_core.callbacks import BaseCallbackHandler
         from opentelemetry import trace
+        import langchain_core
 
         class AgentuityCallbackHandler(BaseCallbackHandler):
             """Callback handler that reports Langchain operations to OpenTelemetry."""
@@ -45,10 +56,24 @@ def instrument():
                     span.set_status(trace.StatusCode.OK)
                     span.end()
 
-        from langchain_core.callbacks import set_handler
+        # Mark as instrumented and register the handler
+        BaseCallbackHandler._agentuity_handler_registered = True
 
-        set_handler(AgentuityCallbackHandler())
+        # Register the callback handler using LangChain's context vars
+        handler = AgentuityCallbackHandler()
 
+        # Try to register with the callback manager
+        if hasattr(langchain_core.callbacks, "manager"):
+            try:
+                # Set the handler in the tracing context
+                langchain_core.callbacks.manager.tracing_callback_var.set([handler])
+            except AttributeError:
+                # Fallback: Try setting it as a default callback
+                if hasattr(langchain_core.callbacks.manager, "CallbackManager"):
+                    import os
+
+                    os.environ.setdefault("LANGCHAIN_CALLBACKS", str([handler]))
+                    logger.debug("Set callback handler via environment variable")
         logger.info("Configured Langchain to work with Agentuity")
         return True
     except ImportError as e:
