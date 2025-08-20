@@ -185,11 +185,19 @@ def init(config: Optional[Dict[str, str]] = {}):
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    logger.debug("initializing openlit")
-    logging.getLogger("openlit").setLevel(logging.ERROR)
-    openlit.init(tracer=trace.get_tracer(__name__))
-    logging.getLogger("openlit").setLevel(logging.WARNING)
-    logger.debug("after initializing openlit")
+    try:
+        # Configure OpenLIT to use our tracer and avoid context conflicts
+        logger.debug("Configuring OpenLIT with custom tracer")
+        openlit.init(
+            tracer=trace.get_tracer(__name__),
+            # Disable automatic context management to prevent conflicts
+            auto_context=False,
+            # Use our existing tracer provider
+            tracer_provider=trace.get_tracer_provider(),
+        )
+        logger.info("OpenLIT configured successfully with custom context management")
+    except Exception as e:
+        logger.warning(f"Failed to configure OpenLIT: {e}, continuing without it")
 
     return handler
 
