@@ -28,7 +28,7 @@ class AgentContext(AgentContextInterface):
         agent: dict,
         agents_by_id: dict,
         port: int,
-        run_id: str,
+        session_id: str,
         scope: str,
     ):
         """
@@ -45,7 +45,7 @@ class AgentContext(AgentContextInterface):
             agent: Dictionary containing the current agent's configuration
             agents_by_id: Dictionary mapping agent IDs to their configurations
             port: Port number for agent communication
-            run_id: The run id for the executing session
+            session_id: The session id for the executing session (will be prefixed with 'sess_' if not already present)
             scope: The scope of the agent invocation
         """
         self.port = port
@@ -69,9 +69,13 @@ class AgentContext(AgentContextInterface):
         """
         self.sdkVersion = os.getenv("AGENTUITY_SDK_VERSION", "unknown")
         """
-        the run id for the executing session
+        the session id for the executing session
         """
-        self.runId = run_id
+        # Ensure session ID has sess_ prefix
+        if session_id.startswith("sess_"):
+            self._session_id = session_id
+        else:
+            self._session_id = f"sess_{session_id}"
         """
         the scope of the agent invocation either local or remote
         """
@@ -147,6 +151,15 @@ class AgentContext(AgentContextInterface):
     @property
     def agent_id(self) -> str:
         return self.agent.id
+
+    @deprecated("Use sessionId instead")
+    @property
+    def runId(self) -> str:
+        return self._session_id
+
+    @property
+    def sessionId(self) -> str:
+        return self._session_id
 
     @property
     def base_url(self) -> str:

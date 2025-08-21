@@ -446,7 +446,7 @@ async def handle_agent_request(request: web.Request):
                     agent=agent,
                     agents_by_id=agents_by_id,
                     port=port,
-                    run_id=run_id,
+                    session_id=run_id,
                     scope=scope,
                 )
                 agent_response = AgentResponse(
