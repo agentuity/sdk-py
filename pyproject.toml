@@ -18,7 +18,7 @@ dependencies = [
     "asyncio>=3.4.3",
     "httpx>=0.28.1",
     "aiohttp-sse>=2.2.0",
-    "openlit>=1.33.19",
+    "traceloop-sdk>=0.25.0",
     "openai-agents>=0.0.3",
     "mail-parser>=4.1.2",
 ]

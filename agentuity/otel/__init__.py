@@ -1,7 +1,6 @@
 import logging
 import signal
 import os
-import openlit
 from agentuity import __version__
 from typing import Optional, Dict
 from opentelemetry import trace
@@ -185,19 +184,19 @@ def init(config: Optional[Dict[str, str]] = {}):
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
+    # Initialize traceloop for automatic instrumentation
     try:
-        # Configure OpenLIT to use our tracer and avoid context conflicts
-        logger.debug("Configuring OpenLIT with custom tracer")
-        openlit.init(
-            tracer=trace.get_tracer(__name__),
-            # Disable automatic context management to prevent conflicts
-            auto_context=False,
-            # Use our existing tracer provider
-            tracer_provider=trace.get_tracer_provider(),
+        from traceloop.sdk import Traceloop
+
+        Traceloop.init(
+            app_name="agentuity",
+            disable_batch=True,  # For immediate trace visibility during development
         )
-        logger.info("OpenLIT configured successfully with custom context management")
+        logger.info("Traceloop configured successfully")
+    except ImportError:
+        logger.warning("Traceloop not available, skipping automatic instrumentation")
     except Exception as e:
-        logger.warning(f"Failed to configure OpenLIT: {e}, continuing without it")
+        logger.warning(f"Failed to configure Traceloop: {e}, continuing without it")
 
     return handler
 
