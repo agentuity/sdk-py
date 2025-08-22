@@ -188,10 +188,16 @@ def init(config: Optional[Dict[str, str]] = {}):
     try:
         from traceloop.sdk import Traceloop
 
+        # Build app name from project and agent info if available
+        project_name = config.get("project_name", "")
+        agent_name = config.get("agent_name", "")
+        app_name = f"{project_name}:{agent_name}"
+
         Traceloop.init(
-            app_name="agentuity",
+            app_name=app_name,
             disable_batch=True,  # For immediate trace visibility during development
         )
+        logger.debug(f"Traceloop initialized with app_name: {app_name}")
         logger.info("Traceloop configured successfully")
     except ImportError:
         logger.warning("Traceloop not available, skipping automatic instrumentation")

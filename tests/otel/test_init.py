@@ -89,7 +89,7 @@ class TestOtelInit:
             patch("agentuity.otel.TraceContextTextMapPropagator"),
             patch("agentuity.otel.set_global_textmap") as mock_set_textmap,
             patch("agentuity.otel.signal.signal") as mock_signal,
-            patch("agentuity.otel.openlit.init") as mock_openlit_init,
+            patch("traceloop.sdk.Traceloop.init") as mock_traceloop_init,
             patch("agentuity.otel.logger"),
             patch("agentuity.otel.logging.getLogger") as mock_get_logger,
         ):
@@ -130,4 +130,4 @@ class TestOtelInit:
 
             assert mock_signal.call_count == 2
 
-            mock_openlit_init.assert_called_once()
+            mock_traceloop_init.assert_called_once()
