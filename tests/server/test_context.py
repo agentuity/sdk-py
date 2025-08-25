@@ -67,7 +67,7 @@ class TestAgentContext:
                 agent=mock_agent,
                 agents_by_id=mock_agents_by_id,
                 port=3000,
-                run_id="test-run-id",
+                session_id="test-run-id",
                 scope="local",
             )
 
@@ -84,6 +84,47 @@ class TestAgentContext:
         assert agent_context.agent.id == mock_agent["id"]
         assert agent_context.agent.name == mock_agent["name"]
         assert len(agent_context.agents) == 2
+
+    def test_run_id_and_session_id(self, agent_context):
+        """Test that runId and sessionId properties work and have the same value."""
+        assert agent_context.runId == "sess_test-run-id"
+        assert agent_context.sessionId == "sess_test-run-id"
+        assert agent_context.runId == agent_context.sessionId
+
+    def test_session_id_prefix_logic(self, mock_services, mock_logger, mock_tracer, mock_agent, mock_agents_by_id):
+        """Test that session ID prefix is handled correctly."""
+        with patch("agentuity.server.context.create_logger", return_value=mock_logger):
+            # Test with run_id that doesn't have sess_ prefix
+            context1 = AgentContext(
+                base_url="https://api.example.com",
+                api_key="test_api_key",
+                services=mock_services,
+                logger=mock_logger,
+                tracer=mock_tracer,
+                agent=mock_agent,
+                agents_by_id=mock_agents_by_id,
+                port=3000,
+                session_id="some-run-id",
+                scope="local",
+            )
+            assert context1.sessionId == "sess_some-run-id"
+            assert context1.runId == "sess_some-run-id"
+
+            # Test with run_id that already has sess_ prefix
+            context2 = AgentContext(
+                base_url="https://api.example.com",
+                api_key="test_api_key",
+                services=mock_services,
+                logger=mock_logger,
+                tracer=mock_tracer,
+                agent=mock_agent,
+                agents_by_id=mock_agents_by_id,
+                port=3000,
+                session_id="sess_existing-session-id",
+                scope="local",
+            )
+            assert context2.sessionId == "sess_existing-session-id"
+            assert context2.runId == "sess_existing-session-id"
 
     def test_environment_variables(self):
         """Test environment variables are correctly set."""
@@ -125,7 +166,7 @@ class TestAgentContext:
                 agent=mock_agent,
                 agents_by_id=mock_agents_by_id,
                 port=3000,
-                run_id="test-run-id",
+                session_id="test-run-id",
                 scope="local",
             )
 
@@ -154,7 +195,7 @@ class TestAgentContext:
                 agent=mock_agent,
                 agents_by_id=mock_agents_by_id,
                 port=3000,
-                run_id="test-run-id",
+                session_id="test-run-id",
                 scope="local",
             )
             assert context.sdkVersion == "unknown"
