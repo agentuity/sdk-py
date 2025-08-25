@@ -202,7 +202,7 @@ def init(config: Optional[Dict[str, str]] = {}):
             disable_batch=devmode,  # Only disable batching in dev mode
             telemetry_enabled=False,  # Don't send any data to Traceloop
             resource_attributes={
-                "env": "dev" if devmode else "prod",
+                "env": "dev" if devmode else "production",
                 "version": __version__,
             },
         )
