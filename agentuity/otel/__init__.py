@@ -193,9 +193,18 @@ def init(config: Optional[Dict[str, str]] = {}):
         agent_name = config.get("agent_name", "")
         app_name = f"{project_name}:{agent_name}"
 
+        headers = {"Authorization": f"Bearer {bearer_token}"} if bearer_token else {}
+
         Traceloop.init(
             app_name=app_name,
-            disable_batch=True,  # For immediate trace visibility during development
+            api_endpoint=endpoint,
+            headers=headers,
+            disable_batch=devmode,  # Only disable batching in dev mode
+            telemetry_enabled=False,  # Don't send any data to Traceloop
+            resource_attributes={
+                "env": "dev" if devmode else "prod",
+                "version": __version__,
+            },
         )
         logger.debug(f"Traceloop initialized with app_name: {app_name}")
         logger.info("Traceloop configured successfully")
