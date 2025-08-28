@@ -276,6 +276,7 @@ The Discord interface method has been renamed from `discord_message()` to `disco
 
 ## [0.0.69] - 2025-03-10
 
+[0.0.104]: https://github.com/agentuity/sdk-py/compare/v0.0.103...v0.0.104
 [0.0.103]: https://github.com/agentuity/sdk-py/compare/v0.0.102...v0.0.103
 [0.0.102]: https://github.com/agentuity/sdk-py/compare/v0.0.101...v0.0.102
 [0.0.101]: https://github.com/agentuity/sdk-py/compare/v0.0.100...v0.0.101
@@ -310,5 +311,3 @@ The Discord interface method has been renamed from `discord_message()` to `disco
 [0.0.72]: https://github.com/agentuity/sdk-py/compare/v0.0.71...v0.0.72
 [0.0.71]: https://github.com/agentuity/sdk-py/compare/v0.0.70...v0.0.71
 [0.0.70]: https://github.com/agentuity/sdk-py/compare/v0.0.69...v0.0.70
-
-[0.0.104]: https://github.com/agentuity/sdk-py/compare/v0.0.103...v0.0.104
