@@ -11,6 +11,7 @@ from aiohttp import web
 import traceback
 
 from opentelemetry import trace
+from opentelemetry.trace import format_trace_id
 from opentelemetry.propagate import extract, inject
 
 from agentuity.otel import init
@@ -343,7 +344,7 @@ async def handle_agent_request(request: web.Request):
                 metadata = {}
                 scope = "local"
                 if span.is_recording():
-                    run_id = span.get_span_context().trace_id
+                    run_id = format_trace_id(span.get_span_context().trace_id)
                 else:
                     run_id = None
                 for key, value in headers.items():
@@ -446,7 +447,7 @@ async def handle_agent_request(request: web.Request):
                     agent=agent,
                     agents_by_id=agents_by_id,
                     port=port,
-                    session_id=run_id,
+                    session_id=str(run_id),
                     scope=scope,
                 )
                 agent_response = AgentResponse(
