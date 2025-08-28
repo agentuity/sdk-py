@@ -1,7 +1,6 @@
 import logging
 import signal
 import os
-import openlit
 from agentuity import __version__
 from typing import Optional, Dict
 from opentelemetry import trace
@@ -185,11 +184,34 @@ def init(config: Optional[Dict[str, str]] = {}):
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    logger.debug("initializing openlit")
-    logging.getLogger("openlit").setLevel(logging.ERROR)
-    openlit.init(tracer=trace.get_tracer(__name__))
-    logging.getLogger("openlit").setLevel(logging.WARNING)
-    logger.debug("after initializing openlit")
+    # Initialize traceloop for automatic instrumentation
+    try:
+        from traceloop.sdk import Traceloop
+
+        # Build app name from project and agent info if available
+        project_name = config.get("project_name", "")
+        agent_name = config.get("agent_name", "")
+        app_name = f"{project_name}:{agent_name}"
+
+        headers = {"Authorization": f"Bearer {bearer_token}"} if bearer_token else {}
+
+        Traceloop.init(
+            app_name=app_name,
+            api_endpoint=endpoint,
+            headers=headers,
+            disable_batch=devmode,  # Only disable batching in dev mode
+            telemetry_enabled=False,  # Don't send any data to Traceloop
+            resource_attributes={
+                "env": "dev" if devmode else "production",
+                "version": __version__,
+            },
+        )
+        logger.debug(f"Traceloop initialized with app_name: {app_name}")
+        logger.info("Traceloop configured successfully")
+    except ImportError:
+        logger.warning("Traceloop not available, skipping automatic instrumentation")
+    except Exception as e:
+        logger.warning(f"Failed to configure Traceloop: {e}, continuing without it")
 
     return handler
 
