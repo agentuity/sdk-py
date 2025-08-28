@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.104] - 2025-08-28
+
+### ⚠️ Breaking Changes
+
+The AgentContext constructor parameter has been renamed from `run_id` to `session_id` for better alignment with how we reference sessions. The `runId` property is still available for backward compatibility but is deprecated. ([#89](https://github.com/agentuity/sdk-py/pull/89))
+
+```diff
+- context = AgentContext(run_id="sess_123", ...)
++ context = AgentContext(session_id="sess_123", ...)
+```
+
+### Changed
+- Switch from OpenLIT to TraceLoop SDK for OpenTelemetry instrumentation to improve async context management ([#88](https://github.com/agentuity/sdk-py/pull/88))
+
+### Fixed
+- Resolved "context attached/detached in a different context" warnings in async environments, particularly with LangChain instrumentation ([#88](https://github.com/agentuity/sdk-py/pull/88))
+
 ## [0.0.103] - 2025-08-08
 
 ### Added
@@ -259,6 +276,7 @@ The Discord interface method has been renamed from `discord_message()` to `disco
 
 ## [0.0.69] - 2025-03-10
 
+[0.0.104]: https://github.com/agentuity/sdk-py/compare/v0.0.103...v0.0.104
 [0.0.103]: https://github.com/agentuity/sdk-py/compare/v0.0.102...v0.0.103
 [0.0.102]: https://github.com/agentuity/sdk-py/compare/v0.0.101...v0.0.102
 [0.0.101]: https://github.com/agentuity/sdk-py/compare/v0.0.100...v0.0.101
