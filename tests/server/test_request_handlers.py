@@ -88,11 +88,21 @@ class TestRequestHandlers:
         mock_response.status = 200
         mock_response.content_type = "application/json"
 
+        # Create a mock span with proper trace_id formatting
+        mock_span_context = MagicMock()
+        mock_span_context.trace_id = 12345678901234567890123456789012345678
+        mock_span = MagicMock()
+        mock_span.get_span_context.return_value = mock_span_context
+        mock_span.is_recording.return_value = True
+        mock_tracer = MagicMock()
+        mock_tracer.start_span.return_value.__enter__.return_value = mock_span
+
         with (
             patch(
-                "agentuity.server.trace.get_tracer", return_value=MagicMock()
+                "agentuity.server.trace.get_tracer", return_value=mock_tracer
             ) as mock_get_tracer,
             patch("agentuity.server.extract", return_value={}),
+            patch("agentuity.server.format_trace_id", return_value="test-trace-id"),
             patch(
                 "agentuity.server.run_agent", new_callable=AsyncMock
             ) as mock_run_agent,
