@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.105] - 2025-08-28
+
+### Fixed
+- Fixed issue with session_id formatting in OpenTelemetry tracing to ensure proper string conversion ([#91](https://github.com/agentuity/sdk-py/pull/91))
+
 ## [0.0.104] - 2025-08-28
 
 ### ⚠️ Breaking Changes
@@ -276,6 +281,7 @@ The Discord interface method has been renamed from `discord_message()` to `disco
 
 ## [0.0.69] - 2025-03-10
 
+[0.0.105]: https://github.com/agentuity/sdk-py/compare/v0.0.104...v0.0.105
 [0.0.104]: https://github.com/agentuity/sdk-py/compare/v0.0.103...v0.0.104
 [0.0.103]: https://github.com/agentuity/sdk-py/compare/v0.0.102...v0.0.103
 [0.0.102]: https://github.com/agentuity/sdk-py/compare/v0.0.101...v0.0.102
