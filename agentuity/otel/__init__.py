@@ -1,25 +1,8 @@
 import logging
-import signal
 import os
 from agentuity import __version__
 from typing import Optional, Dict
-from opentelemetry import trace
-from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION, Resource
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
-from opentelemetry import metrics
-from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import Compression
-from opentelemetry import _logs
-from opentelemetry.sdk._logs import LoggingHandler, LoggerProvider
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
-from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
-from opentelemetry.propagate import set_global_textmap
-from .logfilter import ModuleFilter
-from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION
 from .logger import create_logger
 from .span_patch import patch_span
 
@@ -69,12 +52,19 @@ def init(config: Optional[Dict[str, str]] = {}):
     app_version = config.get(
         "app_version", os.environ.get("AGENTUITY_SDK_APP_VERSION", "unknown")
     )
-    export_internal_ms = 500 if devmode else 60000
-    max_export_batch_size = 1 if devmode else 512
-    schedule_delay_millis = 500 if devmode else 30000
 
-    resource = Resource(
-        attributes={
+    # Initialize traceloop for automatic instrumentation
+    try:
+        from traceloop.sdk import Traceloop
+
+        # Build app name from project and agent info if available
+        project_name = config.get("project_name", "")
+        agent_name = config.get("agent_name", "")
+        app_name = f"{project_name}:{agent_name}"
+
+        headers = {"Authorization": f"Bearer {bearer_token}"} if bearer_token else {}
+
+        resource_attributes = {
             SERVICE_NAME: config.get(
                 "service_name",
                 app_name,
@@ -91,120 +81,16 @@ def init(config: Optional[Dict[str, str]] = {}):
             "@agentuity/sdkVersion": sdkVersion,
             "@agentuity/cliVersion": cliVersion,
             "@agentuity/language": "python",
+            "env": "dev" if devmode else "production",
+            "version": __version__,
         }
-    )
-
-    headers = {
-        "Authorization": "Bearer " + bearer_token,
-    }
-
-    tracerProvider = TracerProvider(
-        resource=resource,
-        shutdown_on_exit=False,
-    )
-    exporter = OTLPSpanExporter(
-        endpoint=endpoint + "/v1/traces",
-        headers=headers,
-        compression=Compression.Gzip,
-        timeout=10,
-    )
-    processor = BatchSpanProcessor(
-        exporter,
-        export_timeout_millis=export_internal_ms,
-        max_export_batch_size=max_export_batch_size,
-        schedule_delay_millis=schedule_delay_millis,
-    )
-
-    if os.environ.get("AGENTUITY_OTLP_CONSOLE_EXPORTER", "false") == "true":
-        tracerProvider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
-
-    tracerProvider.add_span_processor(processor)
-    trace.set_tracer_provider(tracerProvider)
-
-    reader = PeriodicExportingMetricReader(
-        OTLPMetricExporter(
-            endpoint=endpoint + "/v1/metrics",
-            headers=headers,
-            compression=Compression.Gzip,
-            timeout=10,
-        ),
-        export_interval_millis=export_internal_ms,
-    )
-    meterProvider = MeterProvider(
-        resource=resource,
-        metric_readers=[reader],
-        shutdown_on_exit=False,
-    )
-    metrics.set_meter_provider(meterProvider)
-
-    # Set up logging
-    loggerProvider = LoggerProvider(resource=resource)
-    logProcessor = BatchLogRecordProcessor(
-        OTLPLogExporter(
-            endpoint=endpoint + "/v1/logs",
-            headers=headers,
-            compression=Compression.Gzip,
-            timeout=10,
-        ),
-        max_export_batch_size=max_export_batch_size,
-        export_timeout_millis=export_internal_ms,
-        schedule_delay_millis=schedule_delay_millis,
-    )
-    loggerProvider.add_log_record_processor(logProcessor)
-    _logs.set_logger_provider(loggerProvider)
-
-    handler = LoggingHandler(
-        level=logging.NOTSET,
-        logger_provider=loggerProvider,
-    )
-    module_filter = ModuleFilter()
-    handler.addFilter(module_filter)
-
-    root_logger = logging.getLogger()
-    root_logger.addHandler(handler)
-
-    propagator = TraceContextTextMapPropagator()
-    set_global_textmap(propagator)
-
-    stopped = False
-
-    def signal_handler(sig, frame):
-        nonlocal stopped
-        if stopped:
-            return
-        stopped = True
-        logProcessor.force_flush()
-        meterProvider.force_flush()
-        tracerProvider.force_flush()
-        meterProvider.shutdown()
-        tracerProvider.shutdown()
-        logProcessor.shutdown()
-
-    # Register signal handler for graceful shutdown
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-
-    # Initialize traceloop for automatic instrumentation
-    try:
-        from traceloop.sdk import Traceloop
-
-        # Build app name from project and agent info if available
-        project_name = config.get("project_name", "")
-        agent_name = config.get("agent_name", "")
-        app_name = f"{project_name}:{agent_name}"
-
-        headers = {"Authorization": f"Bearer {bearer_token}"} if bearer_token else {}
 
         Traceloop.init(
             app_name=app_name,
             api_endpoint=endpoint,
             headers=headers,
-            disable_batch=devmode,  # Only disable batching in dev mode
-            telemetry_enabled=False,  # Don't send any data to Traceloop
-            resource_attributes={
-                "env": "dev" if devmode else "production",
-                "version": __version__,
-            },
+            disable_batch=devmode,
+            resource_attributes=resource_attributes,
         )
         logger.debug(f"Traceloop initialized with app_name: {app_name}")
         logger.info("Traceloop configured successfully")
@@ -213,7 +99,7 @@ def init(config: Optional[Dict[str, str]] = {}):
     except Exception as e:
         logger.warning(f"Failed to configure Traceloop: {e}, continuing without it")
 
-    return handler
+    return None
 
 
 __all__ = ["init", "create_logger"]
