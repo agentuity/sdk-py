@@ -91,6 +91,7 @@ def init(config: Optional[Dict[str, str]] = {}):
             headers=headers,
             disable_batch=devmode,
             resource_attributes=resource_attributes,
+            telemetry_enabled=False
         )
         logger.debug(f"Traceloop initialized with app_name: {app_name}")
         logger.info("Traceloop configured successfully")
