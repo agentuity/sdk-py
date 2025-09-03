@@ -57,11 +57,6 @@ def init(config: Optional[Dict[str, str]] = {}):
     try:
         from traceloop.sdk import Traceloop
 
-        # Build app name from project and agent info if available
-        project_name = config.get("project_name", "")
-        agent_name = config.get("agent_name", "")
-        app_name = f"{project_name}:{agent_name}"
-
         headers = {"Authorization": f"Bearer {bearer_token}"} if bearer_token else {}
 
         resource_attributes = {
