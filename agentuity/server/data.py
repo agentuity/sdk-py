@@ -11,6 +11,7 @@ from agentuity.server.types import (
     EmailInterface,
     DiscordMessageInterface,
     TelegramMessageInterface,
+    SlackMessageInterface,
 )
 
 
@@ -414,6 +415,12 @@ class Data(DataInterface):
 
         data_bytes = await self.binary()
         return await parse_telegram(data_bytes)
+    
+    async def slack(self) -> "SlackMessageInterface":
+        from agentuity.io.slack import parse_slack
+
+        data_bytes = await self.binary()
+        return await parse_slack(data_bytes)
 
 
 def encode_payload(data: Union[str, bytes]) -> str:
