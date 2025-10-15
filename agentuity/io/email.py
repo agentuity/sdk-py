@@ -8,6 +8,7 @@ from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from datetime import datetime
 from typing import List
+from urllib.parse import urlparse
 from agentuity import __version__
 import httpx
 from opentelemetry import trace
@@ -74,18 +75,17 @@ class IncomingEmailAttachment(EmailAttachmentInterface):
     ) -> str | None:
         """
         Parse the content_disposition header for a url property.
+        Returns None if content-disposition is missing or url cannot be parsed.
         """
         if not content_disposition:
-            raise ValueError("content-disposition is required")
+            return None
 
         match = re.search(r'url="([^"]+)"', content_disposition)
         if match:
             url = match.group(1)
             return url
 
-        raise ValueError(
-            f"Failed to parse url from content-disposition: {content_disposition}"
-        )
+        return None
 
     async def data(self):
         """
@@ -271,9 +271,34 @@ class Email(EmailInterface):
     def attachments(self) -> List["IncomingEmailAttachment"]:
         """
         Return the attachments of the email as EmailAttachment objects.
+        Only includes attachments with valid URLs and safe hostnames.
         """
         raw_attachments = getattr(self._email, "attachments", [])
-        return [IncomingEmailAttachment(a) for a in raw_attachments]
+        valid_attachments = []
+        for a in raw_attachments:
+            attachment = IncomingEmailAttachment(a)
+            if attachment._url is None:
+                continue
+            
+            try:
+                parsed = urlparse(attachment._url)
+                
+                if parsed.scheme not in ('http', 'https'):
+                    continue
+                
+                hostname = parsed.hostname
+                if not hostname:
+                    continue
+                
+                hostname_lower = hostname.lower()
+                if hostname_lower in ('localhost', '127.0.0.1', '::1'):
+                    continue
+                
+                valid_attachments.append(attachment)
+            except Exception:
+                continue
+        
+        return valid_attachments
 
     async def sendReply(
         self,
