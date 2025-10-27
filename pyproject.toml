@@ -46,6 +46,11 @@ where = ["agentuity"]
 requires = ["hatchling", "uv-dynamic-versioning"]
 build-backend = "hatchling.build"
 
+[dependency-groups]
+dev = [
+    "ruff>=0.11.11",
+]
+
 [tool.hatch.version]
 source = "uv-dynamic-versioning"
 

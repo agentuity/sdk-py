@@ -14,7 +14,7 @@ from opentelemetry import trace
 from opentelemetry.trace import format_trace_id
 from opentelemetry.propagate import extract, inject
 
-from agentuity.otel import init
+from agentuity.otel import init, shutdown as otel_shutdown
 from agentuity.instrument import instrument
 from agentuity import __version__
 
@@ -747,6 +747,18 @@ def autostart(callback: Callable[[], None] = None):
         if os.environ.get("AGENTUITY_ENVIRONMENT") == "development"
         else "0.0.0.0"
     )
+
+    # Setup shutdown handler
+    async def shutdown_handler(app: web.Application):
+        """Handle graceful shutdown of the application."""
+        logger.info("Shutting down Agentuity SDK server...")
+        try:
+            otel_shutdown()
+        except Exception as e:
+            logger.warning(f"Error during OTEL shutdown: {e}")
+        logger.info("Shutdown complete")
+
+    app.on_shutdown.append(shutdown_handler)
 
     # Run the application
     web.run_app(app, host=host, port=port, access_log=None)
