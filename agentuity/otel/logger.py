@@ -1,9 +1,13 @@
 import logging
-from typing import List
+from typing import List, Set
+import weakref
 
 
 # Global list of user logger providers for multi-delegate logging
 _user_logger_providers: List = []
+
+# Registry of all created loggers for retroactive handler attachment
+_logger_registry: Set[logging.Logger] = weakref.WeakSet()
 
 
 def add_user_logger_provider(provider):
@@ -11,6 +15,13 @@ def add_user_logger_provider(provider):
     global _user_logger_providers
     _user_logger_providers.append(provider)
     logging.info("Added user logger provider to multi-delegate system")
+    
+    # Retroactively add MultiDelegateHandler to existing loggers that don't have one
+    for logger in _logger_registry:
+        if not any(isinstance(h, MultiDelegateHandler) for h in logger.handlers):
+            multi_handler = MultiDelegateHandler()
+            multi_handler.setLevel(logging.DEBUG)  # Capture all levels
+            logger.addHandler(multi_handler)
 
 
 def emit_to_user_providers(record: logging.LogRecord):
@@ -67,7 +78,9 @@ class MultiDelegateHandler(logging.Handler):
     
     def emit(self, record: logging.LogRecord):
         """Emit the record to user logger providers."""
-        emit_to_user_providers(record)
+        # Only emit if we have providers registered, otherwise no-op
+        if _user_logger_providers:
+            emit_to_user_providers(record)
 
 
 def create_logger(
@@ -95,10 +108,13 @@ def create_logger(
 
     child.addFilter(ContextFilter())
     
-    # Add the multi-delegate handler if we have user providers
-    if _user_logger_providers and not any(isinstance(h, MultiDelegateHandler) for h in child.handlers):
+    # Always add the multi-delegate handler (it will no-op if no providers are registered)
+    if not any(isinstance(h, MultiDelegateHandler) for h in child.handlers):
         multi_handler = MultiDelegateHandler()
         multi_handler.setLevel(logging.DEBUG)  # Capture all levels
         child.addHandler(multi_handler)
+    
+    # Register the logger for retroactive handler attachment
+    _logger_registry.add(child)
     
     return child

@@ -187,7 +187,11 @@ class TestMultiDelegateHandler:
         _user_logger_providers.clear()
 
     def test_multi_delegate_handler_emit(self):
-        """Test that MultiDelegateHandler correctly calls emit_to_user_providers."""
+        """Test that MultiDelegateHandler correctly calls emit_to_user_providers when providers exist."""
+        # Add a mock provider so handler doesn't no-op
+        mock_provider = MagicMock()
+        add_user_logger_provider(mock_provider)
+        
         handler = MultiDelegateHandler()
         
         record = logging.LogRecord(
@@ -204,6 +208,24 @@ class TestMultiDelegateHandler:
             handler.emit(record)
             mock_emit.assert_called_once_with(record)
 
+    def test_multi_delegate_handler_emit_no_providers(self):
+        """Test that MultiDelegateHandler no-ops when no providers are registered."""
+        handler = MultiDelegateHandler()
+        
+        record = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=1,
+            msg="Test message",
+            args=(),
+            exc_info=None
+        )
+        
+        with patch('agentuity.otel.logger.emit_to_user_providers') as mock_emit:
+            handler.emit(record)
+            mock_emit.assert_not_called()  # Should not be called when no providers
+
 
 class TestCreateLoggerWithMultiDelegate:
     """Test the enhanced create_logger function with multi-delegate support."""
@@ -217,13 +239,14 @@ class TestCreateLoggerWithMultiDelegate:
         _user_logger_providers.clear()
 
     def test_create_logger_no_user_providers(self):
-        """Test create_logger without user providers."""
+        """Test create_logger without user providers still adds handler for later use."""
         parent_logger = logging.getLogger("test_parent")
         
         child = create_logger(parent_logger, "child", {"attr1": "value1"})
         
         assert child.name == "test_parent.child"
-        assert len(child.handlers) == 0  # No multi-delegate handler added
+        assert len(child.handlers) == 1  # Multi-delegate handler always added now
+        assert isinstance(child.handlers[0], MultiDelegateHandler)
 
     def test_create_logger_with_user_providers(self):
         """Test create_logger with user providers adds multi-delegate handler."""
@@ -280,3 +303,31 @@ class TestCreateLoggerWithMultiDelegate:
         # Check that custom attribute was added
         assert hasattr(record, 'custom_attr')
         assert record.custom_attr == "test_value"
+
+    def test_retroactive_handler_attachment(self):
+        """Test that handlers are retroactively attached to existing loggers when providers are added."""
+        parent_logger = logging.getLogger("test_retroactive")
+        
+        # Create logger before adding any providers
+        child = create_logger(parent_logger, "child", {"attr1": "value1"})
+        
+        # Should have one handler (the MultiDelegateHandler)
+        assert len(child.handlers) == 1
+        assert isinstance(child.handlers[0], MultiDelegateHandler)
+        
+        # Clear handler and logger registry, then recreate logger without providers
+        child.handlers.clear()
+        from agentuity.otel.logger import _logger_registry
+        _logger_registry.clear()
+        
+        # Create logger again without any providers
+        child2 = create_logger(parent_logger, "child2", {"attr2": "value2"})
+        assert len(child2.handlers) == 1  # Should still get handler
+        
+        # Now add a provider - should not add duplicate handlers
+        mock_provider = MagicMock()
+        add_user_logger_provider(mock_provider)
+        
+        # Should still have only one handler (no duplicates)
+        assert len(child2.handlers) == 1
+        assert isinstance(child2.handlers[0], MultiDelegateHandler)

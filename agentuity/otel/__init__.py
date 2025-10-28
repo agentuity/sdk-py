@@ -110,8 +110,11 @@ def create_user_logger_provider(user_config: UserOpenTelemetryConfig, base_resou
         return None
 
 
-def init(config: Optional[Dict[str, str]] = {}):
+def init(config: Optional[Dict[str, str]] = None):
     global _user_logger_provider
+    
+    if config is None:
+        config = {}
     
     if os.environ.get("AGENTUITY_OTLP_DISABLED", "false") == "true":
         logger.warning("OTLP disabled, skipping initialization")
