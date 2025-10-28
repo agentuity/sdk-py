@@ -205,21 +205,25 @@ class TestShutdown:
         import agentuity.otel
         
         mock_provider = MagicMock()
-        mock_provider.force_flush = MagicMock()
-        mock_provider.shutdown = MagicMock()
+        mock_processor = MagicMock()
+        mock_exporter = MagicMock()
         
         agentuity.otel._user_logger_provider = {
             "provider": mock_provider,
-            "processor": MagicMock(),
-            "exporter": MagicMock()
+            "processor": mock_processor,
+            "exporter": mock_exporter
         }
         
         try:
             shutdown()
             
-            # Verify shutdown was called
+            # Verify all components had their shutdown methods called
             mock_provider.force_flush.assert_called_once()
             mock_provider.shutdown.assert_called_once()
+            mock_processor.force_flush.assert_called_once()
+            mock_processor.shutdown.assert_called_once()
+            mock_exporter.force_flush.assert_called_once()
+            mock_exporter.shutdown.assert_called_once()
             
             # Verify provider was cleared
             assert agentuity.otel._user_logger_provider is None
@@ -236,13 +240,18 @@ class TestShutdown:
         import agentuity.otel
         
         mock_provider = MagicMock()
-        mock_provider.force_flush.side_effect = Exception("Flush error")
-        mock_provider.shutdown.side_effect = Exception("Shutdown error")
+        mock_processor = MagicMock()
+        mock_exporter = MagicMock()
+        
+        # Make various methods raise errors to test error handling
+        mock_provider.force_flush.side_effect = Exception("Provider flush error")
+        mock_processor.shutdown.side_effect = Exception("Processor shutdown error")
+        mock_exporter.close.side_effect = Exception("Exporter close error")
         
         agentuity.otel._user_logger_provider = {
             "provider": mock_provider,
-            "processor": MagicMock(),
-            "exporter": MagicMock()
+            "processor": mock_processor,
+            "exporter": mock_exporter
         }
         
         try:
@@ -251,34 +260,84 @@ class TestShutdown:
             # Verify provider was still cleared despite errors
             assert agentuity.otel._user_logger_provider is None
             
-            # Verify warning was logged
-            mock_logger.warning.assert_called_once()
+            # Verify warning was logged for each error (3 total)
+            assert mock_logger.warning.call_count == 3
+            
+            # Verify the specific error messages
+            warning_calls = [call.args[0] for call in mock_logger.warning.call_args_list]
+            assert any("Provider flush error" in msg for msg in warning_calls)
+            assert any("Processor shutdown error" in msg for msg in warning_calls)
+            assert any("Exporter close error" in msg for msg in warning_calls)
         finally:
             # Clean up
             agentuity.otel._user_logger_provider = None
 
     @patch('agentuity.otel.logger')
     def test_shutdown_provider_missing_methods(self, mock_logger):
-        """Test shutdown when provider doesn't have expected methods."""
+        """Test shutdown when components don't have expected methods."""
         import agentuity.otel
         
         mock_provider = MagicMock()
-        # Remove the methods to simulate a provider without them
+        mock_processor = MagicMock()
+        mock_exporter = MagicMock()
+        
+        # Remove some methods to simulate components without them
         del mock_provider.force_flush
-        del mock_provider.shutdown
+        del mock_processor.shutdown
+        del mock_exporter.close
         
         agentuity.otel._user_logger_provider = {
             "provider": mock_provider,
-            "processor": MagicMock(),
-            "exporter": MagicMock()
+            "processor": mock_processor,
+            "exporter": mock_exporter
         }
         
         try:
             shutdown()
             
-            # Should not call the methods and not raise errors
+            # Should not call the missing methods and not raise errors
             assert not hasattr(mock_provider, 'force_flush')
-            assert not hasattr(mock_provider, 'shutdown')
+            assert not hasattr(mock_processor, 'shutdown')
+            assert not hasattr(mock_exporter, 'close')
+            
+            # But should call the methods that do exist
+            mock_provider.shutdown.assert_called_once()
+            mock_processor.force_flush.assert_called_once()
+            mock_exporter.force_flush.assert_called_once()
+            mock_exporter.shutdown.assert_called_once()
+            
+            # Verify provider was cleared
+            assert agentuity.otel._user_logger_provider is None
+            
+            # Should log info (successful shutdown)
+            mock_logger.info.assert_called_once()
+        finally:
+            # Clean up
+            agentuity.otel._user_logger_provider = None
+
+    @patch('agentuity.otel.logger')
+    def test_shutdown_comprehensive_component_handling(self, mock_logger):
+        """Test shutdown handles all methods (force_flush, shutdown, close) for all components."""
+        import agentuity.otel
+        
+        mock_provider = MagicMock()
+        mock_processor = MagicMock()
+        mock_exporter = MagicMock()
+        
+        agentuity.otel._user_logger_provider = {
+            "provider": mock_provider,
+            "processor": mock_processor,
+            "exporter": mock_exporter
+        }
+        
+        try:
+            shutdown()
+            
+            # Verify all methods called on all components
+            for component in [mock_provider, mock_processor, mock_exporter]:
+                component.force_flush.assert_called_once()
+                component.shutdown.assert_called_once()
+                component.close.assert_called_once()
             
             # Verify provider was cleared
             assert agentuity.otel._user_logger_provider is None

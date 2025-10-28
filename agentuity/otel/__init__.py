@@ -222,17 +222,43 @@ def shutdown():
     global _user_logger_provider
     
     if _user_logger_provider:
-        try:
-            # Force flush and shutdown the provider
-            if hasattr(_user_logger_provider["provider"], "force_flush"):
-                _user_logger_provider["provider"].force_flush()
-            if hasattr(_user_logger_provider["provider"], "shutdown"):
-                _user_logger_provider["provider"].shutdown()
-            logger.info("User OTEL logger provider shutdown completed")
-        except Exception as e:
-            logger.warning(f"Error during user OTEL shutdown: {e}")
-        finally:
-            _user_logger_provider = None
+        # Shutdown components in reverse order: provider, processor, exporter
+        components = [
+            ("provider", _user_logger_provider.get("provider")),
+            ("processor", _user_logger_provider.get("processor")),
+            ("exporter", _user_logger_provider.get("exporter"))
+        ]
+        
+        for component_name, component in components:
+            if component is None:
+                continue
+                
+            # Try force_flush first
+            try:
+                if hasattr(component, "force_flush"):
+                    component.force_flush()
+                    logger.debug(f"User OTEL {component_name} force_flush completed")
+            except Exception as e:
+                logger.warning(f"Error during user OTEL {component_name} force_flush: {e}")
+            
+            # Try shutdown
+            try:
+                if hasattr(component, "shutdown"):
+                    component.shutdown()
+                    logger.debug(f"User OTEL {component_name} shutdown completed")
+            except Exception as e:
+                logger.warning(f"Error during user OTEL {component_name} shutdown: {e}")
+            
+            # Try close
+            try:
+                if hasattr(component, "close"):
+                    component.close()
+                    logger.debug(f"User OTEL {component_name} close completed")
+            except Exception as e:
+                logger.warning(f"Error during user OTEL {component_name} close: {e}")
+        
+        logger.info("User OTEL logger provider shutdown completed")
+        _user_logger_provider = None
 
 
 __all__ = ["init", "create_logger", "shutdown"]
