@@ -363,26 +363,22 @@ class TestCreateLoggerWithMultiDelegate:
         """Test that handlers are retroactively attached to existing loggers when providers are added."""
         parent_logger = logging.getLogger("test_retroactive")
         
-        # Create logger before adding any providers
+        # Create logger (gets a handler)
         child = create_logger(parent_logger, "child", {"attr1": "value1"})
         
-        # Should have one handler (the MultiDelegateHandler)
+        # Verify it has a handler
         assert len(child.handlers) == 1
         assert isinstance(child.handlers[0], MultiDelegateHandler)
         
-        # Clear handler and logger registry, then recreate logger without providers
+        # Remove handler to simulate logger in old state (before multi-delegate was added)
         child.handlers.clear()
-        from agentuity.otel.logger import _logger_registry
-        _logger_registry.clear()
+        assert len(child.handlers) == 0
         
-        # Create logger again without any providers
-        child2 = create_logger(parent_logger, "child2", {"attr2": "value2"})
-        assert len(child2.handlers) == 1  # Should still get handler
-        
-        # Now add a provider - should not add duplicate handlers
+        # Add provider (should trigger retroactive attachment to child)
         mock_provider = MagicMock()
         add_user_logger_provider(mock_provider)
         
-        # Should still have only one handler (no duplicates)
-        assert len(child2.handlers) == 1
-        assert isinstance(child2.handlers[0], MultiDelegateHandler)
+        # Verify handler was retroactively attached
+        assert len(child.handlers) == 1
+        assert isinstance(child.handlers[0], MultiDelegateHandler)
+
