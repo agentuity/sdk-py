@@ -118,16 +118,28 @@ class TestUserLoggerProvider:
 
     def test_emit_to_user_providers_severity_mapping(self):
         """Test correct severity level mapping."""
+        from opentelemetry._logs import SeverityNumber
+        
         mock_otel_logger = MagicMock()
         mock_provider = MagicMock()
         mock_provider.get_logger.return_value = mock_otel_logger
         
         add_user_logger_provider(mock_provider)
         
-        # Test that different log levels call emit_to_user_providers
-        test_levels = [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL]
+        # Expected severity mapping
+        severity_mapping = {
+            logging.DEBUG: SeverityNumber.DEBUG,
+            logging.INFO: SeverityNumber.INFO,
+            logging.WARNING: SeverityNumber.WARN,
+            logging.ERROR: SeverityNumber.ERROR,
+            logging.CRITICAL: SeverityNumber.FATAL,
+        }
         
-        for log_level in test_levels:
+        for log_level, expected_severity in severity_mapping.items():
+            # Reset mock calls for clean test
+            mock_otel_logger.reset_mock()
+            mock_provider.reset_mock()
+            
             record = logging.LogRecord(
                 name="test",
                 level=log_level,
@@ -138,14 +150,22 @@ class TestUserLoggerProvider:
                 exc_info=None
             )
             
-            # Should not raise errors
+            # Call emit_to_user_providers
             emit_to_user_providers(record)
             
-            # Verify provider was called
-            mock_provider.get_logger.assert_called()
+            # Verify provider.get_logger was called
+            mock_provider.get_logger.assert_called_once()
+            
+            # Verify mock_otel_logger.emit was called with correct severity
+            mock_otel_logger.emit.assert_called_once()
+            call_args = mock_otel_logger.emit.call_args
+            
+            # Check that severity_number matches expected mapping
+            assert call_args.kwargs['severity_number'] == expected_severity
+            assert call_args.kwargs['body'] == "Test message"
 
     def test_emit_to_user_providers_custom_attributes(self):
-        """Test that custom attributes from log record are included."""
+        """Test that custom attributes from log record are included and private attributes are filtered."""
         mock_otel_logger = MagicMock()
         mock_provider = MagicMock()
         mock_provider.get_logger.return_value = mock_otel_logger
@@ -173,6 +193,19 @@ class TestUserLoggerProvider:
         # Verify provider was called
         mock_provider.get_logger.assert_called()
         mock_otel_logger.emit.assert_called()
+        
+        # Verify the attributes passed to emit
+        call_args = mock_otel_logger.emit.call_args
+        emitted_attributes = call_args.kwargs['attributes']
+        
+        # Assert custom attributes are included
+        assert 'custom_attr' in emitted_attributes
+        assert emitted_attributes['custom_attr'] == "custom_value"
+        assert 'user_id' in emitted_attributes
+        assert emitted_attributes['user_id'] == "12345"
+        
+        # Assert private attributes are filtered out
+        assert '_private_attr' not in emitted_attributes
 
 
 class TestMultiDelegateHandler:
