@@ -297,20 +297,42 @@ class TestCreateLoggerWithMultiDelegate:
         assert len(multi_handlers) == 1
         assert multi_handlers[0].level == logging.DEBUG
 
-    def test_create_logger_doesnt_duplicate_handler(self):
-        """Test that create_logger doesn't add duplicate MultiDelegateHandler."""
+    def test_create_logger_prevents_duplicate_handler(self):
+        """Test that create_logger doesn't add duplicate MultiDelegateHandler when called multiple times."""
         mock_provider = MagicMock()
         add_user_logger_provider(mock_provider)
         
         parent_logger = logging.getLogger("test_parent")
         
-        # Create logger twice
+        # Create logger first time
         child1 = create_logger(parent_logger, "child", {"attr1": "value1"})
-        child2 = create_logger(child1, "grandchild", {"attr2": "value2"})
         
-        # Should only have one MultiDelegateHandler
-        multi_handlers = [h for h in child2.handlers if isinstance(h, MultiDelegateHandler)]
-        assert len(multi_handlers) == 1
+        # Should have exactly one MultiDelegateHandler
+        multi_handlers_first = [h for h in child1.handlers if isinstance(h, MultiDelegateHandler)]
+        assert len(multi_handlers_first) == 1
+        
+        # Get the actual child logger that was created (using Python's logger hierarchy)
+        actual_child = parent_logger.getChild("child")
+        
+        # Manually add a MultiDelegateHandler to simulate what would happen 
+        # if create_logger didn't have duplicate prevention
+        extra_handler = MultiDelegateHandler()
+        actual_child.addHandler(extra_handler)
+        
+        # Now we should have 2 handlers
+        multi_handlers_with_extra = [h for h in actual_child.handlers if isinstance(h, MultiDelegateHandler)]
+        assert len(multi_handlers_with_extra) == 2
+        
+        # Call create_logger again with the same parent and name
+        child2 = create_logger(parent_logger, "child", {"attr2": "value2"})
+        
+        # Should return the same logger instance (Python logger behavior)
+        assert child2 is actual_child
+        
+        # The duplicate prevention logic should prevent adding another handler
+        # So we should still have only 2 handlers (not 3)
+        multi_handlers_final = [h for h in child2.handlers if isinstance(h, MultiDelegateHandler)]
+        assert len(multi_handlers_final) == 2
 
     def test_create_logger_attributes_filter(self):
         """Test that create_logger adds ContextFilter for attributes."""
