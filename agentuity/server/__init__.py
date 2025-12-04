@@ -709,7 +709,7 @@ def autostart(callback: Callable[[], None] = None):
         logger.error(f"No required config file found: {config_file}")
         sys.exit(1)
 
-    init(
+    loghandler = init(
         {
             "cliVersion": config_data["cli_version"],
             "environment": config_data["environment"],
@@ -727,6 +727,9 @@ def autostart(callback: Callable[[], None] = None):
     if len(agents_by_id) == 0:
         logger.error(f"No agents found in config file: {config_file}")
         sys.exit(1)
+
+    if loghandler:
+        logger.addHandler(loghandler)
 
     # Create the web application
     app = web.Application()
