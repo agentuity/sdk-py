@@ -695,14 +695,21 @@ def autostart(callback: Callable[[], None] = None):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
+    # Configure logging with a default handler if none exists
+    # This ensures logs are visible even if the caller doesn't configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="[%(levelname)-5.5s] %(message)s",
+    )
     logger.setLevel(logging.INFO)
+
     config_data, config_file = load_config()
 
     if config_data is None:
         logger.error(f"No required config file found: {config_file}")
         sys.exit(1)
 
-    loghandler = init(
+    init(
         {
             "cliVersion": config_data["cli_version"],
             "environment": config_data["environment"],
@@ -720,9 +727,6 @@ def autostart(callback: Callable[[], None] = None):
     if len(agents_by_id) == 0:
         logger.error(f"No agents found in config file: {config_file}")
         sys.exit(1)
-
-    if loghandler:
-        logger.addHandler(loghandler)
 
     # Create the web application
     app = web.Application()
