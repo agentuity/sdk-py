@@ -10,6 +10,9 @@
 
 # Agentuity Python SDK
 
+> [!WARNING]
+> This repo has now been deprecated in favor of the new opensource [SDK mono repo](https://github.com/agentuity/sdk) and will be archived soon.
+
 
 **Visit [https://agentuity.com](https://agentuity.com) to get started with Agentuity.**
 
