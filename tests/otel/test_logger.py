@@ -16,6 +16,7 @@ class TestLogger:
         """Create a mock parent logger for testing."""
         logger = MagicMock(spec=logging.Logger)
         child_logger = MagicMock(spec=logging.Logger)
+        child_logger.handlers = []  # Add handlers attribute to mock
         logger.getChild.return_value = child_logger
         return logger, child_logger
 
