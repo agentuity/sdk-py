@@ -12,6 +12,8 @@ from agentuity.server import (
     KeyValueStore,
     VectorStore,
     ObjectStore,
+    PromptClient,
+    PromptCompileResult,
     autostart,
 )
 
@@ -27,6 +29,8 @@ __all__ = [
     "KeyValueStore",
     "VectorStore",
     "ObjectStore",
+    "PromptClient",
+    "PromptCompileResult",
     "autostart",
     "EmailAttachment",
     "DiscordMessage",

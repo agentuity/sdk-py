@@ -298,6 +298,11 @@ class TelegramMessageInterface(ABC):
 class TelegramServiceInterface(ABC):
     @abstractmethod
     async def send_reply(
-        self, agent_id: str, chat_id: int, message_id: int, reply: str, options: dict = None
+        self,
+        agent_id: str,
+        chat_id: int,
+        message_id: int,
+        reply: str,
+        options: dict = None,
     ) -> None:
         pass

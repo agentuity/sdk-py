@@ -25,6 +25,10 @@ from .response import AgentResponse
 from .keyvalue import KeyValueStore
 from .vector import VectorStore
 from .objectstore import ObjectStore
+from .prompt import (
+    PromptClient as PromptClient,
+    PromptCompileResult as PromptCompileResult,
+)
 from .data import dataLikeToData
 
 logger = logging.getLogger(__name__)

@@ -8,6 +8,7 @@ from .agent import LocalAgent, RemoteAgent, resolve_agent
 from .vector import VectorStore
 from .keyvalue import KeyValueStore
 from .objectstore import ObjectStore
+from .prompt import PromptClient
 from .types import AgentContextInterface
 from .util import deprecated
 
@@ -64,6 +65,10 @@ class AgentContext(AgentContextInterface):
         the object store
         """
         self.objectstore: ObjectStore = services.get("objectstore")
+        """
+        the prompt client for compiling prompt templates
+        """
+        self.prompt: PromptClient = PromptClient(base_url, api_key, tracer)
         """
         the version of the Agentuity SDK
         """
